@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  // The scripts import the real report logic rather than reimplementing it, so
+  // the end-to-end test asserts on the same numbers the UI renders.
+  "include": ["scripts/**/*.ts", "src/activities/**/*.ts", "src/speech/scoring/types.ts"]
+}

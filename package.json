@@ -1,0 +1,44 @@
+{
+  "name": "lingotran-pronunciation-poc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phoneme-level pronunciation scoring POC. Replaces Web Speech API capture and transcript-match scoring.",
+  "engines": {
+    "node": ">=20.6"
+  },
+  "scripts": {
+    "smoke": "node --env-file=.env scripts/smoke-azure.mjs",
+    "verify": "node scripts/verify.mjs",
+    "fixture": "bash scripts/make-fixture.sh",
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "tsx watch --env-file=.env server/index.ts",
+    "dev:client": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
+    "lint": "eslint .",
+    "test:french": "tsx scripts/test-french-activity.ts"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "microsoft-cognitiveservices-speech-sdk": "^1.46.0",
+    "multer": "^2.2.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0",
+    "vite": "^8.2.1"
+  }
+}
