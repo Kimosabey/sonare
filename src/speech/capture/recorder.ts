@@ -168,6 +168,18 @@ export class Recorder {
   /** True when stream + context + worklet are live and reusable. */
   private graphReady = false;
   private idleReleaseTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Bumped by every cancel/release. start() captures it before each await and
+   * bails if it has moved.
+   *
+   * Without this, cancelling while getUserMedia is still resolving does
+   * nothing — stream, track and context are all still null, so teardown has
+   * nothing to tear down. The permission then resolves into an orphaned
+   * recorder that opens the microphone and captures forever, with no reference
+   * left to stop it. Navigating away mid-prompt is enough to trigger it.
+   */
+  private generation = 0;
   /** Exposed for the debug panel — this is the number to look at when endpointing misbehaves. */
   private currentThresholdDb = 0;
 
@@ -215,18 +227,41 @@ export class Recorder {
 
     this.setState("requesting");
 
+    const startedAt = this.generation;
+    const stale = (): boolean => this.generation !== startedAt;
+
     try {
       const mic = await acquireMicrophone();
+
+      // Cancelled while the permission prompt was open. The stream exists now
+      // but nobody wants it — hand it straight back rather than let it live on
+      // in a recorder that has already been disposed.
+      if (stale()) {
+        mic.stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
       this.stream = mic.stream;
       this.track = mic.track;
       this.granted = mic.granted;
 
       await this.buildGraph();
+
+      // buildGraph awaits addModule(), so check again before going live.
+      if (stale()) {
+        this.releaseAudio();
+        return;
+      }
+
       this.graphReady = true;
       this.setState("ready");
       this.beginCapture();
     } catch (err) {
+      // Read staleness BEFORE releasing — releaseAudio() bumps the generation,
+      // which would make every failure look cancelled and swallow the error.
+      const cancelled = stale();
       this.releaseAudio();
+      if (cancelled) return;
       this.fail(err instanceof CaptureError ? err : captureError("UNSUPPORTED_BROWSER", String(err)));
     }
   }
@@ -312,6 +347,7 @@ export class Recorder {
    * immediately retry — use releaseMicrophone() to actually let it go.
    */
   cancel(): void {
+    this.generation++;
     this.capturing = false;
     this.clearTimers();
     this.frames = [];
@@ -325,6 +361,7 @@ export class Recorder {
 
   /** Hands the microphone back to the OS immediately. */
   releaseMicrophone(): void {
+    this.generation++;
     this.capturing = false;
     this.frames = [];
     this.releaseAudio();
@@ -577,6 +614,7 @@ export class Recorder {
 
   private releaseAudio(): void {
     this.clearTimers();
+    this.generation++;
     this.cancelIdleRelease();
     this.graphReady = false;
 
