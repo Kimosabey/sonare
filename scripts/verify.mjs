@@ -1,0 +1,147 @@
+#!/usr/bin/env node
+/**
+ * T17 — the checks no type system catches. Written early on purpose: these are
+ * cheap, and each one guards a rule whose violation silently invalidates the POC.
+ *
+ * Sources: CLAUDE.md "Verification" and HANDOFF.md "Verification".
+ * Run: npm run verify
+ */
+
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
+import { join, relative, sep } from "node:path";
+
+const ROOT = process.cwd();
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".next"]);
+const TEXT_EXT = /\.(m?[jt]sx?|c[jt]s|json|html|css|md|sh|env|example)$/i;
+
+/** Every scannable file under `dir`, repo-relative, POSIX-separated. */
+function walk(dir) {
+  const abs = join(ROOT, dir);
+  if (!existsSync(abs)) return [];
+  const out = [];
+  const stack = [abs];
+  while (stack.length) {
+    const cur = stack.pop();
+    for (const entry of readdirSync(cur)) {
+      if (SKIP_DIRS.has(entry)) continue;
+      const p = join(cur, entry);
+      if (statSync(p).isDirectory()) stack.push(p);
+      else if (TEXT_EXT.test(entry) || entry.startsWith(".env")) {
+        out.push(relative(ROOT, p).split(sep).join("/"));
+      }
+    }
+  }
+  return out;
+}
+
+const failures = [];
+
+/**
+ * Flag every line in `files` matching `pattern`.
+ * `allow` is a predicate on the repo-relative path — files that may legitimately match.
+ */
+function forbid({ rule, what, why, files, pattern, allow = () => false }) {
+  const hits = [];
+  for (const file of files) {
+    // This file necessarily contains every pattern it searches for.
+    if (file === "scripts/verify.mjs" || allow(file)) continue;
+    const lines = readFileSync(join(ROOT, file), "utf8").split("\n");
+    lines.forEach((line, i) => {
+      if (pattern.test(line)) hits.push({ file, line: i + 1, text: line.trim().slice(0, 100) });
+    });
+  }
+  if (hits.length) failures.push({ rule, what, why, hits });
+}
+
+const srcAndServer = [...walk("src"), ...walk("server")];
+
+// ── R1 — the API we exist to remove ──────────────────────────────────────────
+forbid({
+  rule: "R1",
+  what: "SpeechRecognition referenced in src/ or server/",
+  why: "It provides no phoneme data. A fallback preserves the bugs we are removing.",
+  files: srcAndServer,
+  pattern: /\b(webkit)?SpeechRecognition\b/,
+});
+
+// ── R3 — the scoring bug ─────────────────────────────────────────────────────
+// Confidence answers "did I hear you", not "did you say it right".
+forbid({
+  rule: "R3",
+  what: "a score derived from recognition confidence",
+  why: "Confidence is not a pronunciation measurement. This is the bug the POC replaces.",
+  files: srcAndServer,
+  pattern: /(score|accuracy|overall)\s*[:=][^;\n]*\bconfidence\b/i,
+});
+
+// ── R2 / NFR-04 — credentials ────────────────────────────────────────────────
+// scripts/ is allowed: it runs on a developer machine, never bundled to a client.
+forbid({
+  rule: "R2",
+  what: "AZURE_SPEECH_KEY outside server/, scripts/ and .env.example",
+  why: "A key in the bundle is a key in every user's devtools.",
+  files: [...walk("src"), ...walk("server"), ...walk("scripts"), ".env.example"].filter((f) => existsSync(join(ROOT, f))),
+  pattern: /AZURE_SPEECH_KEY/,
+  allow: (f) => f.startsWith("server/") || f.startsWith("scripts/") || f === ".env.example",
+});
+
+forbid({
+  rule: "R2",
+  what: "client code reading a process.env value containing KEY or SECRET",
+  why: "Anything the client bundle reads is public.",
+  files: walk("src"),
+  pattern: /process\.env(\.[A-Z0-9_]*(KEY|SECRET)[A-Z0-9_]*|\[\s*['"][^'"]*(KEY|SECRET)[^'"]*['"]\s*\])/,
+});
+
+// A literal connection string or key committed anywhere in the tree.
+forbid({
+  rule: "R2",
+  what: "a hard-coded Azure credential literal",
+  why: "Secrets belong in server environment variables, never in source.",
+  files: [...walk("src"), ...walk("server"), ...walk("scripts")],
+  pattern: /AccountKey=|DefaultEndpointsProtocol=/,
+});
+
+// ── R11 — capture state must not survive a reload ────────────────────────────
+forbid({
+  rule: "R11",
+  what: "localStorage or sessionStorage in src/speech/",
+  why: "Stale audio config across reloads produces confusing, unreproducible bugs.",
+  files: walk("src/speech"),
+  pattern: /\b(local|session)Storage\b/,
+});
+
+// ── Portability — the capture layer ports to React Native ────────────────────
+forbid({
+  rule: "NFR-05",
+  what: "a React import inside src/speech/capture/",
+  why: "The capture layer must stay framework-free to port to React Native.",
+  files: walk("src/speech/capture"),
+  pattern: /\bfrom\s+['"]react['"]|\brequire\(\s*['"]react['"]\s*\)/,
+});
+
+// ── R12 — one vendor, one file ───────────────────────────────────────────────
+forbid({
+  rule: "R12",
+  what: "the Azure SDK imported outside server/services/",
+  why: "Swapping to SpeechAce must be a file change, not a refactor.",
+  files: [...walk("src"), ...walk("server")],
+  pattern: /microsoft-cognitiveservices-speech-sdk/,
+  allow: (f) => f.startsWith("server/services/"),
+});
+
+// ── report ───────────────────────────────────────────────────────────────────
+if (failures.length === 0) {
+  console.log("verify: all checks passed");
+  process.exit(0);
+}
+
+console.error("verify: FAILED\n");
+for (const f of failures) {
+  console.error(`[${f.rule}] ${f.what}`);
+  console.error(`        ${f.why}`);
+  for (const h of f.hits) console.error(`        ${h.file}:${h.line}  ${h.text}`);
+  console.error("");
+}
+console.error(`${failures.length} check(s) failed.`);
+process.exit(1);
