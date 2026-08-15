@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pronunciation Scorer — validation harness</title>
+<style>
+:root{
+  --paper:#FBFCFD; --panel:#F3F6F9; --ink:#16202B; --rule:#C9D3DB; --dim:#61707C;
+  --signal:#2B57D9; --signal-soft:#EDF2FD;
+  --pass:#1B7A5A; --pass-soft:#E7F3EE;
+  --warn:#B26A00; --warn-soft:#FCF3E3;
+  --fail:#C0273C; --fail-soft:#FBE9EC;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+     font-size:15px;line-height:1.5;padding:0 20px 90px;
+     padding-left:max(20px,env(safe-area-inset-left));
+     padding-right:max(20px,env(safe-area-inset-right))}
+.wrap{max-width:640px;margin:0 auto}
+
+header{padding:32px 0 18px;border-bottom:2px solid var(--ink)}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;
+         text-transform:uppercase;color:var(--dim)}
+h1{font-size:24px;font-weight:640;letter-spacing:-.02em;margin:8px 0 6px}
+.sub{color:var(--dim);font-size:13.5px;margin:0}
+
+.env{font-family:var(--mono);font-size:11px;color:var(--dim);
+     border-bottom:1px solid var(--rule);padding:12px 0;word-break:break-all}
+.env b{color:var(--ink);font-weight:600}
+
+section{border-bottom:1px solid var(--rule);padding:22px 0}
+h2{font-size:15px;font-weight:640;margin:0 0 4px}
+.what{color:var(--dim);font-size:13px;margin:0 0 14px}
+
+label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+      text-transform:uppercase;color:var(--dim);margin:12px 0 5px;font-weight:600}
+input,select,textarea{width:100%;font-family:var(--sans);font-size:15px;padding:10px 12px;
+      border:1px solid var(--rule);border-radius:4px;background:#fff;color:var(--ink)}
+input[type=text]{font-size:16px}
+textarea{font-family:var(--mono);font-size:11px;resize:vertical}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.row > *{flex:none}
+.half{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:460px){.half{grid-template-columns:1fr}}
+
+button{font-family:var(--sans);font-size:14.5px;font-weight:560;padding:11px 20px;
+       border-radius:4px;border:1.5px solid var(--ink);background:var(--ink);
+       color:var(--paper);cursor:pointer;transition:opacity .12s}
+button:hover:not(:disabled){opacity:.84}
+button:disabled{opacity:.3;cursor:default}
+button.ghost{background:transparent;color:var(--ink)}
+button.rec{background:var(--fail);border-color:var(--fail)}
+button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+
+.meter{height:38px;border:1px solid var(--rule);border-radius:4px;background:#fff;
+       margin:14px 0;position:relative;overflow:hidden}
+.meter i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--signal);
+         opacity:.22;transition:width .05s linear}
+.meter span{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+            font-family:var(--mono);font-size:12px}
+.meter em{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+          font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
+          text-transform:uppercase;color:var(--dim);font-style:normal}
+
+/* score display */
+.overall{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);
+         border:1px solid var(--rule);border-radius:4px;overflow:hidden;margin:16px 0}
+@media(max-width:460px){.overall{grid-template-columns:repeat(2,1fr)}}
+.overall div{background:#fff;padding:13px 10px;text-align:center}
+.overall .n{font-family:var(--mono);font-size:23px;font-weight:600;line-height:1.1}
+.overall .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+            text-transform:uppercase;color:var(--dim);margin-top:5px}
+
+.words{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0}
+.word{border:1px solid var(--rule);border-radius:4px;padding:7px 11px;cursor:pointer;
+      background:#fff;font-size:15px;border-bottom-width:3px}
+.word.hi{border-bottom-color:var(--pass)} .word.mid{border-bottom-color:var(--warn)}
+.word.lo{border-bottom-color:var(--fail)}
+.word small{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:6px}
+.word[aria-expanded="true"]{background:var(--signal-soft);border-color:var(--signal)}
+
+.phonemes{background:var(--panel);border:1px solid var(--rule);border-radius:4px;
+          padding:12px 14px;margin:10px 0;font-family:var(--mono);font-size:12px}
+.phonemes .p{display:inline-block;margin:3px 9px 3px 0}
+.phonemes .p b{font-weight:600}
+.phonemes .p.hi b{color:var(--pass)} .phonemes .p.mid b{color:var(--warn)}
+.phonemes .p.lo b{color:var(--fail)}
+
+.verdict{display:flex;gap:9px;margin-top:14px;font-size:14px;padding:11px 13px;
+         border-radius:4px;border:1px solid}
+.verdict .tag{font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+              font-weight:700;flex:none;padding-top:2px}
+.v-pass{border-color:#B4DBCB;background:var(--pass-soft)} .v-pass .tag{color:var(--pass)}
+.v-warn{border-color:#EAD2A4;background:var(--warn-soft)} .v-warn .tag{color:var(--warn)}
+.v-fail{border-color:#EEC0C7;background:var(--fail-soft)} .v-fail .tag{color:var(--fail)}
+
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;margin-top:10px}
+th{text-align:left;color:var(--dim);font-weight:600;border-bottom:1.5px solid var(--ink);
+   padding:6px 5px;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+td{border-bottom:1px solid var(--rule);padding:6px 5px}
+td.num{text-align:right;font-weight:600}
+
+details{border:1px solid var(--rule);border-radius:4px;background:#fff;margin-top:14px}
+summary{cursor:pointer;padding:11px 14px;font-family:var(--mono);font-size:11.5px;
+        letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:600}
+details[open] summary{border-bottom:1px solid var(--rule)}
+details .body{padding:14px}
+pre{font-family:var(--mono);font-size:10.5px;line-height:1.45;background:var(--panel);
+    border:1px solid var(--rule);border-radius:4px;padding:12px;overflow-x:auto;margin:0}
+.hint{font-size:12px;color:var(--dim);margin-top:8px}
+.note{border-left:3px solid var(--signal);background:var(--signal-soft);padding:11px 13px;
+      margin:16px 0;font-size:13px;border-radius:0 3px 3px 0}
+.note.bad{border-color:var(--fail);background:var(--fail-soft)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Lingotran · POC A · scorer validation</div>
+  <h1>Pronunciation scorer harness</h1>
+  <p class="sub">Records with browser processing disabled, sends to your scoring endpoint,
+     shows phoneme-level results. Use it to run Set A and Set B on every device.</p>
+</header>
+
+<div id="ctxwarn"></div>
+<div class="env" id="env">reading environment…</div>
+
+<!-- ── config ── -->
+<section>
+  <h2>Setup</h2>
+  <p class="what">Point this at your own backend. Never put an Azure key in this page.</p>
+  <label for="ep">Scoring endpoint</label>
+  <input type="text" id="ep" value="/api/v1/pronunciation" spellcheck="false">
+  <div class="half">
+    <div>
+      <label for="lang">Language</label>
+      <select id="lang">
+        <option value="en-US">en-US</option>
+        <option value="en-GB">en-GB</option>
+        <option value="fr-FR">fr-FR</option>
+        <option value="de-DE">de-DE</option>
+        <option value="es-ES">es-ES</option>
+        <option value="hi-IN">hi-IN</option>
+      </select>
+    </div>
+    <div>
+      <label for="setid">Fixture set</label>
+      <select id="setid">
+        <option value="A">Set A — accented, correct</option>
+        <option value="B">Set B — deliberately wrong</option>
+        <option value="ad-hoc">Ad-hoc</option>
+      </select>
+    </div>
+  </div>
+  <label for="ref">Reference text — what they should say</label>
+  <input type="text" id="ref" value="Would you like something to drink" spellcheck="false">
+  <label for="spk">Speaker label</label>
+  <input type="text" id="spk" placeholder="e.g. S03-tamil-en" spellcheck="false">
+</section>
+
+<!-- ── record ── -->
+<section>
+  <h2>Record</h2>
+  <p class="what">Captured at 16 kHz mono with gain control, noise suppression and echo
+     cancellation switched off — the same settings the real pipeline will use.</p>
+  <div class="row">
+    <button id="rec">Start recording</button>
+    <button id="play" class="ghost" disabled>Play back</button>
+  </div>
+  <div class="meter"><i id="lvl"></i><em>level</em><span id="lvltxt">—</span></div>
+  <div id="capinfo"></div>
+</section>
+
+<!-- ── score ── -->
+<section>
+  <h2>Score</h2>
+  <div class="row">
+    <button id="send" disabled>Send for scoring</button>
+    <span class="hint" id="sendstate"></span>
+  </div>
+  <div id="result"></div>
+</section>
+
+<!-- ── log ── -->
+<section style="border:none">
+  <h2>Session log</h2>
+  <p class="what">Every attempt, ready to paste into the results sheet. One device per file.</p>
+  <table id="logtbl">
+    <thead><tr><th>#</th><th>Set</th><th>Speaker</th><th>Reference</th>
+      <th class="num">Accuracy</th><th class="num">Overall</th></tr></thead>
+    <tbody id="logbody"></tbody>
+  </table>
+  <div class="row">
+    <button id="copy" class="ghost">Copy JSON</button>
+    <button id="clear" class="ghost">Clear log</button>
+    <span class="hint" id="copied"></span>
+  </div>
+  <textarea id="out" readonly rows="6" style="margin-top:12px">No attempts yet.</textarea>
+
+  <details>
+    <summary>Backend endpoint — Node, paste into your existing server</summary>
+    <div class="body">
+      <pre>// npm i microsoft-cognitiveservices-speech-sdk multer
+const sdk = require("microsoft-cognitiveservices-speech-sdk");
+
+app.post("/api/v1/pronunciation", upload.single("audio"), (req, res) =&gt; {
+  const { referenceText, language } = req.body;
+
+  const speechConfig = sdk.SpeechConfig.fromSubscription(
+    process.env.AZURE_SPEECH_KEY, process.env.AZURE_SPEECH_REGION);
+  speechConfig.speechRecognitionLanguage = language || "en-US";
+
+  const pa = new sdk.PronunciationAssessmentConfig(
+    referenceText,
+    sdk.PronunciationAssessmentGradingSystem.HundredMark,
+    sdk.PronunciationAssessmentGranularity.Phoneme,
+    true);                                   // miscue detection
+
+  const audioConfig = sdk.AudioConfig.fromWavFileInput(req.file.buffer);
+  const recognizer  = new sdk.SpeechRecognizer(speechConfig, audioConfig);
+  pa.applyTo(recognizer);
+
+  recognizer.recognizeOnceAsync(result =&gt; {
+    recognizer.close();
+    if (result.reason !== sdk.ResultReason.RecognizedSpeech)
+      return res.json({ indeterminate: true, reason: result.reason });
+
+    // per-phoneme detail lives in the raw JSON, not the typed result
+    const raw = JSON.parse(result.json);
+    const nb  = raw.NBest?.[0] ?? {};
+    res.json({
+      recognized: result.text,
+      overall:      nb.PronunciationAssessment?.PronScore,
+      accuracy:     nb.PronunciationAssessment?.AccuracyScore,
+      fluency:      nb.PronunciationAssessment?.FluencyScore,
+      completeness: nb.PronunciationAssessment?.CompletenessScore,
+      words: (nb.Words || []).map(w =&gt; ({
+        word:     w.Word,
+        accuracy: w.PronunciationAssessment?.AccuracyScore,
+        errorType:w.PronunciationAssessment?.ErrorType,
+        phonemes:(w.Phonemes || []).map(p =&gt; ({
+          phoneme:  p.Phoneme,
+          accuracy: p.PronunciationAssessment?.AccuracyScore }))
+      }))
+    });
+  }, err =&gt; { recognizer.close(); res.status(500).json({ error: String(err) }); });
+});</pre>
+      <p class="hint">Keys stay in App Service configuration or Key Vault. This page only ever
+         talks to your own endpoint.</p>
+    </div>
+  </details>
+</section>
+
+</div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const LOG = [];
+let ac=null, stream=null, node=null, chunks=[], recording=false, wavBlob=null, srcRate=48000;
+let grantedConstraints = null;
+
+/* ── environment ─────────────────────────────────── */
+(function(){
+  $("env").innerHTML = "<b>UA</b> " + navigator.userAgent +
+    "<br><b>screen</b> " + screen.width + "×" + screen.height +
+    " &nbsp;<b>secure</b> " + (window.isSecureContext ? "yes" : "NO");
+  if(!window.isSecureContext)
+    $("ctxwarn").innerHTML = '<div class="note bad"><b>Not a secure context.</b> ' +
+      'The microphone will not open. Serve over HTTPS or from localhost. ' +
+      'On iOS, HTTPS is required — a local file will not work.</div>';
+})();
+
+/* ── worklet, inlined so this stays one file ─────── */
+const WORKLET = `
+class Cap extends AudioWorkletProcessor {
+  process(inputs){
+    const ch = inputs[0][0];
+    if(ch) this.port.postMessage(ch.slice(0));
+    return true;
+  }
+}
+registerProcessor('cap', Cap);`;
+
+async function openMic(){
+  stream = await navigator.mediaDevices.getUserMedia({ audio:{
+    echoCancellation:false, autoGainControl:false, noiseSuppression:false, channelCount:1 }});
+  const track = stream.getAudioTracks()[0];
+  grantedConstraints = track.getSettings ? track.getSettings() : {};
+  ac = new (window.AudioContext||window.webkitAudioContext)();
+  if(ac.state === "suspended") await ac.resume();
+  srcRate = ac.sampleRate;
+  await ac.audioWorklet.addModule(URL.createObjectURL(
+    new Blob([WORKLET], {type:"application/javascript"})));
+  const src = ac.createMediaStreamSource(stream);
+  node = new AudioWorkletNode(ac, "cap");
+  node.port.onmessage = e => { if(recording) chunks.push(e.data); meter(e.data); };
+  src.connect(node);
+  node.connect(ac.destination);      // keeps the graph alive; no audible output from a worklet
+}
+
+function meter(buf){
+  let s = 0; for(let i=0;i<buf.length;i++) s += buf[i]*buf[i];
+  const d = 20*Math.log10(Math.sqrt(s/buf.length) + 1e-9);
+  $("lvl").style.width = Math.max(0, Math.min(100, (d+70)/70*100)) + "%";
+  $("lvltxt").textContent = d.toFixed(1) + " dBFS";
+}
+
+/* ── resample to 16 kHz, then WAV ────────────────── */
+function toWav(float32, inRate, outRate){
+  // gentle anti-alias before decimating, then linear interpolation
+  const ratio = inRate / outRate;
+  const win = Math.max(1, Math.floor(ratio));
+  const smoothed = new Float32Array(float32.length);
+  for(let i=0;i<float32.length;i++){
+    let a=0,n=0;
+    for(let k=-win;k<=win;k++){ const j=i+k; if(j>=0&&j<float32.length){a+=float32[j];n++;} }
+    smoothed[i] = a/n;
+  }
+  const outLen = Math.floor(float32.length / ratio);
+  const pcm = new Int16Array(outLen);
+  for(let i=0;i<outLen;i++){
+    const p = i*ratio, i0 = Math.floor(p), frac = p-i0;
+    const v = smoothed[i0]*(1-frac) + (smoothed[i0+1]||smoothed[i0])*frac;
+    pcm[i] = Math.max(-1, Math.min(1, v)) * 0x7FFF;
+  }
+  const buf = new ArrayBuffer(44 + pcm.length*2), dv = new DataView(buf);
+  const str = (o,s)=>{ for(let i=0;i<s.length;i++) dv.setUint8(o+i, s.charCodeAt(i)); };
+  str(0,"RIFF"); dv.setUint32(4, 36+pcm.length*2, true); str(8,"WAVEfmt ");
+  dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
+  dv.setUint32(24,outRate,true); dv.setUint32(28,outRate*2,true);
+  dv.setUint16(32,2,true); dv.setUint16(34,16,true);
+  str(36,"data"); dv.setUint32(40, pcm.length*2, true);
+  new Int16Array(buf,44).set(pcm);
+  return new Blob([buf], {type:"audio/wav"});
+}
+
+/* ── record ──────────────────────────────────────── */
+$("rec").addEventListener("click", async () => {
+  try{
+    if(!ac) await openMic();
+    if(!recording){
+      chunks = []; recording = true;
+      $("rec").textContent = "Stop recording"; $("rec").classList.add("rec");
+      $("send").disabled = true; $("result").innerHTML = "";
+    } else {
+      recording = false;
+      $("rec").textContent = "Start recording"; $("rec").classList.remove("rec");
+      $("lvl").style.width = "0%"; $("lvltxt").textContent = "—";
+      const total = chunks.reduce((n,c)=>n+c.length,0);
+      const flat = new Float32Array(total);
+      let o=0; for(const c of chunks){ flat.set(c,o); o+=c.length; }
+      wavBlob = toWav(flat, srcRate, 16000);
+      const secs = total/srcRate;
+      const g = grantedConstraints || {};
+      const shown = k => (k in g) ? (g[k] ? "ON (refused)" : "off") : "not reported";
+      $("capinfo").innerHTML =
+        `<table><tr><td>duration</td><td class="num">${secs.toFixed(2)} s</td></tr>
+         <tr><td>context rate</td><td class="num">${srcRate} Hz</td></tr>
+         <tr><td>sent as</td><td class="num">16000 Hz mono PCM16</td></tr>
+         <tr><td>gain control</td><td class="num">${shown("autoGainControl")}</td></tr>
+         <tr><td>noise suppression</td><td class="num">${shown("noiseSuppression")}</td></tr>
+         <tr><td>echo cancellation</td><td class="num">${shown("echoCancellation")}</td></tr></table>`;
+      $("send").disabled = false; $("play").disabled = false;
+    }
+  }catch(e){
+    $("capinfo").innerHTML = `<div class="verdict v-fail"><div class="tag">ERROR</div>
+      <div><b>${e.name||"Error"}</b> — ${e.message}</div></div>`;
+  }
+});
+
+$("play").addEventListener("click", () => {
+  if(wavBlob) new Audio(URL.createObjectURL(wavBlob)).play();
+});
+
+/* ── send ────────────────────────────────────────── */
+$("send").addEventListener("click", async () => {
+  if(!wavBlob) return;
+  $("send").disabled = true; $("sendstate").textContent = "scoring…";
+  const fd = new FormData();
+  fd.append("audio", wavBlob, "capture.wav");
+  fd.append("referenceText", $("ref").value);
+  fd.append("language", $("lang").value);
+  fd.append("deviceContext", JSON.stringify({
+    ua: navigator.userAgent, contextRate: srcRate, granted: grantedConstraints }));
+  try{
+    const r = await fetch($("ep").value, { method:"POST", body: fd });
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    render(data);
+    LOG.push({ n: LOG.length+1, set: $("setid").value, speaker: $("spk").value,
+               reference: $("ref").value, language: $("lang").value,
+               ua: navigator.userAgent, contextRate: srcRate,
+               granted: grantedConstraints, result: data, at: new Date().toISOString() });
+    refreshLog();
+    $("sendstate").textContent = "";
+  }catch(e){
+    $("result").innerHTML = `<div class="verdict v-fail"><div class="tag">FAILED</div>
+      <div>${e.message}. Check the endpoint URL and that the backend is running.</div></div>`;
+    $("sendstate").textContent = "";
+  }
+  $("send").disabled = false;
+});
+
+/* ── render scores ───────────────────────────────── */
+const band = s => s >= 80 ? "hi" : s >= 60 ? "mid" : "lo";
+function render(d){
+  if(d.indeterminate){
+    $("result").innerHTML = `<div class="verdict v-warn"><div class="tag">UNCLEAR</div>
+      <div>No score returned (${d.reason||"no speech recognised"}). This is the
+      <b>indeterminate</b> case — better than a confident wrong number.</div></div>`;
+    return;
+  }
+  const cell = (n,l) => `<div><div class="n">${n==null?"—":Math.round(n)}</div>
+                         <div class="l">${l}</div></div>`;
+  let html = `<div class="overall">${cell(d.overall,"overall")}${cell(d.accuracy,"accuracy")}
+              ${cell(d.fluency,"fluency")}${cell(d.completeness,"complete")}</div>`;
+  if(d.recognized) html += `<p class="hint">Heard: “${d.recognized}”</p>`;
+  if(d.words?.length){
+    html += `<div class="words">` + d.words.map((w,i) =>
+      `<button class="word ${band(w.accuracy)}" data-w="${i}" aria-expanded="false">
+        ${w.word}<small>${Math.round(w.accuracy)}</small></button>`).join("") + `</div>
+      <div id="ph"></div>`;
+  }
+  $("result").innerHTML = html;
+  document.querySelectorAll(".word").forEach(b => b.addEventListener("click", () => {
+    const open = b.getAttribute("aria-expanded") === "true";
+    document.querySelectorAll(".word").forEach(x => x.setAttribute("aria-expanded","false"));
+    if(open){ $("ph").innerHTML = ""; return; }
+    b.setAttribute("aria-expanded","true");
+    const w = d.words[+b.dataset.w];
+    $("ph").innerHTML = `<div class="phonemes">` +
+      (w.phonemes?.length
+        ? w.phonemes.map(p => `<span class="p ${band(p.accuracy)}">${p.phoneme}
+            <b>${Math.round(p.accuracy)}</b></span>`).join("")
+        : "no phoneme detail returned") +
+      (w.errorType && w.errorType !== "None"
+        ? `<div style="margin-top:8px;color:var(--fail)">error type: ${w.errorType}</div>` : "") +
+      `</div>`;
+  }));
+}
+
+/* ── log ─────────────────────────────────────────── */
+function refreshLog(){
+  $("logbody").innerHTML = LOG.map(e => `<tr>
+    <td>${e.n}</td><td>${e.set}</td><td>${e.speaker||"—"}</td>
+    <td>${e.reference.slice(0,26)}${e.reference.length>26?"…":""}</td>
+    <td class="num">${e.result.accuracy!=null?Math.round(e.result.accuracy):"—"}</td>
+    <td class="num">${e.result.overall!=null?Math.round(e.result.overall):"—"}</td></tr>`).join("");
+  $("out").value = JSON.stringify(LOG, null, 2);
+}
+$("copy").addEventListener("click", async () => {
+  try{ await navigator.clipboard.writeText($("out").value); $("copied").textContent = "Copied."; }
+  catch{ $("out").select(); $("copied").textContent = "Select all and copy."; }
+  setTimeout(()=>{ $("copied").textContent=""; }, 2400);
+});
+$("clear").addEventListener("click", () => {
+  if(LOG.length && !confirm("Clear " + LOG.length + " attempts?")) return;
+  LOG.length = 0; refreshLog(); $("out").value = "No attempts yet.";
+});
+</script>
+</body>
+</html>
