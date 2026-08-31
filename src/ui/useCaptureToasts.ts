@@ -19,6 +19,9 @@ export interface CaptureToastOptions {
   autoStop: boolean;
   /** Suppress the per-score toast where the page already renders the result prominently. */
   announceScore?: boolean;
+  /** Attached to any diagnostic this hook reports — see FrenchActivityTest.tsx. */
+  sessionId?: string;
+  activityId?: number;
 }
 
 export function useCaptureToasts(recorder: UseRecorderValue, options: CaptureToastOptions): void {
@@ -123,5 +126,26 @@ export function useCaptureToasts(recorder: UseRecorderValue, options: CaptureToa
       title: error.userMessage,
       detail: `${error.code} · ${error.domain}`,
     });
-  }, [recorder.error, toast]);
+
+    // Fire-and-forget — a failed diagnostic POST must never surface as its
+    // own error. userAgent identifies browser/OS/version; granted +
+    // contextSampleRate are the device-capture signals only the client has.
+    void fetch("/api/v1/diagnostics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: error.code,
+        domain: error.domain,
+        message: error.detail,
+        userMessage: error.userMessage,
+        sessionId: options.sessionId,
+        activityId: options.activityId,
+        context: {
+          userAgent: navigator.userAgent,
+          granted: recorder.granted,
+          contextSampleRate: recorder.contextSampleRate,
+        },
+      }),
+    }).catch(() => undefined);
+  }, [recorder.error, recorder.granted, recorder.contextSampleRate, options.sessionId, options.activityId, toast]);
 }

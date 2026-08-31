@@ -24,6 +24,7 @@ import type { CaptureSettingsValue } from "../ui/CaptureSettings.js";
 import { InterimFeedback } from "../ui/InterimFeedback.js";
 import { useCaptureToasts } from "../ui/useCaptureToasts.js";
 import { useToast } from "../ui/ToastProvider.js";
+import { useWakeLock } from "../ui/useWakeLock.js";
 import {
   FRENCH_ACTIVITIES,
   FRENCH_LANGUAGE,
@@ -38,8 +39,13 @@ export function FrenchActivityTest() {
   const [index, setIndex] = useState(0);
   const [progress, setProgress] = useState<ActivityProgress[]>([]);
   const [finished, setFinished] = useState(false);
+  const [started, setStarted] = useState(false);
   const [settings, setSettings] = useState<CaptureSettingsValue>(DEFAULT_CAPTURE_SETTINGS);
   const startedAt = useRef(Date.now());
+  // Ties every attempt and diagnostic in one session together for funnel
+  // analysis (#/diagnostics) — regenerated on beginSession()/restart() so a
+  // fresh session never gets attributed to the previous one's data.
+  const sessionId = useRef(crypto.randomUUID());
   const toast = useToast();
 
   const activity = FRENCH_ACTIVITIES[index];
@@ -51,6 +57,8 @@ export function FrenchActivityTest() {
   const recorder = useRecorder({
     referenceText: activity?.target ?? "",
     language: FRENCH_LANGUAGE,
+    sessionId: sessionId.current,
+    activityId: activity?.id ?? -1,
     autoStop: settings.autoStop,
     continuous: settings.continuous,
     silenceHangoverMs: hangoverMs,
@@ -84,7 +92,14 @@ export function FrenchActivityTest() {
     },
   });
 
-  useCaptureToasts(recorder, { autoStop: settings.autoStop });
+  useCaptureToasts(recorder, {
+    autoStop: settings.autoStop,
+    sessionId: sessionId.current,
+    activityId: activity?.id,
+  });
+  // Screen must stay awake for the whole session, not just while recording —
+  // most of the risk is the learner reading the prompt before they tap Record.
+  useWakeLock(started && !finished);
 
   const scoredAttempts = current?.attempts.filter((a) => a.accuracy !== null).length ?? 0;
   const canAdvance = Boolean(current?.passed) || scoredAttempts >= MAX_ATTEMPTS;
@@ -107,6 +122,16 @@ export function FrenchActivityTest() {
     setIndex(0);
     setFinished(false);
     startedAt.current = Date.now();
+    sessionId.current = crypto.randomUUID();
+  }, [recorder]);
+
+  // Warms the microphone here, ahead of activity 1's own Record tap, so the
+  // learner's first graded attempt hits the same warm path every later one
+  // does instead of paying the cold getUserMedia + AudioWorklet cost.
+  const beginSession = useCallback(() => {
+    recorder.warm();
+    startedAt.current = Date.now();
+    setStarted(true);
   }, [recorder]);
 
   const report = useMemo(
@@ -132,6 +157,23 @@ export function FrenchActivityTest() {
     URL.revokeObjectURL(url);
   }, [report, progress]);
 
+  if (!started) {
+    return (
+      <section>
+        <h2 className="enter-1">Ready to practice?</h2>
+        <p className="what enter-2">
+          Ten short activities, French pronunciation scored phoneme by phoneme.
+        </p>
+        <p className="hint enter-2">Tapping Start also turns on your microphone.</p>
+        <div className="row">
+          <button type="button" className="enter-cta" onClick={beginSession}>
+            Start
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   if (finished) {
     return (
       <ActivityReport
@@ -150,7 +192,7 @@ export function FrenchActivityTest() {
 
   return (
     <>
-      <section>
+      <section key={activity.id} className="enter-1">
         <h2>
           Activity {activity.id} of {FRENCH_ACTIVITIES.length} — {activity.title}
         </h2>
@@ -158,22 +200,8 @@ export function FrenchActivityTest() {
           {passedCount} passed · {progress.length} attempted
         </p>
 
-        <div
-          style={{
-            height: 6,
-            background: "var(--panel)",
-            borderRadius: 3,
-            overflow: "hidden",
-            border: "1px solid var(--rule)",
-          }}
-        >
-          <div
-            style={{
-              width: `${(index / FRENCH_ACTIVITIES.length) * 100}%`,
-              height: "100%",
-              background: "var(--signal)",
-            }}
-          />
+        <div className="progress-track">
+          <div className="progress-fill" style={{ width: `${(index / FRENCH_ACTIVITIES.length) * 100}%` }} />
         </div>
 
         <p className="what" style={{ marginTop: 14 }}>
@@ -252,7 +280,7 @@ export function FrenchActivityTest() {
         )}
 
         {current?.passed && (
-          <div className="verdict v-warn" style={{ borderColor: "#b4dbcb", background: "#e7f3ee" }}>
+          <div className="verdict v-warn pass-banner" style={{ borderColor: "#b4dbcb", background: "#e7f3ee" }}>
             <div className="tag" style={{ color: "var(--pass)" }}>
               PASSED
             </div>

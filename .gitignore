@@ -6,19 +6,14 @@ build/
 .env
 .env.*
 !.env.example
-
-# Fixture audio is generated or recorded locally, not versioned.
-fixtures/*.wav
-fixtures/*.aiff
-
-# Attempt records carry device context and learner scores.
-server/data/
-fixture-separation.png
+# *.env.* only catches a dot-prefixed name — a suffix-named credentials file
+# (e.g. atlas-credentials.env, downloaded straight from a dashboard) slipped
+# past this once already. Catch that shape too, anywhere in the tree.
+*credentials*.env
+*credentials*.json
 
 .DS_Store
 *.log
 
 # Local test output
 french-activity-test-results.json
-synthetic-fixture.json
-out.json

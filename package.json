@@ -10,7 +10,6 @@
   "scripts": {
     "smoke": "node --env-file=.env scripts/smoke-azure.mjs",
     "verify": "node scripts/verify.mjs",
-    "fixture": "bash scripts/make-fixture.sh",
     "dev": "node scripts/dev.mjs",
     "dev:server": "tsx watch --env-file=.env server/index.ts",
     "dev:client": "vite",
@@ -22,9 +21,11 @@
   "dependencies": {
     "express": "^5.2.1",
     "microsoft-cognitiveservices-speech-sdk": "^1.46.0",
+    "mongodb": "^7.6.0",
     "multer": "^2.2.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

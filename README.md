@@ -1,11 +1,16 @@
-# Lingotran Pronunciation POC
+# Sonare — Lingotran French speech activity
 
-Phoneme-level pronunciation scoring. Replaces the Web Speech API capture path
-and transcript-match scoring with our own audio pipeline plus Azure AI Speech.
+Phoneme-level French pronunciation practice: ten activities, unlocked one at a
+time, ending in a report. Built on Azure AI Speech phoneme scoring instead of
+the Web Speech API's transcript-match approach (no phoneme data, and biased
+against accented speech — see `files/CONTEXT.md`).
 
-Governing documents live in [`files/`](files/): read `CONTEXT.md`, then
-`CLAUDE.md`, then `PRD.md`, then `TASKS.md`. `reference/scorer-harness.html` is
-the reference implementation the capture layer was ported from.
+Started as a scoring POC; the research question it existed to answer is
+settled (see "Verification evidence" below), and this repo is now the MVP
+product surface. `files/CONTEXT.md`, `CLAUDE.md`, `PRD.md`, `TASKS.md`,
+`HANDOFF.md` are the historical record of the hard rules (R1–R12) the capture
+pipeline still follows — read `CONTEXT.md` first if a constraint looks
+arbitrary.
 
 ## Setup
 
@@ -14,18 +19,29 @@ cp .env.example .env     # fill AZURE_SPEECH_KEY; region is southeastasia
 npm install
 ```
 
+Needs a MongoDB instance reachable at `MONGO_URL` (defaults to
+`mongodb://localhost:27017`) — attempt records and capture/scoring
+diagnostics are persisted there (`attempts` and `diagnostics` collections).
+A connection failure is logged, not fatal: scoring itself doesn't depend on
+it, only the analysis trail does.
+
 ## Run
 
 ```bash
-npm run dev              # API on :5181, web on :5180
+npm run dev:server        # API on :5181
+npm run dev:client        # web on :5180, separate terminal
 ```
+
+(`npm run dev` — both at once via `scripts/dev.mjs` — spawns `npx` without a
+shell and fails with `ENOENT` on Windows; run the two above instead there.)
 
 Ports are deliberately off the usual 3000/5173/8080 to avoid collisions. Vite
 proxies `/api` to the API, so the browser only ever talks to one origin.
 
-- Drill screen — <http://localhost:5180/#/>
-- French activity test — <http://localhost:5180/#/french>
-- Fixture runner — <http://localhost:5180/#/fixture>
+Single view, no routing — <http://localhost:5180/>. For real iOS testing,
+`getUserMedia` needs a secure context (`localhost` is exempt, a LAN address is
+not); `vite.config.ts` already allows `ngrok`/Cloudflare tunnel hosts, so
+`ngrok http 5180` and opening the HTTPS URL on-device works out of the box.
 
 ### Microphone settings
 
@@ -105,13 +121,11 @@ browser-persistent storage in `src/speech/` (R11); a React import inside
 
 | Command | Purpose |
 |---|---|
-| `npm run smoke <wav> "<text>" [lang]` | T1 — call Azure directly, no app code. Validates the WAV header first. |
-| `npm run fixture` | Generate a known-good 16 kHz mono WAV via macOS `say` + `afconvert`. |
+| `npm run smoke <wav> "<text>" [lang]` | Call Azure directly, no app code. Validates the WAV header first — useful after rotating `AZURE_SPEECH_KEY`. |
 | `npm run verify` | The rule checks. |
-| `python3 scripts/analyze_fixture.py export.json` | T18 — per-set distributions and the Set A / Set B separation. |
+| `npm run test:french` | Headless regression test for the activity flow (see above). |
 
-`smoke` and `analyze_fixture.py` need no browser. Phase 1 is verifiable entirely
-from the command line.
+`smoke` needs no browser.
 
 ## Layout
 
@@ -120,10 +134,11 @@ src/speech/capture/     framework-free capture — ports to React Native, zero R
 src/speech/react/       useRecorder.ts, the only React file under src/speech/
 src/speech/scoring/     upload client + the PRD §6 response type
 src/speech/components/  score card, word chips, phoneme detail, debug panel
-src/pages/              drill screen, fixture runner
+src/activities/         the activity set, progress types, report aggregation
+src/pages/              FrenchActivityTest — the whole app
 server/services/        ScoringProvider interface + azureSpeech.ts (only SDK importer)
 server/routes/          POST /api/v1/pronunciation
-scripts/                smoke, verify, dev, fixture, analysis
+scripts/                smoke, verify, dev, test:french
 ```
 
 ## Known deviations and findings

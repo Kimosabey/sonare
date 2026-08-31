@@ -49,4 +49,18 @@ export interface DeviceContext {
   ua: string;
   contextRate: number | null;
   granted: GrantedConstraints | null;
+  /**
+   * The VAD/SNR diagnostics CaptureResult already computes but that
+   * previously went nowhere past the debug panel — the richest signal for
+   * "was auto-stop cutting people off" or "was this room too noisy to
+   * trust," and it cost nothing new to capture since it already exists.
+   */
+  snrDb?: number;
+  peakDbfs?: number;
+  endpoint?: {
+    thresholdDb: number;
+    noiseFloorDb: number | null;
+    peakDb: number | null;
+    autoStopped: boolean;
+  };
 }

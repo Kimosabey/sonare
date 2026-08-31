@@ -60,7 +60,7 @@ export function CaptureSettings({ value, onChange, hangoverMs, disabled }: Captu
     onChange({ ...value, [key]: next });
 
   return (
-    <details open>
+    <details>
       <summary>Microphone settings</summary>
       <div className="body">
         <Switch
@@ -145,6 +145,11 @@ interface SwitchProps {
 }
 
 function Switch({ id, label, description, checked, disabled, onChange }: SwitchProps) {
+  // <label for> already forwards activation to a <button> (button is a
+  // labelable element per the HTML spec), so the label/description text is
+  // already a real tap target — no handler needed there. The visual track
+  // stays small by design; the effective tap target is the whole row via
+  // the label, which comfortably clears 44px through its own padding/text.
   return (
     <div className="switch">
       <button

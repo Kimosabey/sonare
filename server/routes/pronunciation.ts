@@ -12,9 +12,10 @@ import { getScoringProvider } from "../services/index.js";
 import { AppError, isAppError } from "../errors.js";
 import { assertAzureFormat, assertDuration, inspectWav } from "../wav.js";
 import { recordAttempt } from "../attempts.js";
+import { recordDiagnostic } from "../diagnostics.js";
 import type { PronunciationResult } from "../services/types.js";
 
-const MIN_AUDIO_SECONDS = Number(process.env.MIN_AUDIO_SECONDS ?? 0.4);
+const MIN_AUDIO_SECONDS = Number(process.env.MIN_AUDIO_SECONDS ?? 0.25);
 const MAX_AUDIO_SECONDS = Number(process.env.MAX_AUDIO_SECONDS ?? 15);
 
 export const pronunciationRouter = Router();
@@ -29,6 +30,7 @@ pronunciationRouter.post("/pronunciation", (req: Request, res: Response) => {
         (uploadErr as { code?: string }).code === "LIMIT_FILE_SIZE";
 
       return respondWithError(
+        req,
         res,
         new AppError({
           code: tooBig ? "AUDIO_TOO_LONG" : "MISSING_AUDIO",
@@ -62,6 +64,8 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
     const body = req.body as Record<string, unknown>;
     const referenceText = typeof body.referenceText === "string" ? body.referenceText.trim() : "";
     const language = typeof body.language === "string" && body.language ? body.language : "en-US";
+    const sessionId = typeof body.sessionId === "string" ? body.sessionId : undefined;
+    const activityId = typeof body.activityId === "string" ? Number(body.activityId) : undefined;
 
     if (!referenceText) {
       throw new AppError({
@@ -98,6 +102,8 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
     // FR-18. After responding — persistence must never add latency to the learner.
     await recordAttempt({
       at: new Date().toISOString(),
+      ...(sessionId ? { sessionId } : {}),
+      ...(activityId !== undefined && !Number.isNaN(activityId) ? { activityId } : {}),
       referenceText,
       language,
       provider: result.provider,
@@ -114,7 +120,7 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
       result,
     });
   } catch (err) {
-    respondWithError(res, err);
+    respondWithError(req, res, err);
   }
 }
 
@@ -131,18 +137,47 @@ function parseDeviceContext(raw: unknown): unknown {
   }
 }
 
-function respondWithError(res: Response, err: unknown): void {
+function respondWithError(req: Request, res: Response, err: unknown): void {
   if (res.headersSent) return;
+
+  const context = { userAgent: req.headers["user-agent"] ?? "not reported" };
+  // req.body may be partially populated (or absent) if the upload itself
+  // was what failed — read defensively rather than assuming the normal shape.
+  const body = (req.body as Record<string, unknown> | undefined) ?? {};
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId : undefined;
+  const rawActivityId = typeof body.activityId === "string" ? Number(body.activityId) : undefined;
+  const activityId = rawActivityId !== undefined && !Number.isNaN(rawActivityId) ? rawActivityId : undefined;
 
   if (isAppError(err)) {
     // Server-side detail is logged; the client sees code, domain and userMessage.
     // No branch of this ever includes a credential — R2.
     console.error(`[pronunciation] ${err.code} (${err.domain}): ${err.message}`);
+    void recordDiagnostic({
+      at: new Date().toISOString(),
+      source: "server",
+      code: err.code,
+      domain: err.domain,
+      message: err.message,
+      userMessage: err.userMessage,
+      ...(sessionId ? { sessionId } : {}),
+      ...(activityId !== undefined ? { activityId } : {}),
+      context,
+    });
     res.status(err.status).json({ error: err.toJSON() });
     return;
   }
 
   console.error("[pronunciation] unexpected:", String(err));
+  void recordDiagnostic({
+    at: new Date().toISOString(),
+    source: "server",
+    code: "PROVIDER_UNAVAILABLE",
+    domain: "server",
+    message: String(err),
+    ...(sessionId ? { sessionId } : {}),
+    ...(activityId !== undefined ? { activityId } : {}),
+    context,
+  });
   res.status(500).json({
     error: {
       code: "PROVIDER_UNAVAILABLE",

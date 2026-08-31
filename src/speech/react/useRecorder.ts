@@ -16,6 +16,9 @@ import type { PronunciationResult } from "../scoring/types.js";
 export interface UseRecorderOptions {
   referenceText: string;
   language: string;
+  /** Ties every attempt in a session together — see FrenchActivityTest.tsx. */
+  sessionId: string;
+  activityId: number;
   minSnrDb?: number;
   enforceSnrGate?: boolean;
   /** Hands-free mode: the take ends on trailing silence rather than a second tap. */
@@ -57,6 +60,12 @@ export interface UseRecorderValue {
   contextSampleRate: number | null;
   start: () => void;
   stop: () => void;
+  /**
+   * Requests the microphone and builds the capture graph without recording,
+   * so the *next* start() hits the warm path (Recorder.canReuseGraph()).
+   * Must be called from a user gesture, same as start() (R10/FR-07).
+   */
+  warm: () => void;
   /** Ends a continuous session and releases the microphone. */
   endSession: () => void;
   reset: () => void;
@@ -153,6 +162,18 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
     });
   }, [ensureRecorder]);
 
+  const warm = useCallback(() => {
+    const recorder = ensureRecorder();
+    void recorder.start().then(() => {
+      setGranted(recorder.getGrantedConstraints());
+      setContextSampleRate(recorder.getContextSampleRate());
+      // Abandon the take but keep the graph alive (Recorder.cancel() honours
+      // keepMicWarm) — this call exists purely to pay the getUserMedia +
+      // AudioWorklet cost ahead of the learner's first real Record tap.
+      if (recorder.getState() === "recording") recorder.cancel();
+    });
+  }, [ensureRecorder]);
+
   const start = useCallback(() => {
     setResult(null);
     setLastCapture(null);
@@ -194,6 +215,11 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
           language: optionsRef.current.language,
           contextSampleRate: capture.contextSampleRate,
           granted: capture.granted,
+          sessionId: optionsRef.current.sessionId,
+          activityId: optionsRef.current.activityId,
+          snrDb: capture.snrDb,
+          peakDbfs: capture.peakDbfs,
+          endpoint: capture.endpoint,
         });
         setResult(scored);
         optionsRef.current.onScored?.(scored, capture);
@@ -262,6 +288,7 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
     contextSampleRate,
     start,
     stop,
+    warm,
     endSession,
     reset,
   };

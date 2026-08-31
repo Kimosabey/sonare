@@ -49,7 +49,10 @@ export interface RecorderListeners {
 }
 
 const DEFAULTS = {
-  minSeconds: 0.4,
+  // README finding: 8/80 synthetic single-word attempts were false-rejected
+  // as AUDIO_TOO_SHORT at 0.4s — short words genuinely don't reach that.
+  // 0.25s is the README's own suggested floor.
+  minSeconds: 0.25,
   maxSeconds: 15,
   minSnrDb: 10,
   enforceSnrGate: true,
@@ -391,6 +394,20 @@ export class Recorder {
   // ── internals ──────────────────────────────────────────────────────────────
 
   private async buildGraph(): Promise<void> {
+    // Feature-detected, and does nothing for the DSP question R4/R5 exist
+    // for — the Audio Session API controls session *type* and interruption
+    // behaviour, not gain control/noise suppression/echo cancellation. What
+    // it does fix: a documented iOS Safari bug where granting getUserMedia
+    // can silently reroute audio output to the built-in speaker even with a
+    // Bluetooth or wired headset connected.
+    if ("audioSession" in navigator) {
+      try {
+        (navigator as Navigator & { audioSession: { type: string } }).audioSession.type = "play-and-record";
+      } catch {
+        // Non-fatal — worst case is the routing bug this was meant to avoid.
+      }
+    }
+
     const AudioContextCtor =
       window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 

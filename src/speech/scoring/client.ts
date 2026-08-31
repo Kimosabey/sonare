@@ -34,6 +34,12 @@ export interface ScoreRequest {
   language: string;
   contextSampleRate: number;
   granted: GrantedConstraints;
+  /** Ties every attempt in a session together — see FrenchActivityTest.tsx. */
+  sessionId: string;
+  activityId: number;
+  snrDb: number;
+  peakDbfs: number;
+  endpoint: DeviceContext["endpoint"];
 }
 
 export async function scoreRecording(req: ScoreRequest): Promise<PronunciationResult> {
@@ -41,12 +47,17 @@ export async function scoreRecording(req: ScoreRequest): Promise<PronunciationRe
     ua: navigator.userAgent,
     contextRate: req.contextSampleRate,
     granted: req.granted,
+    snrDb: req.snrDb,
+    peakDbfs: req.peakDbfs,
+    endpoint: req.endpoint,
   };
 
   const form = new FormData();
   form.append("audio", req.wav, "capture.wav");
   form.append("referenceText", req.referenceText);
   form.append("language", req.language);
+  form.append("sessionId", req.sessionId);
+  form.append("activityId", String(req.activityId));
   form.append("deviceContext", JSON.stringify(deviceContext));
 
   try {

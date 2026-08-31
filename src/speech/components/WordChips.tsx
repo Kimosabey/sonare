@@ -22,6 +22,9 @@ export function WordChips({ words }: WordChipsProps) {
             type="button"
             className={`word ${band(w.accuracy)}`}
             aria-expanded={openIndex === i}
+            // Capped stagger — beyond the first ~8 chips the extra delay adds
+            // nothing but waiting, so later chips just share the last step.
+            style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
             onClick={() => setOpenIndex(openIndex === i ? null : i)}
           >
             {w.word}
@@ -29,7 +32,9 @@ export function WordChips({ words }: WordChipsProps) {
           </button>
         ))}
       </div>
-      {open && <PhonemeDetail word={open} />}
+      {/* key forces a fresh mount (and re-plays the reveal) on every switch
+          between words, not just the first open. */}
+      {open && <PhonemeDetail key={openIndex} word={open} />}
     </>
   );
 }

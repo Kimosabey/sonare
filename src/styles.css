@@ -1,27 +1,48 @@
-/* Minimal, deliberately. T11: this is not a design task — it has to be legible
-   on a phone in a classroom and show the debug panel on every device. Palette
-   carried over from reference/scorer-harness.html so results look familiar. */
+/* Lingotran brand tokens (docs/30-v3/70-experience/brand/lingotran-brand-guidelines.html
+   in the lingotran-platform repo) — this activity ships under the Lingotran
+   brand, so it carries the same palette and type rather than inventing one.
+   pass/warn/fail are the one exception: kept as the original neutral
+   green/amber/red, because Lingotran's own brand-audit.md documents Success
+   green and Coral as fill-only-with-dark-text — they fail WCAG as text on a
+   light background — and Lingotran defines no amber/warning token at all. */
 
 :root {
-  --paper: #fbfcfd;
-  --panel: #f3f6f9;
-  --ink: #16202b;
-  --rule: #c9d3db;
-  --dim: #61707c;
-  --signal: #2b57d9;
-  --signal-soft: #edf2fd;
+  --paper: #faf6f0; /* Cream */
+  --panel: #f0e6ff; /* Lilac */
+  --ink: #1a0b2e; /* Ink Deep */
+  --rule: #dddddd; /* Border */
+  --dim: #666666; /* Muted */
+  --signal: #41009a; /* Brand Purple */
+  --signal-soft: #f0e6ff; /* Lilac */
   --pass: #1b7a5a;
   --warn: #b26a00;
   --warn-soft: #fcf3e3;
   --fail: #c0273c;
   --fail-soft: #fbe9ec;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --sans: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Motion — one signature curve, three durations. Premium personality:
+     smooth deceleration, no overshoot. The global prefers-reduced-motion
+     rule below strips all of this to an instant, correctly-resolved state. */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-quick: 150ms;
+  --dur-standard: 350ms;
+  --dur-slow: 500ms;
 }
 
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Scroll stays functional (wheel, trackpad, keyboard) — only the visible
+   scrollbar chrome is hidden, for a cleaner look on both screens. */
+html {
+  scrollbar-width: none; /* Firefox */
+}
+html::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
 }
 
 body {
@@ -35,13 +56,40 @@ body {
 }
 
 .wrap {
-  max-width: 640px;
+  /* Fluid, not locked to one fixed column — scales with the viewport rather
+     than a hard 640px on every screen size, capped only so text doesn't run
+     unreadably wide on a large monitor. The Diagnostics screen's wide data
+     tables were the immediate reason (they were being squeezed to 640px and
+     forced into horizontal scroll even on a wide desktop window). Body
+     already handles edge padding/safe-area, so this is just width + cap. */
+  max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
 }
 
 header {
-  padding: 28px 0 16px;
-  border-bottom: 2px solid var(--ink);
+  position: relative;
+  padding: 24px 0 18px;
+}
+
+/* The brand rule draws in left-to-right rather than just appearing —
+   a border can't animate this way, so the rule lives here instead. */
+header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--signal);
+  transform-origin: left;
+  animation: draw-rule var(--dur-slow) var(--ease) 260ms both;
+}
+
+.logo {
+  height: 28px;
+  display: block;
+  animation: rise-in var(--dur-standard) var(--ease) both;
 }
 
 .eyebrow {
@@ -50,37 +98,65 @@ header {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--dim);
+  margin-top: 10px;
+  animation: rise-in var(--dur-standard) var(--ease) 60ms both;
 }
 
 h1 {
   font-size: 23px;
-  font-weight: 640;
+  font-weight: 800;
   letter-spacing: -0.02em;
   margin: 8px 0 6px;
+  animation: rise-in var(--dur-standard) var(--ease) 120ms both;
 }
 
-nav {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
+/* ── entrance motion ─────────────────────────────────────────────────────── */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-nav a {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--dim);
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: 6px 11px;
+@keyframes rise-in-cta {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-nav a.on {
-  color: var(--paper);
-  background: var(--ink);
-  border-color: var(--ink);
+@keyframes draw-rule {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Staggered entrance for a freshly-mounted screen (the Start screen, and
+   each activity card via its key-forced remount). Stagger stays well under
+   the 400ms budget for a coordinated, not sluggish, reveal. */
+.enter-1 {
+  animation: rise-in var(--dur-standard) var(--ease) both;
+}
+.enter-2 {
+  animation: rise-in var(--dur-standard) var(--ease) 80ms both;
+}
+.enter-3 {
+  animation: rise-in var(--dur-standard) var(--ease) 160ms both;
+}
+.enter-cta {
+  animation: rise-in-cta var(--dur-slow) var(--ease) 250ms both;
 }
 
 section {
@@ -119,7 +195,7 @@ select {
   font-size: 16px;
   padding: 10px 12px;
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 10px;
   background: #fff;
   color: var(--ink);
 }
@@ -147,13 +223,18 @@ select {
 button {
   font-family: var(--sans);
   font-size: 14.5px;
-  font-weight: 560;
+  font-weight: 700;
   padding: 11px 20px;
-  border-radius: 4px;
-  border: 1.5px solid var(--ink);
-  background: var(--ink);
-  color: var(--paper);
+  border-radius: 10px;
+  border: 1.5px solid var(--signal);
+  background: var(--signal);
+  color: #fff;
   cursor: pointer;
+  transition: transform var(--dur-quick) var(--ease);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 button:disabled {
@@ -163,12 +244,25 @@ button:disabled {
 
 button.ghost {
   background: transparent;
-  color: var(--ink);
+  color: var(--signal);
 }
 
 button.rec {
   background: var(--fail);
   border-color: var(--fail);
+  animation: rec-pulse 1.6s var(--ease) infinite;
+}
+
+/* A slow breathing glow while the mic is live — reinforces "it's actually
+   listening" rather than decorating for its own sake. */
+@keyframes rec-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(192 39 60 / 35%);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgb(192 39 60 / 0%);
+  }
 }
 
 button:focus-visible {
@@ -183,10 +277,24 @@ button:focus-visible {
   letter-spacing: -0.01em;
 }
 
+.progress-track {
+  height: 6px;
+  background: var(--panel);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--signal);
+  transition: width var(--dur-slow) var(--ease);
+}
+
 .meter {
   height: 36px;
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 10px;
   background: #fff;
   margin: 14px 0;
   position: relative;
@@ -229,7 +337,7 @@ button:focus-visible {
   gap: 1px;
   background: var(--rule);
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 10px;
   overflow: hidden;
   margin: 16px 0;
 }
@@ -244,6 +352,17 @@ button:focus-visible {
   background: #fff;
   padding: 13px 10px;
   text-align: center;
+  animation: rise-in var(--dur-standard) var(--ease) both;
+}
+
+.overall div:nth-child(2) {
+  animation-delay: 70ms;
+}
+.overall div:nth-child(3) {
+  animation-delay: 140ms;
+}
+.overall div:nth-child(4) {
+  animation-delay: 210ms;
 }
 
 .overall .n {
@@ -271,14 +390,20 @@ button:focus-visible {
 
 .word {
   border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: 7px 11px;
+  border-radius: 10px;
+  padding: 11px 12px;
+  min-height: 44px;
   cursor: pointer;
   background: #fff;
   color: var(--ink);
   font-size: 15px;
   font-weight: 400;
   border-bottom-width: 3px;
+  display: inline-flex;
+  align-items: center;
+  /* Delay is set per-chip inline (WordChips.tsx) — word count varies, so a
+     fixed nth-child table can't cover it. */
+  animation: rise-in var(--dur-quick) var(--ease) both;
 }
 
 .word.hi {
@@ -306,11 +431,12 @@ button:focus-visible {
 .phonemes {
   background: var(--panel);
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 10px;
   padding: 12px 14px;
   margin: 10px 0;
   font-family: var(--mono);
   font-size: 12px;
+  animation: rise-in var(--dur-quick) var(--ease) both;
 }
 
 .phonemes .p {
@@ -334,7 +460,7 @@ button:focus-visible {
   margin-top: 14px;
   font-size: 14px;
   padding: 11px 13px;
-  border-radius: 4px;
+  border-radius: 10px;
   border: 1px solid;
 }
 
@@ -363,6 +489,10 @@ button:focus-visible {
   color: var(--fail);
 }
 
+.pass-banner {
+  animation: rise-in-cta var(--dur-standard) var(--ease) both;
+}
+
 /* Wide content scrolls inside its own box. The page body must never scroll
    sideways — on a phone that makes the whole layout feel broken. */
 .scroll-x {
@@ -382,7 +512,7 @@ button:focus-visible {
   max-height: 320px;
   overflow-y: auto;
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 10px;
   padding: 0 10px;
 }
 
@@ -417,7 +547,7 @@ td.num {
 
 details {
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 10px;
   background: #fff;
   margin-top: 14px;
 }
@@ -453,7 +583,7 @@ textarea {
   font-size: 11px;
   padding: 10px;
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 10px;
   resize: vertical;
 }
 
@@ -578,8 +708,8 @@ textarea {
   font-size: 24px;
   line-height: 1;
   /* 44px hit target — this sits under a thumb on a phone. */
-  min-width: 34px;
-  min-height: 34px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0;
   cursor: pointer;
   border-radius: 6px;
@@ -595,7 +725,7 @@ textarea {
 .modes {
   display: inline-flex;
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 10px;
   overflow: hidden;
   margin-top: 4px;
 }
@@ -610,6 +740,7 @@ textarea {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 9px 14px;
+  min-height: 44px;
   font-weight: 600;
 }
 
@@ -618,8 +749,8 @@ textarea {
 }
 
 .modes button[aria-pressed="true"] {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--signal);
+  color: #fff;
 }
 
 .listening {
@@ -648,6 +779,32 @@ textarea {
 @keyframes pulse {
   50% {
     opacity: 0.25;
+  }
+}
+
+/* ── diagnostics live indicator ──────────────────────────────────────────── */
+
+.poll-flash {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pass);
+  flex: none;
+  animation: poll-flash 900ms var(--ease) both;
+}
+
+@keyframes poll-flash {
+  0% {
+    transform: scale(1.8);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 

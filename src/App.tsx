@@ -1,59 +1,40 @@
 /**
- * Hash routing, deliberately. Three routes do not justify a router dependency,
- * and a hash route survives being opened from a tunnel or LAN address on a
- * phone without any server-side rewrite — which matters for on-device testing.
+ * Two screens: the French speech activity (the product, default route) and
+ * /diagnostics (internal-only — no nav link anywhere, reached by typing the
+ * URL directly). HashRouter specifically: URLs stay #/-prefixed exactly as
+ * before, which survives a direct visit or refresh through a tunnel (ngrok)
+ * with zero server-side rewrite config — a plain BrowserRouter would 404 on
+ * a fresh #/diagnostics visit without that config.
  */
 
-import { useEffect, useState } from "react";
-import { PronunciationDrill } from "./pages/PronunciationDrill.js";
-import { FixtureRunner } from "./pages/FixtureRunner.js";
+import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { FrenchActivityTest } from "./pages/FrenchActivityTest.js";
+import { Diagnostics } from "./pages/Diagnostics.js";
 
-type Route = "drill" | "fixture" | "french";
-
-const TITLES: Record<Route, string> = {
-  drill: "Pronunciation drill",
-  fixture: "Fixture runner",
-  french: "French activity test",
-};
-
-function currentRoute(): Route {
-  const hash = window.location.hash;
-  if (hash === "#/fixture") return "fixture";
-  if (hash === "#/french") return "french";
-  return "drill";
-}
-
-export function App() {
-  const [route, setRoute] = useState<Route>(currentRoute);
-
-  useEffect(() => {
-    const onHashChange = () => setRoute(currentRoute());
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
+function Shell() {
+  const location = useLocation();
+  const diagnostics = location.pathname === "/diagnostics";
 
   return (
     <div className="wrap">
       <header>
-        <div className="eyebrow">Sonare · Lingotran POC A · phoneme scoring</div>
-        <h1>{TITLES[route]}</h1>
-        <nav>
-          <a href="#/" className={route === "drill" ? "on" : ""}>
-            Drill
-          </a>
-          <a href="#/french" className={route === "french" ? "on" : ""}>
-            French test
-          </a>
-          <a href="#/fixture" className={route === "fixture" ? "on" : ""}>
-            Fixture
-          </a>
-        </nav>
+        <img className="logo" src="/brand/wordmark-purple.png" alt="Lingotran" />
+        <div className="eyebrow">Sonare · {diagnostics ? "internal diagnostics" : "phoneme pronunciation scoring"}</div>
+        <h1>{diagnostics ? "Diagnostics" : "French speech activity"}</h1>
       </header>
 
-      {route === "fixture" && <FixtureRunner />}
-      {route === "french" && <FrenchActivityTest />}
-      {route === "drill" && <PronunciationDrill />}
+      <Routes>
+        <Route path="/" element={<FrenchActivityTest />} />
+        <Route path="/diagnostics" element={<Diagnostics />} />
+      </Routes>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <HashRouter>
+      <Shell />
+    </HashRouter>
   );
 }

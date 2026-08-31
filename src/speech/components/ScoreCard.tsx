@@ -9,6 +9,7 @@
 
 import type { PronunciationResult } from "../scoring/types.js";
 import { WordChips } from "./WordChips.js";
+import { AnimatedCell } from "./AnimatedCell.js";
 
 interface ScoreCardProps {
   result: PronunciationResult;
@@ -30,10 +31,10 @@ export function ScoreCard({ result }: ScoreCardProps) {
   return (
     <>
       <div className="overall">
-        <Cell value={result.overall} label="overall" />
-        <Cell value={result.accuracy} label="accuracy" />
-        <Cell value={result.fluency} label="fluency" />
-        <Cell value={result.completeness} label="complete" />
+        <AnimatedCell value={result.overall} label="overall" />
+        <AnimatedCell value={result.accuracy} label="accuracy" />
+        <AnimatedCell value={result.fluency} label="fluency" />
+        <AnimatedCell value={result.completeness} label="complete" />
       </div>
 
       {/* PRD §6: prosody is optional — many languages never return it. */}
@@ -45,14 +46,5 @@ export function ScoreCard({ result }: ScoreCardProps) {
 
       {result.words.length > 0 && <WordChips words={result.words} />}
     </>
-  );
-}
-
-function Cell({ value, label }: { value: number | undefined; label: string }) {
-  return (
-    <div>
-      <div className="n">{value === undefined ? "—" : Math.round(value)}</div>
-      <div className="l">{label}</div>
-    </div>
   );
 }

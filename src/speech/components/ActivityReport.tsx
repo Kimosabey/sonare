@@ -3,6 +3,7 @@
 import { verdictFor } from "../../activities/report.js";
 import type { Activity, ActivityProgress, SessionReport } from "../../activities/types.js";
 import { band } from "./band.js";
+import { AnimatedCell } from "./AnimatedCell.js";
 
 interface ActivityReportProps {
   report: SessionReport;
@@ -16,14 +17,14 @@ export function ActivityReport({ report, activities, progress, onRestart, onExpo
   const byId = new Map(progress.map((p) => [p.activityId, p]));
 
   return (
-    <section>
+    <section className="enter-1">
       <h2>Report</h2>
       <p className="what">{verdictFor(report)}</p>
 
       <div className="overall">
-        <Cell value={report.overallScore} label="overall" />
-        <Cell value={report.meanFluency} label="fluency" />
-        <Cell value={report.meanCompleteness} label="complete" />
+        <AnimatedCell value={report.overallScore} label="overall" />
+        <AnimatedCell value={report.meanFluency} label="fluency" />
+        <AnimatedCell value={report.meanCompleteness} label="complete" />
         <div>
           <div className="n">
             {report.passedCount}/{report.totalCount}
@@ -149,14 +150,5 @@ export function ActivityReport({ report, activities, progress, onRestart, onExpo
         </button>
       </div>
     </section>
-  );
-}
-
-function Cell({ value, label }: { value: number | null; label: string }) {
-  return (
-    <div>
-      <div className="n">{value === null ? "—" : Math.round(value)}</div>
-      <div className="l">{label}</div>
-    </div>
   );
 }
