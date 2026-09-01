@@ -12,7 +12,7 @@
  * R11: progress is in-memory. A refresh restarts the session by design.
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useRecorder } from "../speech/react/useRecorder.js";
 import { hangoverForReference } from "../speech/capture/recorder.js";
@@ -27,6 +27,8 @@ import { InterimFeedback } from "../ui/InterimFeedback.js";
 import { useCaptureToasts } from "../ui/useCaptureToasts.js";
 import { useToast } from "../ui/ToastProvider.js";
 import { useWakeLock } from "../ui/useWakeLock.js";
+import { useOnlineStatus } from "../ui/useOnlineStatus.js";
+import { useLearnerName } from "../ui/useLearnerName.js";
 import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
 import { buildReport } from "../activities/report.js";
 import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
@@ -47,6 +49,26 @@ export function ActivityTest() {
   // fresh session never gets attributed to the previous one's data.
   const sessionId = useRef(crypto.randomUUID());
   const toast = useToast();
+  const [learnerName] = useLearnerName();
+
+  // Warn before a take is recorded and lost to a failed upload, rather than
+  // letting the learner discover the connection is down only after speaking.
+  const online = useOnlineStatus();
+  const offlineToastId = useRef<number | null>(null);
+  useEffect(() => {
+    if (!online) {
+      offlineToastId.current = toast.push({
+        key: "network-status",
+        kind: "warn",
+        title: "You're offline",
+        detail: "Recordings can't be scored until you reconnect.",
+        duration: 0,
+      });
+    } else if (offlineToastId.current !== null) {
+      toast.dismiss(offlineToastId.current);
+      offlineToastId.current = null;
+    }
+  }, [online, toast]);
 
   const activities = activeLanguage?.activities ?? [];
   const activity = activities[index];
@@ -60,6 +82,7 @@ export function ActivityTest() {
     language: activeLanguage?.code ?? "en-US",
     sessionId: sessionId.current,
     activityId: activity?.id ?? -1,
+    ...(learnerName ? { learnerName } : {}),
     autoStop: settings.autoStop,
     continuous: settings.continuous,
     silenceHangoverMs: hangoverMs,
@@ -97,6 +120,7 @@ export function ActivityTest() {
     autoStop: settings.autoStop,
     sessionId: sessionId.current,
     activityId: activity?.id,
+    ...(learnerName ? { learnerName } : {}),
   });
   // Screen must stay awake for the whole session, not just while recording —
   // most of the risk is the learner reading the prompt before they tap Record.

@@ -17,7 +17,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
     "lint": "eslint .",
     "test:french": "tsx scripts/test-french-activity.ts",
-    "resample-bench": "tsx scripts/resample-bench.ts"
+    "resample-bench": "tsx scripts/resample-bench.ts",
+    "replay-fallback": "node --env-file=.env scripts/replay-fallback.mjs"
   },
   "dependencies": {
     "express": "^5.2.1",

@@ -19,9 +19,10 @@ export interface CaptureToastOptions {
   autoStop: boolean;
   /** Suppress the per-score toast where the page already renders the result prominently. */
   announceScore?: boolean;
-  /** Attached to any diagnostic this hook reports — see FrenchActivityTest.tsx. */
+  /** Attached to any diagnostic this hook reports — see ActivityTest.tsx. */
   sessionId?: string;
   activityId?: number;
+  learnerName?: string;
 }
 
 export function useCaptureToasts(recorder: UseRecorderValue, options: CaptureToastOptions): void {
@@ -61,6 +62,18 @@ export function useCaptureToasts(recorder: UseRecorderValue, options: CaptureToa
 
     if (to === "processing") {
       toast.push({ key: CAPTURE_KEY, kind: "info", title: "Scoring…", duration: 0 });
+      // Scoring a short clip is normally sub-second; past a few seconds the
+      // silence reads as "stuck" rather than "slow connection" — say so.
+      const stillScoringTimer = setTimeout(() => {
+        toast.push({
+          key: CAPTURE_KEY,
+          kind: "info",
+          title: "Still scoring…",
+          detail: "Taking longer than usual — hang tight on a slow connection.",
+          duration: 0,
+        });
+      }, 4000);
+      return () => clearTimeout(stillScoringTimer);
     }
   }, [recorder.state, options.autoStop, toast]);
 
@@ -140,6 +153,7 @@ export function useCaptureToasts(recorder: UseRecorderValue, options: CaptureToa
         userMessage: error.userMessage,
         sessionId: options.sessionId,
         activityId: options.activityId,
+        learnerName: options.learnerName,
         context: {
           userAgent: navigator.userAgent,
           granted: recorder.granted,
@@ -147,5 +161,13 @@ export function useCaptureToasts(recorder: UseRecorderValue, options: CaptureToa
         },
       }),
     }).catch(() => undefined);
-  }, [recorder.error, recorder.granted, recorder.contextSampleRate, options.sessionId, options.activityId, toast]);
+  }, [
+    recorder.error,
+    recorder.granted,
+    recorder.contextSampleRate,
+    options.sessionId,
+    options.activityId,
+    options.learnerName,
+    toast,
+  ]);
 }

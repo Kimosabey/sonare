@@ -18,7 +18,10 @@ export type CaptureErrorCode =
   | "TOO_SHORT"
   | "TOO_LONG"
   | "SNR_TOO_LOW"
-  | "INSECURE_CONTEXT";
+  | "INSECURE_CONTEXT"
+  | "INTERRUPTED"
+  | "ROUTE_CHANGED"
+  | "UNSUPPORTED_SAMPLE_RATE";
 
 export class CaptureError extends Error {
   readonly code: CaptureErrorCode;
@@ -48,6 +51,10 @@ const USER_TEXT: Record<CaptureErrorCode, string> = {
   TOO_LONG: "That was too long. Try saying just the phrase on its own.",
   SNR_TOO_LOW: "It's too noisy to score fairly. Move somewhere quieter and try again.",
   INSECURE_CONTEXT: "Recording needs a secure connection (HTTPS).",
+  INTERRUPTED:
+    "Recording was interrupted — a call, another app, or the screen locking may have taken the microphone. Tap record to try again.",
+  ROUTE_CHANGED: "The microphone changed partway through — maybe a headset connected or disconnected. Tap record to try again.",
+  UNSUPPORTED_SAMPLE_RATE: "This device's microphone rate isn't supported for recording. Try a different microphone or headset.",
 };
 
 export function captureError(code: CaptureErrorCode, detail: string, domain: ErrorDomain = "client"): CaptureError {

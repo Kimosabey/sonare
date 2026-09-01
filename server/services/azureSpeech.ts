@@ -45,14 +45,36 @@ interface RawResult {
 
 const PROVIDER = "azure";
 
-/** Azure occasionally hangs rather than erroring; NFR-02 targets 2.5 s. */
-const RECOGNITION_TIMEOUT_MS = 20_000;
+/**
+ * Azure occasionally hangs rather than erroring. NFR-02 targets 2.5s total,
+ * so waiting a full 20s before giving up made every request in a degraded
+ * window pay the maximum possible latency, one at a time. 8s is generous
+ * against the ~1.4s a healthy call actually takes (see README's verification
+ * evidence) while capping the worst case to something a learner will read as
+ * "failed", not "frozen".
+ */
+const RECOGNITION_TIMEOUT_MS = 8_000;
+
+/**
+ * A minimal circuit breaker. Without one, an Azure outage means every
+ * concurrent request independently waits out the full timeout before
+ * failing — no faster, and no cheaper, than just trying again. After a run
+ * of consecutive failures, short-circuit new calls for a cooldown window
+ * instead: fail fast, and stop spending timeout budget (and, if the failure
+ * mode is throttling rather than an outage, Azure quota) on calls likely to
+ * fail anyway.
+ */
+const CIRCUIT_FAILURE_THRESHOLD = 3;
+const CIRCUIT_COOLDOWN_MS = 30_000;
 
 export class AzureSpeechProvider implements ScoringProvider {
   readonly name = PROVIDER;
 
   private readonly key: string;
   private readonly region: string;
+
+  private consecutiveFailures = 0;
+  private circuitOpenUntil = 0;
 
   constructor(key: string | undefined, region: string | undefined) {
     if (!key || !region) {
@@ -77,6 +99,29 @@ export class AzureSpeechProvider implements ScoringProvider {
   }
 
   async score(wav: Buffer, referenceText: string, language: string): Promise<PronunciationResult> {
+    if (Date.now() < this.circuitOpenUntil) {
+      throw new AppError({
+        code: "PROVIDER_UNAVAILABLE",
+        domain: "provider",
+        message: `circuit open after ${this.consecutiveFailures} consecutive Azure failures`,
+        userMessage: "Scoring is temporarily unavailable. Please try again in a moment.",
+      });
+    }
+
+    try {
+      const result = await this.recognize(wav, referenceText, language);
+      this.consecutiveFailures = 0;
+      return result;
+    } catch (err) {
+      this.consecutiveFailures += 1;
+      if (this.consecutiveFailures >= CIRCUIT_FAILURE_THRESHOLD) {
+        this.circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+      }
+      throw err;
+    }
+  }
+
+  private async recognize(wav: Buffer, referenceText: string, language: string): Promise<PronunciationResult> {
     const speechConfig = sdk.SpeechConfig.fromSubscription(this.key, this.region);
     speechConfig.speechRecognitionLanguage = language;
 

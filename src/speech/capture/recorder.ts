@@ -8,7 +8,7 @@
  * platform finding.
  */
 
-import { acquireMicrophone } from "./constraints.js";
+import { acquireMicrophone, readGrantedConstraints } from "./constraints.js";
 import { captureError, CaptureError } from "./errors.js";
 import { concatFrames, resampleTo16k, TARGET_SAMPLE_RATE } from "./resample.js";
 import { analyseSignal, frameLevelDbfs } from "./snr.js";
@@ -197,6 +197,7 @@ export class Recorder {
   constructor(options: RecorderOptions = {}, listeners: RecorderListeners = {}) {
     this.options = { ...DEFAULTS, ...options };
     this.listeners = listeners;
+    document.addEventListener("visibilitychange", this.onVisibilityChange);
   }
 
   getState(): RecorderState {
@@ -226,6 +227,7 @@ export class Recorder {
       return;
     }
 
+    this.setAudioSessionType();
     this.cancelIdleRelease();
 
     // Warm path: the graph from the previous take is still live, so recording
@@ -332,6 +334,19 @@ export class Recorder {
         throw captureError("SNR_TOO_LOW", `SNR ${stats.snrDb.toFixed(1)} dB below ${this.options.minSnrDb} dB`);
       }
 
+      // resampleTo16k() passes audio through unresampled below the target
+      // rate, on the assumption every browser AudioContext runs at 44.1kHz+.
+      // A Bluetooth HFP (narrowband) route can pin the whole audio session —
+      // including this context — below that. Encoding the header as 16kHz
+      // anyway would hand the scorer real audio at a fabricated rate: pitch
+      // and duration both come out wrong, silently, instead of failing loud.
+      if (contextSampleRate < TARGET_SAMPLE_RATE) {
+        throw captureError(
+          "UNSUPPORTED_SAMPLE_RATE",
+          `context sample rate ${contextSampleRate}Hz is below the ${TARGET_SAMPLE_RATE}Hz target`,
+        );
+      }
+
       const resampled = resampleTo16k(raw, contextSampleRate);
       const wav = encodeWav(resampled, TARGET_SAMPLE_RATE);
 
@@ -379,6 +394,7 @@ export class Recorder {
   }
 
   dispose(): void {
+    document.removeEventListener("visibilitychange", this.onVisibilityChange);
     this.releaseMicrophone();
     this.setState("idle");
   }
@@ -402,20 +418,6 @@ export class Recorder {
   // ── internals ──────────────────────────────────────────────────────────────
 
   private async buildGraph(): Promise<void> {
-    // Feature-detected, and does nothing for the DSP question R4/R5 exist
-    // for — the Audio Session API controls session *type* and interruption
-    // behaviour, not gain control/noise suppression/echo cancellation. What
-    // it does fix: a documented iOS Safari bug where granting getUserMedia
-    // can silently reroute audio output to the built-in speaker even with a
-    // Bluetooth or wired headset connected.
-    if ("audioSession" in navigator) {
-      try {
-        (navigator as Navigator & { audioSession: { type: string } }).audioSession.type = "play-and-record";
-      } catch {
-        // Non-fatal — worst case is the routing bug this was meant to avoid.
-      }
-    }
-
     const AudioContextCtor =
       window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
@@ -471,10 +473,88 @@ export class Recorder {
   }
 
   private onDeviceChange = (): void => {
-    if (this.capturing && this.track && this.track.readyState === "ended") {
+    if (!this.capturing || !this.track) return;
+
+    if (this.track.readyState === "ended") {
       this.fail(captureError("DEVICE_LOST", "capture device went away"));
+      return;
+    }
+
+    // The track can also survive a route change (e.g. AirPods connecting or
+    // disconnecting mid-take) without ever ending — the OS just re-points the
+    // same MediaStreamTrack at a different physical input, with its own DSP
+    // and noise floor the page never asked about. `granted` (read once at
+    // acquisition) and the debug panel would then silently describe a take
+    // that was actually split across two capture paths. Re-reading settings
+    // here and failing on a real change is cheaper than shipping a
+    // corrupted/mis-scored WAV under stale metadata.
+    if (!this.granted) return;
+    const current = readGrantedConstraints(this.track);
+    const deviceChanged =
+      current.deviceId !== "not reported" &&
+      this.granted.deviceId !== "not reported" &&
+      current.deviceId !== this.granted.deviceId;
+    const rateChanged =
+      current.sampleRate !== "not reported" &&
+      this.granted.sampleRate !== "not reported" &&
+      current.sampleRate !== this.granted.sampleRate;
+
+    if (deviceChanged || rateChanged) {
+      this.fail(
+        captureError(
+          "ROUTE_CHANGED",
+          `input changed mid-take (device ${String(this.granted.deviceId)} -> ${String(current.deviceId)}, rate ${String(this.granted.sampleRate)} -> ${String(current.sampleRate)})`,
+        ),
+      );
     }
   };
+
+  /**
+   * iOS suspends this tab's JS while backgrounded, so the events buildGraph()
+   * already listens for (track.onended, context.onstatechange) may simply
+   * never run during an interruption — a call, another app grabbing the
+   * audio session, or the screen locking mid-take. Left alone, the take can
+   * hang in "recording" forever with no error and no result. Re-validating on
+   * return to the foreground catches what those events missed instead of
+   * trusting a take that ran unobserved.
+   */
+  private onVisibilityChange = (): void => {
+    if (document.visibilityState === "hidden") {
+      // The idle-release timer is a plain setTimeout, which iOS throttles
+      // once the tab backgrounds — it can't be trusted to fire promptly.
+      // Release a warm-but-idle mic immediately instead; an active recording
+      // is untouched (capturing stays true; this only fires when it's false).
+      if (!this.capturing) this.releaseAudio();
+      return;
+    }
+
+    if (this.capturing && (this.track?.readyState !== "live" || this.context?.state !== "running")) {
+      this.fail(
+        captureError(
+          "INTERRUPTED",
+          `visibility resumed mid-take with track=${this.track?.readyState ?? "none"} context=${this.context?.state ?? "none"}`,
+        ),
+      );
+    }
+  };
+
+  /**
+   * Feature-detected, and does nothing for the DSP question R4/R5 exist for —
+   * the Audio Session API controls session *type* and interruption behaviour,
+   * not gain control/noise suppression/echo cancellation. What it does fix: a
+   * documented iOS Safari bug where granting getUserMedia can silently
+   * reroute audio output to the built-in speaker even with a Bluetooth or
+   * wired headset connected. Must run before acquireMicrophone() — the bug is
+   * triggered by the grant itself, not by anything that happens afterward.
+   */
+  private setAudioSessionType(): void {
+    if (!("audioSession" in navigator)) return;
+    try {
+      (navigator as Navigator & { audioSession: { type: string } }).audioSession.type = "play-and-record";
+    } catch {
+      // Non-fatal — worst case is the routing bug this was meant to avoid.
+    }
+  }
 
   private beginCapture(): void {
     this.frames = [];

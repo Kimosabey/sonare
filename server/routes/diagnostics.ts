@@ -8,9 +8,11 @@
  *
  * GET /api/v1/diagnostics and GET /api/v1/attempts — read-only, for the
  * internal #/diagnostics screen. These DO expose real attempt/error data
- * across every session, so they're gated behind DIAGNOSTICS_TOKEN if it's
- * set. Left optional (unset = open) so local dev needs no setup — set it
- * before this server is ever reachable outside a dev machine (see README).
+ * across every session — spoken phrases, device info, session IDs — so they
+ * always require DIAGNOSTICS_TOKEN. There is no "unset = open" fallback:
+ * that would make a forgotten env var the difference between this being
+ * internal-only and being a public export of every learner's data. Set
+ * DIAGNOSTICS_TOKEN in .env for local dev too; it's one line.
  */
 
 import { Router } from "express";
@@ -33,15 +35,16 @@ function parseLimit(raw: unknown, fallback: number): number {
 
 function requireDiagnosticsToken(req: Request, res: Response, next: NextFunction): void {
   const required = process.env.DIAGNOSTICS_TOKEN;
-  if (!required) {
-    next(); // Not configured — stays open, matching local-dev-by-default.
-    return;
-  }
-  if (req.headers["x-diagnostics-token"] === required) {
+  // Fail closed, not open, when it's unset — see the comment above.
+  if (required && req.headers["x-diagnostics-token"] === required) {
     next();
     return;
   }
-  res.status(401).json({ error: "missing or invalid diagnostics token" });
+  res.status(401).json({
+    error: required
+      ? "missing or invalid diagnostics token"
+      : "diagnostics is disabled — set DIAGNOSTICS_TOKEN to enable it",
+  });
 }
 
 diagnosticsRouter.post("/diagnostics", (req: Request, res: Response) => {
@@ -56,6 +59,7 @@ diagnosticsRouter.post("/diagnostics", (req: Request, res: Response) => {
     ...(typeof body.userMessage === "string" ? { userMessage: body.userMessage } : {}),
     ...(typeof body.sessionId === "string" ? { sessionId: body.sessionId } : {}),
     ...(typeof body.activityId === "number" ? { activityId: body.activityId } : {}),
+    ...(typeof body.learnerName === "string" && body.learnerName ? { learnerName: body.learnerName } : {}),
     context: {
       userAgent: req.headers["user-agent"] ?? "not reported",
       ...(typeof body.context === "object" && body.context !== null ? body.context : {}),

@@ -11,8 +11,14 @@ import type { ApiErrorBody, PronunciationResult } from "./types.js";
 
 const ENDPOINT = "/api/v1/pronunciation";
 
-/** One retry, for a dropped connection only. */
-const RETRY_DELAY_MS = 600;
+/**
+ * Retries for a dropped connection only, not a rejection the server actually
+ * reasoned about — re-sending audio it already refused just produces the
+ * same refusal. A slow/flaky mobile network can drop a request that would
+ * have gone through a moment later, so this is two retries with backoff
+ * rather than one flat one.
+ */
+const RETRY_DELAYS_MS = [600, 1800];
 
 export class ScoringError extends Error {
   readonly code: string;
@@ -34,12 +40,14 @@ export interface ScoreRequest {
   language: string;
   contextSampleRate: number;
   granted: GrantedConstraints;
-  /** Ties every attempt in a session together — see FrenchActivityTest.tsx. */
+  /** Ties every attempt in a session together — see ActivityTest.tsx. */
   sessionId: string;
   activityId: number;
   snrDb: number;
   peakDbfs: number;
   endpoint: DeviceContext["endpoint"];
+  /** Whatever the learner entered on the language picker, if anything. */
+  learnerName?: string;
 }
 
 export async function scoreRecording(req: ScoreRequest): Promise<PronunciationResult> {
@@ -58,18 +66,30 @@ export async function scoreRecording(req: ScoreRequest): Promise<PronunciationRe
   form.append("language", req.language);
   form.append("sessionId", req.sessionId);
   form.append("activityId", String(req.activityId));
+  if (req.learnerName) form.append("learnerName", req.learnerName);
   form.append("deviceContext", JSON.stringify(deviceContext));
 
-  try {
-    return await post(form);
-  } catch (err) {
-    // Retry the network, never a rejection the server actually reasoned about —
-    // re-sending audio it already refused just produces the same refusal.
-    if (err instanceof ScoringError && err.domain === "network") {
-      await delay(RETRY_DELAY_MS);
-      return post(form);
+  // Fail fast rather than let a request sit until it times out — a browser
+  // network stack can take 10s+ to notice and reject a fetch while offline.
+  if (!navigator.onLine) {
+    throw new ScoringError(
+      "OFFLINE",
+      "network",
+      "navigator.onLine is false",
+      "You're offline. Reconnect and try again.",
+    );
+  }
+
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await post(form);
+    } catch (err) {
+      const retryDelayMs = err instanceof ScoringError && err.domain === "network" ? RETRY_DELAYS_MS[attempt] : undefined;
+      if (retryDelayMs === undefined) throw err;
+      attempt += 1;
+      await delay(retryDelayMs);
     }
-    throw err;
   }
 }
 

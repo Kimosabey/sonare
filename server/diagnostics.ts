@@ -6,6 +6,7 @@
  */
 
 import { getDb } from "./db.js";
+import { appendFallback } from "./fallbackLog.js";
 
 export interface DiagnosticRecord {
   at: string;
@@ -13,6 +14,8 @@ export interface DiagnosticRecord {
   /** Ties every attempt/diagnostic in one session together for funnel analysis. */
   sessionId?: string;
   activityId?: number;
+  /** Self-reported on the language picker — identifies a person, not just a session. */
+  learnerName?: string;
   code: string;
   domain: string;
   message: string;
@@ -26,6 +29,7 @@ export async function recordDiagnostic(record: DiagnosticRecord): Promise<void> 
     await db.collection<DiagnosticRecord>("diagnostics").insertOne(record);
   } catch (err) {
     console.error("[diagnostics] failed to persist record:", String(err));
+    await appendFallback("diagnostics", record);
   }
 }
 

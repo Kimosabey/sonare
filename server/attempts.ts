@@ -6,6 +6,7 @@
  */
 
 import { getDb } from "./db.js";
+import { appendFallback } from "./fallbackLog.js";
 import type { PronunciationResult } from "./services/types.js";
 
 export interface AttemptRecord {
@@ -13,6 +14,8 @@ export interface AttemptRecord {
   /** Ties every attempt/diagnostic in one session together for funnel analysis. */
   sessionId?: string;
   activityId?: number;
+  /** Self-reported on the language picker — identifies a person, not just a session. */
+  learnerName?: string;
   referenceText: string;
   language: string;
   provider: string;
@@ -40,6 +43,11 @@ export async function recordAttempt(record: AttemptRecord): Promise<void> {
   } catch (err) {
     // Never fail a learner's scoring request because the log write failed.
     console.error("[attempts] failed to persist record:", String(err));
+    // But don't just drop it either — this record is the measurement the
+    // product exists to produce (PRD.md §8). Fall back to a local file so a
+    // transient Mongo outage doesn't silently erase it; replay it later with
+    // `npm run replay-fallback`.
+    await appendFallback("attempts", record);
   }
 }
 

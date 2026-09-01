@@ -17,3 +17,8 @@ build/
 
 # Local test output
 french-activity-test-results.json
+
+# server/fallbackLog.ts's last-resort local copy of attempts/diagnostics
+# records when MongoDB is unreachable — holds real learner data, never
+# committed. Replay into Mongo with `npm run replay-fallback`.
+/data/

@@ -23,6 +23,7 @@ interface AttemptRecord {
   at: string;
   sessionId?: string;
   activityId?: number;
+  learnerName?: string;
   referenceText: string;
   language: string;
   audio: { seconds: number };
@@ -36,6 +37,7 @@ interface DiagnosticRecord {
   source: "client" | "server";
   sessionId?: string;
   activityId?: number;
+  learnerName?: string;
   code: string;
   domain: string;
   context?: unknown;
@@ -157,6 +159,7 @@ export function Diagnostics() {
               <thead>
                 <tr>
                   <th>At</th>
+                  <th>Learner</th>
                   <th>Session</th>
                   <th className="num">Activity</th>
                   <th>Reference</th>
@@ -179,6 +182,7 @@ export function Diagnostics() {
                   return (
                     <tr key={i}>
                       <td>{formatAt(a.at)}</td>
+                      <td>{a.learnerName ?? "—"}</td>
                       <td>{shortSessionId(a.sessionId)}</td>
                       <td className="num">{a.activityId ?? "—"}</td>
                       <td>{a.referenceText}</td>
@@ -214,6 +218,7 @@ export function Diagnostics() {
               <thead>
                 <tr>
                   <th>At</th>
+                  <th>Learner</th>
                   <th>Session</th>
                   <th className="num">Activity</th>
                   <th>Source</th>
@@ -226,6 +231,7 @@ export function Diagnostics() {
                 {diagnostics.map((d, i) => (
                   <tr key={i}>
                     <td>{formatAt(d.at)}</td>
+                    <td>{d.learnerName ?? "—"}</td>
                     <td>{shortSessionId(d.sessionId)}</td>
                     <td className="num">{d.activityId ?? "—"}</td>
                     <td>{d.source}</td>

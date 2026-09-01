@@ -45,7 +45,12 @@ export class AppError extends Error implements TypedError {
     return {
       code: this.code,
       domain: this.domain,
-      message: this.message,
+      // `this.message` is for server-side logs only — it can carry a raw
+      // provider/SDK string (see azureSpeech.ts's PROVIDER_REJECTED). The
+      // wire contract keeps a `message` field for shape-compatibility with
+      // existing clients, but its value is always the already-sanitized
+      // userMessage — never the internal one.
+      message: this.userMessage,
       userMessage: this.userMessage,
     };
   }

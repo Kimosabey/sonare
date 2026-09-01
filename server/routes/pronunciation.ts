@@ -67,6 +67,7 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
     const language = typeof body.language === "string" && body.language ? body.language : "en-US";
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : undefined;
     const activityId = typeof body.activityId === "string" ? Number(body.activityId) : undefined;
+    const learnerName = typeof body.learnerName === "string" && body.learnerName ? body.learnerName : undefined;
 
     if (!referenceText) {
       throw new AppError({
@@ -105,6 +106,7 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
       at: new Date().toISOString(),
       ...(sessionId ? { sessionId } : {}),
       ...(activityId !== undefined && !Number.isNaN(activityId) ? { activityId } : {}),
+      ...(learnerName ? { learnerName } : {}),
       referenceText,
       language,
       provider: result.provider,
@@ -148,6 +150,7 @@ function respondWithError(req: Request, res: Response, err: unknown): void {
   const sessionId = typeof body.sessionId === "string" ? body.sessionId : undefined;
   const rawActivityId = typeof body.activityId === "string" ? Number(body.activityId) : undefined;
   const activityId = rawActivityId !== undefined && !Number.isNaN(rawActivityId) ? rawActivityId : undefined;
+  const learnerName = typeof body.learnerName === "string" && body.learnerName ? body.learnerName : undefined;
 
   if (isAppError(err)) {
     // Server-side detail is logged; the client sees code, domain and userMessage.
@@ -162,6 +165,7 @@ function respondWithError(req: Request, res: Response, err: unknown): void {
       userMessage: err.userMessage,
       ...(sessionId ? { sessionId } : {}),
       ...(activityId !== undefined ? { activityId } : {}),
+      ...(learnerName ? { learnerName } : {}),
       context,
     });
     res.status(err.status).json({ error: err.toJSON() });

@@ -16,9 +16,11 @@ import type { PronunciationResult } from "../scoring/types.js";
 export interface UseRecorderOptions {
   referenceText: string;
   language: string;
-  /** Ties every attempt in a session together — see FrenchActivityTest.tsx. */
+  /** Ties every attempt in a session together — see ActivityTest.tsx. */
   sessionId: string;
   activityId: number;
+  /** Whatever the learner entered on the language picker, if anything. */
+  learnerName?: string;
   minSnrDb?: number;
   enforceSnrGate?: boolean;
   /** Hands-free mode: the take ends on trailing silence rather than a second tap. */
@@ -217,6 +219,7 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
           granted: capture.granted,
           sessionId: optionsRef.current.sessionId,
           activityId: optionsRef.current.activityId,
+          ...(optionsRef.current.learnerName ? { learnerName: optionsRef.current.learnerName } : {}),
           snrDb: capture.snrDb,
           peakDbfs: capture.peakDbfs,
           endpoint: capture.endpoint,
