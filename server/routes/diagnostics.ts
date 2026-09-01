@@ -17,9 +17,28 @@
 
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
+import { z } from "zod";
 import { recordDiagnostic, listDiagnostics } from "../diagnostics.js";
 import { listAttempts } from "../attempts.js";
 import { diagnosticsLimiter } from "../rateLimit.js";
+import { logger } from "../logger.js";
+
+/**
+ * Lenient by design, matching this endpoint's own fire-and-forget contract
+ * (see the file comment): a malformed field falls back to a safe default
+ * rather than rejecting the request — a dropped diagnostic is a worse
+ * outcome than one recorded with `code: "UNKNOWN"`.
+ */
+const DiagnosticBodySchema = z.object({
+  code: z.string().optional(),
+  domain: z.string().optional(),
+  message: z.string().optional(),
+  userMessage: z.string().optional(),
+  sessionId: z.string().optional(),
+  activityId: z.number().optional(),
+  learnerName: z.string().optional(),
+  context: z.unknown().optional(),
+});
 
 export const diagnosticsRouter = Router();
 
@@ -48,18 +67,19 @@ function requireDiagnosticsToken(req: Request, res: Response, next: NextFunction
 }
 
 diagnosticsRouter.post("/diagnostics", (req: Request, res: Response) => {
-  const body = req.body as Record<string, unknown>;
+  const parsed = DiagnosticBodySchema.safeParse(req.body);
+  const body = parsed.success ? parsed.data : {};
 
   void recordDiagnostic({
     at: new Date().toISOString(),
     source: "client",
-    code: typeof body.code === "string" ? body.code : "UNKNOWN",
-    domain: typeof body.domain === "string" ? body.domain : "client",
-    message: typeof body.message === "string" ? body.message : "",
-    ...(typeof body.userMessage === "string" ? { userMessage: body.userMessage } : {}),
-    ...(typeof body.sessionId === "string" ? { sessionId: body.sessionId } : {}),
-    ...(typeof body.activityId === "number" ? { activityId: body.activityId } : {}),
-    ...(typeof body.learnerName === "string" && body.learnerName ? { learnerName: body.learnerName } : {}),
+    code: body.code ?? "UNKNOWN",
+    domain: body.domain ?? "client",
+    message: body.message ?? "",
+    ...(body.userMessage ? { userMessage: body.userMessage } : {}),
+    ...(body.sessionId ? { sessionId: body.sessionId } : {}),
+    ...(body.activityId !== undefined ? { activityId: body.activityId } : {}),
+    ...(body.learnerName ? { learnerName: body.learnerName } : {}),
     context: {
       userAgent: req.headers["user-agent"] ?? "not reported",
       ...(typeof body.context === "object" && body.context !== null ? body.context : {}),
@@ -74,7 +94,7 @@ diagnosticsRouter.get("/diagnostics", requireDiagnosticsToken, (req: Request, re
   listDiagnostics(limit)
     .then((records) => res.json({ records }))
     .catch((err: unknown) => {
-      console.error("[diagnostics] list failed:", String(err));
+      logger.error({ err }, "[diagnostics] list failed");
       res.status(503).json({ error: "diagnostics store unavailable" });
     });
 });
@@ -84,7 +104,7 @@ diagnosticsRouter.get("/attempts", requireDiagnosticsToken, (req: Request, res: 
   listAttempts(limit)
     .then((records) => res.json({ records }))
     .catch((err: unknown) => {
-      console.error("[attempts] list failed:", String(err));
+      logger.error({ err }, "[attempts] list failed");
       res.status(503).json({ error: "attempts store unavailable" });
     });
 });

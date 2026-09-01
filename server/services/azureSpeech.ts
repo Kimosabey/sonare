@@ -8,40 +8,54 @@
  */
 
 import sdk from "microsoft-cognitiveservices-speech-sdk";
+import { z } from "zod";
 import { AppError } from "../errors.js";
+import { logger } from "../logger.js";
 import type { PronunciationResult, ScoredWord, ScoringProvider } from "./types.js";
 
-/** Azure's raw JSON. Typed narrowly here so no `any` escapes into the codebase. */
-interface RawAssessment {
-  PronScore?: number;
-  AccuracyScore?: number;
-  FluencyScore?: number;
-  CompletenessScore?: number;
-  ProsodyScore?: number;
-  ErrorType?: string;
-}
+/**
+ * Azure's raw JSON, validated at the trust boundary rather than just cast.
+ * `JSON.parse(result.json)` used to be trusted with a bare `as RawResult` —
+ * this is the one real external-shape boundary in the scoring path, and a
+ * provider-side schema change would otherwise surface as a confusing
+ * downstream crash instead of a clean `indeterminate` result.
+ *
+ * `.passthrough()` throughout: this only validates the fields we read.
+ * Azure adding new fields we don't model must never fail the parse — only a
+ * field we depend on being the wrong *type* should.
+ */
+const RawAssessmentSchema = z.looseObject({
+  PronScore: z.number().optional(),
+  AccuracyScore: z.number().optional(),
+  FluencyScore: z.number().optional(),
+  CompletenessScore: z.number().optional(),
+  ProsodyScore: z.number().optional(),
+  ErrorType: z.string().optional(),
+});
 
-interface RawPhoneme {
-  Phoneme?: string;
-  PronunciationAssessment?: RawAssessment;
-}
+const RawPhonemeSchema = z.looseObject({
+  Phoneme: z.string().optional(),
+  PronunciationAssessment: RawAssessmentSchema.optional(),
+});
 
-interface RawWord {
-  Word?: string;
-  PronunciationAssessment?: RawAssessment;
-  Phonemes?: RawPhoneme[];
-}
+const RawWordSchema = z.looseObject({
+  Word: z.string().optional(),
+  PronunciationAssessment: RawAssessmentSchema.optional(),
+  Phonemes: z.array(RawPhonemeSchema).optional(),
+});
 
-interface RawNBest {
-  Display?: string;
-  PronunciationAssessment?: RawAssessment;
-  Words?: RawWord[];
-}
+const RawNBestSchema = z.looseObject({
+  Display: z.string().optional(),
+  PronunciationAssessment: RawAssessmentSchema.optional(),
+  Words: z.array(RawWordSchema).optional(),
+});
 
-interface RawResult {
-  NBest?: RawNBest[];
-  ModelVersion?: string;
-}
+const RawResultSchema = z.looseObject({
+  NBest: z.array(RawNBestSchema).optional(),
+  ModelVersion: z.string().optional(),
+});
+
+type RawResult = z.infer<typeof RawResultSchema>;
 
 const PROVIDER = "azure";
 
@@ -191,7 +205,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
  * `indeterminate`. We never synthesise a number to fill a gap — "I couldn't get
  * a clear read" is the honest answer and the trustworthy one.
  */
-function toPronunciationResult(result: sdk.SpeechRecognitionResult): PronunciationResult {
+export function toPronunciationResult(result: sdk.SpeechRecognitionResult): PronunciationResult {
   if (result.reason !== sdk.ResultReason.RecognizedSpeech) {
     return {
       indeterminate: true,
@@ -200,12 +214,19 @@ function toPronunciationResult(result: sdk.SpeechRecognitionResult): Pronunciati
     };
   }
 
-  let raw: RawResult;
+  let parsedJson: unknown;
   try {
-    raw = JSON.parse(result.json) as RawResult;
+    parsedJson = JSON.parse(result.json);
   } catch {
     return { indeterminate: true, provider: PROVIDER, reason: "unparseable provider response" };
   }
+
+  const validated = RawResultSchema.safeParse(parsedJson);
+  if (!validated.success) {
+    logger.warn({ issues: validated.error.issues }, "[azureSpeech] provider response did not match the expected shape");
+    return { indeterminate: true, provider: PROVIDER, reason: "provider response did not match the expected shape" };
+  }
+  const raw: RawResult = validated.data;
 
   const nBest = raw.NBest?.[0];
   const pa = nBest?.PronunciationAssessment;

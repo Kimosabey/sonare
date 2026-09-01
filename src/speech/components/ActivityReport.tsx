@@ -15,11 +15,19 @@ interface ActivityReportProps {
 
 export function ActivityReport({ report, activities, progress, onRestart, onExport }: ActivityReportProps) {
   const byId = new Map(progress.map((p) => [p.activityId, p]));
+  const allPassed = report.totalCount > 0 && report.passedCount === report.totalCount;
 
   return (
     <section className="enter-1">
-      <h2>Report</h2>
-      <p className="what">{verdictFor(report)}</p>
+      <div className="report-hero">
+        <div className="report-hero-badge">{allPassed ? "Perfect run" : "Session complete"}</div>
+        <h2 className="report-hero-count">
+          {report.passedCount}/{report.totalCount} passed
+        </h2>
+        <p className="what" style={{ marginBottom: 0 }}>
+          {verdictFor(report)}
+        </p>
+      </div>
 
       <div className="overall">
         <AnimatedCell value={report.overallScore} label="overall" />

@@ -17,8 +17,13 @@
  * #/diagnostics screen (src/pages/Diagnostics.tsx) — same parsing, two
  * places it needs to show up.
  */
+/** Just the coarse platform token, e.g. for grouping attempts by device family. */
+export function parsePlatform(ua: string): string {
+  return /iPhone|iPad|Android|Windows|Macintosh/.exec(ua)?.[0] ?? "?";
+}
+
 export function parseUserAgent(ua: string): string {
-  const platform = /iPhone|iPad|Android|Windows|Macintosh/.exec(ua)?.[0] ?? "?";
+  const platform = parsePlatform(ua);
 
   const platformVersion =
     /(?:iPhone|iPad) OS ([\d_]+)/.exec(ua)?.[1]?.replace(/_/g, ".") ??

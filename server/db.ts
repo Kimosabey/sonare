@@ -5,6 +5,7 @@
 
 import { MongoClient } from "mongodb";
 import type { Db } from "mongodb";
+import { logger } from "./logger.js";
 
 const MONGO_URL = process.env.MONGO_URL ?? "mongodb://localhost:27017";
 const MONGO_DB_NAME = process.env.MONGO_DB ?? "sonare";
@@ -16,9 +17,11 @@ export function getDb(): Promise<Db> {
     const client = new MongoClient(MONGO_URL);
     dbPromise = client
       .connect()
-      .then(() => {
-        console.log(`[db] connected to MongoDB (${MONGO_DB_NAME})`);
-        return client.db(MONGO_DB_NAME);
+      .then(async () => {
+        logger.info({ db: MONGO_DB_NAME }, "[db] connected to MongoDB");
+        const db = client.db(MONGO_DB_NAME);
+        await ensureIndexes(db);
+        return db;
       })
       .catch((err: unknown) => {
         // Clear the cache so the next call retries rather than replaying the
@@ -28,4 +31,26 @@ export function getDb(): Promise<Db> {
       });
   }
   return dbPromise;
+}
+
+/**
+ * attempts/diagnostics are both read most-recent-first ({at:-1}, exactly
+ * Diagnostics.tsx's query shape) and are explicitly designed to correlate by
+ * sessionId for funnel analysis (see attempts.ts's own comment) — without
+ * these, both are full collection scans. createIndex is idempotent, so
+ * running this on every connect (not just the very first) is safe.
+ */
+async function ensureIndexes(db: Db): Promise<void> {
+  try {
+    await Promise.all([
+      db.collection("attempts").createIndex({ at: -1 }),
+      db.collection("attempts").createIndex({ sessionId: 1 }),
+      db.collection("diagnostics").createIndex({ at: -1 }),
+      db.collection("diagnostics").createIndex({ sessionId: 1 }),
+    ]);
+  } catch (err) {
+    // A missing index costs query speed, not correctness — never fail
+    // startup, or getDb() itself, over this.
+    logger.error({ err }, "[db] failed to ensure indexes");
+  }
 }

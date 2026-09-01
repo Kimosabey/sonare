@@ -26,3 +26,8 @@ jobs:
       # No live Azure/Mongo credentials in CI — verify.mjs is static analysis
       # only (grep-shaped rule checks), it never calls either service.
       - run: npm run verify
+
+      # Also credential-free: recorder.ts tests feed synthetic dBFS sequences
+      # into the endpointer directly, and azureSpeech.ts tests build hand-made
+      # response shapes rather than calling Azure.
+      - run: npm run test

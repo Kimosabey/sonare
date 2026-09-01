@@ -9,6 +9,8 @@ interface WordChipsProps {
   words: ScoredWord[];
 }
 
+const DETAIL_ID = "phoneme-detail";
+
 export function WordChips({ words }: WordChipsProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const open = openIndex === null ? null : words[openIndex];
@@ -22,6 +24,9 @@ export function WordChips({ words }: WordChipsProps) {
             type="button"
             className={`word ${band(w.accuracy)}`}
             aria-expanded={openIndex === i}
+            // Only ever one PhonemeDetail rendered at a time (below), so this
+            // is only meaningful — and only set — for whichever chip is open.
+            aria-controls={openIndex === i ? DETAIL_ID : undefined}
             // Capped stagger — beyond the first ~8 chips the extra delay adds
             // nothing but waiting, so later chips just share the last step.
             style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
@@ -34,7 +39,7 @@ export function WordChips({ words }: WordChipsProps) {
       </div>
       {/* key forces a fresh mount (and re-plays the reveal) on every switch
           between words, not just the first open. */}
-      {open && <PhonemeDetail key={openIndex} word={open} />}
+      {open && <PhonemeDetail key={openIndex} word={open} id={DETAIL_ID} />}
     </>
   );
 }

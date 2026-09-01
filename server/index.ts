@@ -2,6 +2,8 @@ import express from "express";
 import { pronunciationRouter } from "./routes/pronunciation.js";
 import { diagnosticsRouter } from "./routes/diagnostics.js";
 import { getDb } from "./db.js";
+import { logger } from "./logger.js";
+import { getScoringProvider } from "./services/index.js";
 
 const app = express();
 
@@ -22,12 +24,22 @@ app.use(express.json());
 const PORT = Number(process.env.PORT ?? 5181);
 
 app.get("/api/v1/health", (_req, res) => {
-  // Reports whether scoring is configured — never what the configuration is (R2).
+  // Reports whether scoring is configured — never what the configuration is
+  // (R2) — and, per R12, without knowing what a "configured" vendor even
+  // looks like: getScoringProvider() throws MISCONFIGURED if it isn't, which
+  // is the provider's own judgment, not env-var names this file would have
+  // to know and keep in sync with whichever vendor is active.
+  let configured = true;
+  try {
+    getScoringProvider();
+  } catch {
+    configured = false;
+  }
+
   res.json({
     ok: true,
     provider: process.env.PRONUNCIATION_PROVIDER ?? "azure",
-    configured: Boolean(process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION),
-    region: process.env.AZURE_SPEECH_REGION ?? null,
+    configured,
   });
 });
 
@@ -35,9 +47,9 @@ app.use("/api/v1", pronunciationRouter);
 app.use("/api/v1", diagnosticsRouter);
 
 app.listen(PORT, () => {
-  console.log(`pronunciation API listening on http://localhost:${PORT}`);
+  logger.info({ port: PORT }, "pronunciation API listening");
   if (!process.env.AZURE_SPEECH_KEY) {
-    console.warn("AZURE_SPEECH_KEY is not set — scoring requests will fail until it is.");
+    logger.warn("AZURE_SPEECH_KEY is not set — scoring requests will fail until it is set");
   }
 });
 
@@ -46,5 +58,5 @@ app.listen(PORT, () => {
 // A failure here is logged, not fatal: attempts.ts/diagnostics.ts already
 // tolerate getDb() rejecting and simply skip persistence for that call.
 void getDb().catch((err: unknown) => {
-  console.error("[db] initial MongoDB connection failed:", String(err));
+  logger.error({ err }, "[db] initial MongoDB connection failed");
 });

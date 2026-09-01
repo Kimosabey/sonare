@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useRecorder } from "../speech/react/useRecorder.js";
 import { hangoverForReference } from "../speech/capture/recorder.js";
 import { RecordButton } from "../speech/components/RecordButton.js";
@@ -29,6 +29,7 @@ import { useToast } from "../ui/ToastProvider.js";
 import { useWakeLock } from "../ui/useWakeLock.js";
 import { useOnlineStatus } from "../ui/useOnlineStatus.js";
 import { useLearnerName } from "../ui/useLearnerName.js";
+import { useProgressPersistence } from "../ui/useProgressPersistence.js";
 import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
 import { buildReport } from "../activities/report.js";
 import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
@@ -37,19 +38,40 @@ import type { PronunciationResult } from "../speech/scoring/types.js";
 export function ActivityTest() {
   const { slug } = useParams<{ slug: string }>();
   const activeLanguage = getLanguage(slug);
+  // T15/FR-25's device-grant panel is fixture instrumentation, not a
+  // learner-facing feature (see DebugPanel.tsx) — opt in with ?debug=1
+  // rather than showing every learner their own raw device diagnostics.
+  const [searchParams] = useSearchParams();
+  const debugEnabled = searchParams.get("debug") === "1";
+  const [learnerName] = useLearnerName();
+  // Keyed before activeLanguage resolves too — the "language not found"
+  // branch never renders anything that reads it, so an "unknown" bucket for
+  // that case is harmless.
+  const progressStore = useProgressPersistence(slug ?? "unknown", learnerName);
 
-  const [index, setIndex] = useState(0);
-  const [progress, setProgress] = useState<ActivityProgress[]>([]);
-  const [finished, setFinished] = useState(false);
+  const [index, setIndex] = useState(progressStore.initial.index);
+  const [progress, setProgress] = useState<ActivityProgress[]>(progressStore.initial.progress);
+  const [finished, setFinished] = useState(progressStore.initial.finished);
   const [started, setStarted] = useState(false);
   const [settings, setSettings] = useState<CaptureSettingsValue>(DEFAULT_CAPTURE_SETTINGS);
+  // Drives the pass-banner's copy for one attempt only — cleared as soon as
+  // the next take starts, so praise never lingers past the moment it's about.
+  const [celebration, setCelebration] = useState<{ kind: "pass" | "personalBest" | "firstTry"; score: number } | null>(
+    null,
+  );
   const startedAt = useRef(Date.now());
   // Ties every attempt and diagnostic in one session together for funnel
   // analysis (#/diagnostics) — regenerated on beginSession()/restart() so a
   // fresh session never gets attributed to the previous one's data.
   const sessionId = useRef(crypto.randomUUID());
   const toast = useToast();
-  const [learnerName] = useLearnerName();
+
+  // A refresh still lands back on the intro screen (Start still needs a
+  // fresh user gesture to open the microphone — R10), but it no longer
+  // throws away index/progress/finished doing it.
+  useEffect(() => {
+    progressStore.save({ index, progress, finished });
+  }, [index, progress, finished, progressStore.save]);
 
   // Warn before a take is recorded and lost to a failed upload, rather than
   // letting the learner discover the connection is down only after speaking.
@@ -97,6 +119,24 @@ export function ActivityTest() {
         at: new Date().toISOString(),
       };
 
+      // Read from the closure, not the functional setProgress below: this is
+      // "what was true right before this attempt landed," which is exactly
+      // what a learner's own sense of "did I just beat myself" means. Rare,
+      // brief double-scoring races (continuous mode) getting a downgraded
+      // celebration copy is a fully acceptable trade against the complexity
+      // of computing this inside a reducer.
+      const existingBefore = progress.find((p) => p.activityId === activity.id);
+      const previousBest = existingBefore?.best ?? null;
+      const isFirstAttempt = (existingBefore?.attempts.length ?? 0) === 0;
+
+      if (accuracy !== null && accuracy >= PASS_SCORE) {
+        if (isFirstAttempt) setCelebration({ kind: "firstTry", score: accuracy });
+        else if (previousBest === null || accuracy > previousBest) setCelebration({ kind: "personalBest", score: accuracy });
+        else setCelebration({ kind: "pass", score: accuracy });
+      } else {
+        setCelebration(null);
+      }
+
       setProgress((prev) => {
         const existing = prev.find((p) => p.activityId === activity.id);
         const attempts = [...(existing?.attempts ?? []), attempt];
@@ -126,12 +166,19 @@ export function ActivityTest() {
   // most of the risk is the learner reading the prompt before they tap Record.
   useWakeLock(started && !finished);
 
+  // A learner who already passed can still retry to beat their own score —
+  // the old banner must not survive into that new attempt looking current.
+  useEffect(() => {
+    if (recorder.state === "requesting") setCelebration(null);
+  }, [recorder.state]);
+
   const scoredAttempts = current?.attempts.filter((a) => a.accuracy !== null).length ?? 0;
   const canAdvance = Boolean(current?.passed) || scoredAttempts >= MAX_ATTEMPTS;
   const isLast = index === activities.length - 1;
 
   const advance = useCallback(() => {
     recorder.reset();
+    setCelebration(null);
     if (isLast) {
       setFinished(true);
       toast.push({ kind: "success", title: "Session complete", detail: "Your report is ready below." });
@@ -146,9 +193,11 @@ export function ActivityTest() {
     setProgress([]);
     setIndex(0);
     setFinished(false);
+    setCelebration(null);
     startedAt.current = Date.now();
     sessionId.current = crypto.randomUUID();
-  }, [recorder]);
+    progressStore.clear();
+  }, [recorder, progressStore.clear]);
 
   // Warms the microphone here, ahead of activity 1's own Record tap, so the
   // learner's first graded attempt hits the same warm path every later one
@@ -196,12 +245,34 @@ export function ActivityTest() {
     );
   }
 
+  // Checked before !started: a refresh always lands back here first (started
+  // resets to false on every page load — see useProgressPersistence.ts), but
+  // restored progress can already be `finished`. Without this order, a
+  // learner who finished before refreshing would see "Ready to practice?"
+  // again instead of the report that's still sitting in storage.
+  if (finished) {
+    return (
+      <ActivityReport
+        report={report}
+        activities={activities}
+        progress={progress}
+        onRestart={restart}
+        onExport={exportReport}
+      />
+    );
+  }
+
   if (!started) {
+    const resuming = progress.length > 0;
+    const passedSoFar = progress.filter((p) => p.passed).length;
+
     return (
       <section>
-        <h2 className="enter-1">Ready to practice?</h2>
+        <h2 className="enter-1">{resuming ? "Welcome back" : "Ready to practice?"}</h2>
         <p className="what enter-2">
-          Ten short activities, {activeLanguage.label} pronunciation scored phoneme by phoneme.
+          {resuming
+            ? `Continuing Activity ${index + 1} of ${activities.length} — ${passedSoFar} passed so far.`
+            : `Ten short activities, ${activeLanguage.label} pronunciation scored phoneme by phoneme.`}
         </p>
         <p className="hint enter-2">Tapping Start also turns on your microphone.</p>
         <p className="hint enter-2">
@@ -216,22 +287,10 @@ export function ActivityTest() {
 
         <div className="row">
           <button type="button" className="enter-cta" onClick={beginSession}>
-            Start
+            {resuming ? "Continue" : "Start"}
           </button>
         </div>
       </section>
-    );
-  }
-
-  if (finished) {
-    return (
-      <ActivityReport
-        report={report}
-        activities={activities}
-        progress={progress}
-        onRestart={restart}
-        onExport={exportReport}
-      />
     );
   }
 
@@ -249,6 +308,9 @@ export function ActivityTest() {
           {passedCount} passed · {progress.length} attempted
         </p>
 
+        <div className="steps-track" aria-hidden="true">
+          <div className="steps-fill" style={{ width: `${(passedCount / activities.length) * 100}%` }} />
+        </div>
         <div className="steps" role="list" aria-label={`Activity ${activity.id} of ${activities.length}`}>
           {activities.map((a, i) => {
             const p = progress.find((pr) => pr.activityId === a.id);
@@ -314,23 +376,39 @@ export function ActivityTest() {
         <LevelMeter level={recorder.level} active={recorder.state === "recording"} />
 
         {recorder.error && (
-          <div className="verdict v-fail">
-            <div className="tag">{recorder.error.code}</div>
+          <div className="verdict v-fail" role="status" aria-live="polite">
+            <div className="tag">ERROR</div>
             <div>
               {recorder.error.userMessage}
-              <div className="hint">
-                {recorder.error.domain} · {recorder.error.detail}
-              </div>
+              {/* The raw code/domain/detail is real diagnostic value for a support
+                  report, but showing it as the primary, most-visible text (it used
+                  to be the red tag itself) reads as broken rather than handled —
+                  collapsed by default, one tap away when it's actually needed. */}
+              <details className="error-details">
+                <summary>Technical details</summary>
+                <div className="hint">
+                  {recorder.error.code} · {recorder.error.domain} · {recorder.error.detail}
+                </div>
+              </details>
             </div>
           </div>
         )}
 
         {current?.passed && (
-          <div className="verdict v-warn pass-banner" style={{ borderColor: "#b4dbcb", background: "#e7f3ee" }}>
+          <div
+            className={`verdict v-warn pass-banner${celebration && celebration.kind !== "pass" ? " pass-banner-celebrate" : ""}`}
+            style={{ borderColor: "#b4dbcb", background: "#e7f3ee" }}
+            role="status"
+            aria-live="polite"
+          >
             <div className="tag" style={{ color: "var(--pass)" }}>
-              PASSED
+              {celebration?.kind === "firstTry" ? "FIRST TRY!" : celebration?.kind === "personalBest" ? "NEW BEST!" : "PASSED"}
             </div>
-            <div>Scored {Math.round(current.best ?? 0)}. Move on when you are ready.</div>
+            <div>
+              {celebration?.kind === "personalBest"
+                ? `Scored ${Math.round(current.best ?? 0)} — beat your previous best. Move on when you are ready.`
+                : `Scored ${Math.round(current.best ?? 0)}. Move on when you are ready.`}
+            </div>
           </div>
         )}
 
@@ -347,7 +425,9 @@ export function ActivityTest() {
 
       <section>
         <h2>Result</h2>
-        {recorder.result ? <ScoreCard result={recorder.result} /> : <p className="what">No attempt yet.</p>}
+        <div aria-live="polite">
+          {recorder.result ? <ScoreCard result={recorder.result} /> : <p className="what">No attempt yet.</p>}
+        </div>
 
         {attemptsUsed > 1 && (
           <p className="hint">
@@ -356,12 +436,14 @@ export function ActivityTest() {
           </p>
         )}
 
-        <DebugPanel
-          granted={recorder.granted}
-          contextSampleRate={recorder.contextSampleRate}
-          capture={recorder.lastCapture}
-          result={recorder.result}
-        />
+        {debugEnabled && (
+          <DebugPanel
+            granted={recorder.granted}
+            contextSampleRate={recorder.contextSampleRate}
+            capture={recorder.lastCapture}
+            result={recorder.result}
+          />
+        )}
       </section>
     </>
   );

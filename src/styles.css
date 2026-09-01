@@ -15,7 +15,11 @@
   --signal: #41009a; /* Brand Purple */
   --signal-soft: #f0e6ff; /* Lilac */
   --pass: #1b7a5a;
-  --warn: #b26a00;
+  /* #b26a00 (the original neutral amber) measured ~3.5:1 on --panel/--warn-soft
+     — below the 4.5:1 AA floor for the small mono text it's used as (verdict
+     tags, phoneme scores, toast icons). Same hue (~36°), darkened until it
+     clears AA with margin (~5.3:1 on --panel, ~5.8:1 on --warn-soft). */
+  --warn: #8a5200;
   --warn-soft: #fcf3e3;
   --fail: #c0273c;
   --fail-soft: #fbe9ec;
@@ -90,6 +94,74 @@ header::after {
   height: 28px;
   display: block;
   animation: rise-in var(--dur-standard) var(--ease) both;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  animation: rise-in var(--dur-standard) var(--ease) both;
+}
+
+.breadcrumb a {
+  color: var(--dim);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover,
+.breadcrumb a:focus-visible {
+  color: var(--signal);
+  text-decoration: underline;
+}
+
+.breadcrumb span:last-child {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.breadcrumb-lang-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Overrides the global input/select rule (100% width, 16px, bordered card
+   style) — here it must read as breadcrumb text with a dropdown affordance,
+   not a form field. */
+.breadcrumb-lang-wrap select.breadcrumb-lang {
+  appearance: none;
+  -webkit-appearance: none;
+  width: auto;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 15px 2px 3px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.breadcrumb-lang-wrap select.breadcrumb-lang:hover,
+.breadcrumb-lang-wrap select.breadcrumb-lang:focus-visible {
+  background: var(--panel);
+  outline: none;
+}
+
+.breadcrumb-lang-caret {
+  position: absolute;
+  right: 3px;
+  font-size: 9px;
+  color: var(--dim);
+  pointer-events: none;
 }
 
 .eyebrow {
@@ -295,6 +367,20 @@ button:focus-visible {
    One dot per activity — the recognizable "how far through the lesson am I"
    pattern from Duolingo/Mondly-style apps. A row of dots rather than a bar
    because it also shows what's ahead, not just progress so far. */
+
+.steps-track {
+  height: 4px;
+  background: var(--panel);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.steps-fill {
+  height: 100%;
+  background: var(--pass);
+  transition: width var(--dur-slow) var(--ease);
+}
 
 .steps {
   display: flex;
@@ -583,8 +669,83 @@ button:focus-visible {
   color: var(--fail);
 }
 
+/* A lighter-weight <details> than the global one (which is a full bordered
+   card) — this sits inside an already-bordered verdict banner, so it only
+   needs to be a small, unobtrusive disclosure, not another box. */
+.error-details {
+  margin-top: 6px;
+}
+.error-details summary {
+  padding: 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.error-details[open] summary {
+  border-bottom: none;
+  margin-bottom: 4px;
+}
+.error-details .hint {
+  margin-top: 0;
+}
+
+/* ── session-complete hero ────────────────────────────────────────────────── */
+
+.report-hero {
+  text-align: center;
+  padding: 6px 0 14px;
+}
+
+.report-hero-badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pass);
+  background: #e7f3ee;
+  border: 1px solid #b4dbcb;
+  border-radius: 999px;
+  padding: 5px 14px;
+  animation: rise-in-cta var(--dur-standard) var(--ease) both;
+}
+
+.report-hero-count {
+  margin: 10px 0 4px;
+  font-size: 30px;
+  animation: rise-in var(--dur-standard) var(--ease) 80ms both;
+}
+
 .pass-banner {
   animation: rise-in-cta var(--dur-standard) var(--ease) both;
+}
+
+/* A little extra pop for "first try" / "new best" — a plain pass is still
+   rise-in-cta only; this is reserved for the moments actually worth it, so
+   it doesn't wear out from appearing on every single pass. */
+@keyframes celebrate-pop {
+  0% {
+    transform: scale(0.92);
+  }
+  55% {
+    transform: scale(1.035);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pass-banner-celebrate {
+  animation:
+    rise-in-cta var(--dur-standard) var(--ease) both,
+    celebrate-pop 420ms var(--ease) both;
 }
 
 /* Wide content scrolls inside its own box. The page body must never scroll
@@ -892,6 +1053,66 @@ textarea {
   50% {
     opacity: 0.25;
   }
+}
+
+/* ── diagnostics score-band bar ───────────────────────────────────────────
+   Reuses the app's existing fixed pass/warn/fail status colors (see the
+   brand-tokens comment at the top of this file) rather than a generic
+   sequential ramp — a score band is a status judgement, not a plain
+   magnitude, and this is the one triad the brand already reserves for it. */
+
+.band-bar {
+  display: flex;
+  height: 26px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  margin: 10px 0 8px;
+}
+
+.band-bar-seg {
+  display: block;
+  height: 100%;
+  transition: width var(--dur-standard) var(--ease);
+}
+
+.band-bar-seg.pass {
+  background: var(--pass);
+}
+.band-bar-seg.warn {
+  background: var(--warn);
+}
+.band-bar-seg.fail {
+  background: var(--fail);
+}
+
+.band-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+  margin-bottom: 16px;
+}
+
+.band-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+.band-legend i.pass {
+  background: var(--pass);
+}
+.band-legend i.warn {
+  background: var(--warn);
+}
+.band-legend i.fail {
+  background: var(--fail);
 }
 
 /* ── diagnostics live indicator ──────────────────────────────────────────── */

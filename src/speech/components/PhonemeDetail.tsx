@@ -5,16 +5,17 @@ import { band } from "./band.js";
 
 interface PhonemeDetailProps {
   word: ScoredWord;
+  id?: string;
 }
 
-export function PhonemeDetail({ word }: PhonemeDetailProps) {
+export function PhonemeDetail({ word, id }: PhonemeDetailProps) {
   // Azure labels phonemes for en-* but returns empty labels for fr-FR and other
   // non-English locales. The scores are still real, so show them positionally
   // rather than rendering a row of blanks.
   const unlabeled = word.phonemes.length > 0 && word.phonemes.every((p) => !p.phoneme);
 
   return (
-    <div className="phonemes">
+    <div className="phonemes" id={id}>
       {word.phonemes.length === 0 ? (
         <span>no phoneme detail returned for this word</span>
       ) : (

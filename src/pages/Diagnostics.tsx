@@ -9,9 +9,10 @@
  * remembered in localStorage from then on, so you don't retype it every visit.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { parseUserAgent } from "../ui/parseUserAgent.js";
+import { parsePlatform, parseUserAgent } from "../ui/parseUserAgent.js";
+import { band } from "../speech/components/band.js";
 import type { PronunciationResult } from "../speech/scoring/types.js";
 
 const TOKEN_STORAGE_KEY = "sonare.diagnosticsToken";
@@ -44,6 +45,158 @@ interface DiagnosticRecord {
 }
 
 const POLL_MS = 4000;
+
+function extractUa(deviceContext: unknown): string | null {
+  if (typeof deviceContext !== "object" || deviceContext === null) return null;
+  // The attempts path names this field "ua" (DeviceContext), the diagnostics
+  // path names it "userAgent" (server-built context) — accept either rather
+  // than silently treating one of the two as unknown.
+  const c = deviceContext as { userAgent?: unknown; ua?: unknown };
+  if (typeof c.userAgent === "string") return c.userAgent;
+  if (typeof c.ua === "string") return c.ua;
+  return null;
+}
+
+interface RankedRow {
+  key: string;
+  count: number;
+  detail?: string;
+}
+
+interface Aggregates {
+  total: number;
+  scoredCount: number;
+  indeterminateCount: number;
+  meanScore: number | null;
+  passCount: number;
+  warnCount: number;
+  failCount: number;
+  meanAzureSeconds: number | null;
+  meanTotalSeconds: number | null;
+  /** From client.ts's SCORE_TIMING pings — the true tap-to-result latency,
+      including network transit, not just server-internal processing time. */
+  meanUploadSeconds: number | null;
+  retryRate: number | null;
+  byLanguage: RankedRow[];
+  byPlatform: RankedRow[];
+  topErrors: RankedRow[];
+}
+
+/** Reported by src/speech/scoring/client.ts after every scoring attempt —
+    a timing signal, not an error, so it's read separately and excluded
+    from the error-code breakdown rather than polluting it. */
+const SCORE_TIMING_CODE = "SCORE_TIMING";
+
+/**
+ * Computed from whatever's currently loaded (the most recent `limit` records
+ * from each endpoint) — a snapshot for spotting trends at a glance, not a
+ * full-history query. Good enough for an internal live-status view; a real
+ * analytics need would call for a server-side aggregation endpoint instead.
+ */
+function computeAggregates(attempts: AttemptRecord[], diagnostics: DiagnosticRecord[]): Aggregates {
+  let scoredCount = 0;
+  let indeterminateCount = 0;
+  let scoreSum = 0;
+  let passCount = 0;
+  let warnCount = 0;
+  let failCount = 0;
+  let azureMsSum = 0;
+  let totalMsSum = 0;
+
+  const languageStats = new Map<string, { count: number; scoreSum: number; scoreCount: number }>();
+  const platformCounts = new Map<string, number>();
+
+  for (const a of attempts) {
+    azureMsSum += a.timings.providerMs;
+    totalMsSum += a.timings.totalMs;
+
+    const lang = languageStats.get(a.language) ?? { count: 0, scoreSum: 0, scoreCount: 0 };
+    lang.count += 1;
+
+    if (a.result.indeterminate) {
+      indeterminateCount += 1;
+    } else {
+      const score = a.result.accuracy;
+      scoredCount += 1;
+      scoreSum += score;
+      lang.scoreSum += score;
+      lang.scoreCount += 1;
+      const b = band(score);
+      if (b === "hi") passCount += 1;
+      else if (b === "mid") warnCount += 1;
+      else failCount += 1;
+    }
+    languageStats.set(a.language, lang);
+
+    const ua = extractUa(a.deviceContext);
+    const platform = ua ? parsePlatform(ua) : "?";
+    platformCounts.set(platform, (platformCounts.get(platform) ?? 0) + 1);
+  }
+
+  const errorCounts = new Map<string, number>();
+  let uploadMsSum = 0;
+  let timingPings = 0;
+  let retriedPings = 0;
+  for (const d of diagnostics) {
+    if (d.code === SCORE_TIMING_CODE) {
+      const ctx = d.context as { uploadMs?: unknown; retryCount?: unknown } | undefined;
+      if (typeof ctx?.uploadMs === "number") {
+        uploadMsSum += ctx.uploadMs;
+        timingPings += 1;
+        if (typeof ctx.retryCount === "number" && ctx.retryCount > 0) retriedPings += 1;
+      }
+      continue;
+    }
+    errorCounts.set(d.code, (errorCounts.get(d.code) ?? 0) + 1);
+  }
+
+  const toRankedRows = (m: Map<string, number>): RankedRow[] =>
+    Array.from(m.entries())
+      .map(([key, count]) => ({ key, count }))
+      .sort((x, y) => y.count - x.count);
+
+  return {
+    total: attempts.length,
+    scoredCount,
+    indeterminateCount,
+    meanScore: scoredCount ? scoreSum / scoredCount : null,
+    passCount,
+    warnCount,
+    failCount,
+    meanAzureSeconds: attempts.length ? azureMsSum / attempts.length / 1000 : null,
+    meanTotalSeconds: attempts.length ? totalMsSum / attempts.length / 1000 : null,
+    meanUploadSeconds: timingPings ? uploadMsSum / timingPings / 1000 : null,
+    retryRate: timingPings ? retriedPings / timingPings : null,
+    byLanguage: Array.from(languageStats.entries())
+      .map(([key, v]) => ({
+        key,
+        count: v.count,
+        detail: v.scoreCount ? `mean ${Math.round(v.scoreSum / v.scoreCount)}` : "unscored",
+      }))
+      .sort((x, y) => y.count - x.count),
+    byPlatform: toRankedRows(platformCounts),
+    topErrors: toRankedRows(errorCounts).slice(0, 6),
+  };
+}
+
+function RankedBars({ rows }: { rows: RankedRow[] }) {
+  if (rows.length === 0) return <p className="what">No data yet.</p>;
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <>
+      {rows.map((r) => (
+        <div className="meter" key={r.key}>
+          <i style={{ width: `${(r.count / max) * 100}%` }} />
+          <em>
+            {r.key}
+            {r.detail ? ` · ${r.detail}` : ""}
+          </em>
+          <span>{r.count}</span>
+        </div>
+      ))}
+    </>
+  );
+}
 
 /**
  * Time-only was fine while every row was "just now" — once this runs across
@@ -129,6 +282,9 @@ export function Diagnostics() {
     };
   }, [token]);
 
+  const stats = useMemo(() => computeAggregates(attempts, diagnostics), [attempts, diagnostics]);
+  const scoredTotal = stats.passCount + stats.warnCount + stats.failCount;
+
   return (
     <>
       <section>
@@ -146,6 +302,89 @@ export function Diagnostics() {
             Polling every {POLL_MS / 1000}s
             {lastPolledAt && <> · last updated {lastPolledAt.toLocaleTimeString()}</>}
           </p>
+        )}
+      </section>
+
+      <section>
+        <h2>Overview</h2>
+        <p className="what">
+          Computed from the {attempts.length} most recent attempts and {diagnostics.length} recent
+          diagnostics loaded above — a snapshot, not a full-history query.
+        </p>
+
+        <div className="overall">
+          <div>
+            <div className="n">{stats.total}</div>
+            <div className="l">attempts</div>
+          </div>
+          <div>
+            <div className="n">{stats.meanScore === null ? "—" : Math.round(stats.meanScore)}</div>
+            <div className="l">mean score</div>
+          </div>
+          <div>
+            <div className="n">{stats.meanTotalSeconds === null ? "—" : stats.meanTotalSeconds.toFixed(2)}</div>
+            <div className="l">mean latency (s)</div>
+          </div>
+          <div>
+            <div className="n">{diagnostics.length}</div>
+            <div className="l">errors logged</div>
+          </div>
+        </div>
+
+        {stats.meanUploadSeconds !== null && (
+          <p className="hint">
+            Mean tap-to-result latency (client-measured, includes network transit):{" "}
+            {stats.meanUploadSeconds.toFixed(2)}s
+            {stats.retryRate !== null && stats.retryRate > 0 && (
+              <> · {Math.round(stats.retryRate * 100)}% of uploads needed a retry</>
+            )}
+          </p>
+        )}
+
+        <label>Score bands (scored attempts only — {stats.indeterminateCount} indeterminate excluded)</label>
+        {scoredTotal === 0 ? (
+          <p className="what">No scored attempts yet.</p>
+        ) : (
+          <>
+            <div className="band-bar">
+              <span
+                className="band-bar-seg pass"
+                style={{ width: `${(stats.passCount / scoredTotal) * 100}%` }}
+              />
+              <span
+                className="band-bar-seg warn"
+                style={{ width: `${(stats.warnCount / scoredTotal) * 100}%` }}
+              />
+              <span
+                className="band-bar-seg fail"
+                style={{ width: `${(stats.failCount / scoredTotal) * 100}%` }}
+              />
+            </div>
+            <div className="band-legend">
+              <span>
+                <i className="pass" /> Pass (≥80): {stats.passCount}
+              </span>
+              <span>
+                <i className="warn" /> Warn (60–79): {stats.warnCount}
+              </span>
+              <span>
+                <i className="fail" /> Fail (&lt;60): {stats.failCount}
+              </span>
+            </div>
+          </>
+        )}
+
+        <label>By language</label>
+        <RankedBars rows={stats.byLanguage} />
+
+        <label>By platform</label>
+        <RankedBars rows={stats.byPlatform} />
+
+        {stats.topErrors.length > 0 && (
+          <>
+            <label>Top error codes</label>
+            <RankedBars rows={stats.topErrors} />
+          </>
         )}
       </section>
 
@@ -172,8 +411,8 @@ export function Diagnostics() {
                   <th className="num">SNR dB</th>
                   <th>Auto-stop</th>
                   <th className="num">Recorded (s)</th>
-                  <th className="num">Azure ms</th>
-                  <th className="num">Total ms</th>
+                  <th className="num">Azure (s)</th>
+                  <th className="num">Total (s)</th>
                 </tr>
               </thead>
               <tbody>
@@ -197,8 +436,8 @@ export function Diagnostics() {
                       <td className="num">{cap.snrDb}</td>
                       <td>{cap.autoStopped}</td>
                       <td className="num">{a.audio.seconds.toFixed(2)}</td>
-                      <td className="num">{a.timings.providerMs}</td>
-                      <td className="num">{a.timings.totalMs}</td>
+                      <td className="num">{(a.timings.providerMs / 1000).toFixed(2)}</td>
+                      <td className="num">{(a.timings.totalMs / 1000).toFixed(2)}</td>
                     </tr>
                   );
                 })}
@@ -290,14 +529,8 @@ function shortSessionId(sessionId: string | undefined): string {
 }
 
 function shortUserAgent(context: unknown): string {
-  if (typeof context !== "object" || context === null) return "—";
-  // The attempts path names this field "ua" (DeviceContext), the diagnostics
-  // path names it "userAgent" (server-built context) — accept either rather
-  // than silently showing "—" for one of the two tables.
-  const c = context as { userAgent?: unknown; ua?: unknown };
-  const ua = typeof c.userAgent === "string" ? c.userAgent : typeof c.ua === "string" ? c.ua : null;
-  if (!ua) return "—";
-  return parseUserAgent(ua);
+  const ua = extractUa(context);
+  return ua ? parseUserAgent(ua) : "—";
 }
 
 /** The mic device id (already captured in `granted`, never surfaced until

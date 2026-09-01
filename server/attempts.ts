@@ -7,6 +7,7 @@
 
 import { getDb } from "./db.js";
 import { appendFallback } from "./fallbackLog.js";
+import { logger } from "./logger.js";
 import type { PronunciationResult } from "./services/types.js";
 
 export interface AttemptRecord {
@@ -42,7 +43,7 @@ export async function recordAttempt(record: AttemptRecord): Promise<void> {
     await db.collection<AttemptRecord>("attempts").insertOne(record);
   } catch (err) {
     // Never fail a learner's scoring request because the log write failed.
-    console.error("[attempts] failed to persist record:", String(err));
+    logger.error({ err }, "[attempts] failed to persist record");
     // But don't just drop it either — this record is the measurement the
     // product exists to produce (PRD.md §8). Fall back to a local file so a
     // transient Mongo outage doesn't silently erase it; replay it later with

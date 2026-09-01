@@ -63,4 +63,11 @@ export interface DeviceContext {
     peakDb: number | null;
     autoStopped: boolean;
   };
+  /**
+   * navigator.connection — Safari (iOS and macOS) does not implement the
+   * Network Information API at all, by WebKit's own design; "not reported"
+   * there is a real platform fact, not a gap in this capture. Genuine signal
+   * on Chromium (desktop and Android).
+   */
+  connection?: { effectiveType: string; downlinkMbps: number; rttMs: number } | "not reported";
 }

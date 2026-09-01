@@ -58,6 +58,7 @@ export async function scoreRecording(req: ScoreRequest): Promise<PronunciationRe
     snrDb: req.snrDb,
     peakDbfs: req.peakDbfs,
     endpoint: req.endpoint,
+    connection: readConnectionInfo(),
   };
 
   const form = new FormData();
@@ -69,9 +70,32 @@ export async function scoreRecording(req: ScoreRequest): Promise<PronunciationRe
   if (req.learnerName) form.append("learnerName", req.learnerName);
   form.append("deviceContext", JSON.stringify(deviceContext));
 
+  const startedAt = performance.now();
+  let attempt = 0;
+  const reportTiming = (outcome: "success" | "failure"): void => {
+    // Can't be embedded in deviceContext above — this request's own duration
+    // isn't knowable until after it's sent. Reported after the fact instead,
+    // via the same fire-and-forget endpoint useCaptureToasts.ts already
+    // posts errors to, correlated by session/activity like everything else.
+    void fetch("/api/v1/diagnostics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: "SCORE_TIMING",
+        domain: "network",
+        message: outcome,
+        sessionId: req.sessionId,
+        activityId: req.activityId,
+        ...(req.learnerName ? { learnerName: req.learnerName } : {}),
+        context: { uploadMs: Math.round(performance.now() - startedAt), retryCount: attempt, outcome },
+      }),
+    }).catch(() => undefined);
+  };
+
   // Fail fast rather than let a request sit until it times out — a browser
   // network stack can take 10s+ to notice and reject a fetch while offline.
   if (!navigator.onLine) {
+    reportTiming("failure");
     throw new ScoringError(
       "OFFLINE",
       "network",
@@ -80,13 +104,17 @@ export async function scoreRecording(req: ScoreRequest): Promise<PronunciationRe
     );
   }
 
-  let attempt = 0;
   for (;;) {
     try {
-      return await post(form);
+      const result = await post(form);
+      reportTiming("success");
+      return result;
     } catch (err) {
       const retryDelayMs = err instanceof ScoringError && err.domain === "network" ? RETRY_DELAYS_MS[attempt] : undefined;
-      if (retryDelayMs === undefined) throw err;
+      if (retryDelayMs === undefined) {
+        reportTiming("failure");
+        throw err;
+      }
       attempt += 1;
       await delay(retryDelayMs);
     }
@@ -133,4 +161,23 @@ async function post(form: FormData): Promise<PronunciationResult> {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * navigator.connection — Chromium only. Safari (iOS and macOS) never
+ * implements the Network Information API at all; "not reported" there is a
+ * real platform fact, not a failed read, same convention GrantedConstraints
+ * already uses for a DSP setting Safari doesn't expose.
+ */
+function readConnectionInfo(): DeviceContext["connection"] {
+  const nav = navigator as Navigator & {
+    connection?: { effectiveType?: string; downlink?: number; rtt?: number };
+  };
+  const c = nav.connection;
+  if (!c || typeof c.effectiveType !== "string") return "not reported";
+  return {
+    effectiveType: c.effectiveType,
+    downlinkMbps: typeof c.downlink === "number" ? c.downlink : -1,
+    rttMs: typeof c.rtt === "number" ? c.rtt : -1,
+  };
 }

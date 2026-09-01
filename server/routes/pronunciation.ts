@@ -7,9 +7,11 @@
 
 import { Router } from "express";
 import type { Request, Response } from "express";
+import { z } from "zod";
 import { uploadAudio } from "../middleware/upload.js";
 import { getScoringProvider } from "../services/index.js";
 import { AppError, isAppError } from "../errors.js";
+import { logger } from "../logger.js";
 import { assertAzureFormat, assertDuration, inspectWav } from "../wav.js";
 import { recordAttempt } from "../attempts.js";
 import { recordDiagnostic } from "../diagnostics.js";
@@ -18,6 +20,21 @@ import type { PronunciationResult } from "../services/types.js";
 
 const MIN_AUDIO_SECONDS = Number(process.env.MIN_AUDIO_SECONDS ?? 0.25);
 const MAX_AUDIO_SECONDS = Number(process.env.MAX_AUDIO_SECONDS ?? 15);
+
+/**
+ * Every field multer hands back from a multipart form is a string (or
+ * absent) — never a number or object, whatever the logical type is meant to
+ * be. This replaces the scattered `typeof body.x === "string"` checks with
+ * one declared shape; the trim/default/parse logic downstream is unchanged.
+ */
+const PronunciationBodySchema = z.object({
+  referenceText: z.string().optional(),
+  language: z.string().optional(),
+  sessionId: z.string().optional(),
+  activityId: z.string().optional(),
+  learnerName: z.string().optional(),
+  deviceContext: z.string().optional(),
+});
 
 export const pronunciationRouter = Router();
 
@@ -62,12 +79,21 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
       });
     }
 
-    const body = req.body as Record<string, unknown>;
-    const referenceText = typeof body.referenceText === "string" ? body.referenceText.trim() : "";
-    const language = typeof body.language === "string" && body.language ? body.language : "en-US";
-    const sessionId = typeof body.sessionId === "string" ? body.sessionId : undefined;
-    const activityId = typeof body.activityId === "string" ? Number(body.activityId) : undefined;
-    const learnerName = typeof body.learnerName === "string" && body.learnerName ? body.learnerName : undefined;
+    const parsedBody = PronunciationBodySchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      throw new AppError({
+        code: "INVALID_REQUEST",
+        domain: "client",
+        message: `request body did not match the expected shape: ${parsedBody.error.message}`,
+        userMessage: "That request looked malformed. Please try again.",
+      });
+    }
+    const body = parsedBody.data;
+    const referenceText = body.referenceText?.trim() ?? "";
+    const language = body.language || "en-US";
+    const sessionId = body.sessionId;
+    const activityId = body.activityId !== undefined ? Number(body.activityId) : undefined;
+    const learnerName = body.learnerName || undefined;
 
     if (!referenceText) {
       throw new AppError({
@@ -155,7 +181,7 @@ function respondWithError(req: Request, res: Response, err: unknown): void {
   if (isAppError(err)) {
     // Server-side detail is logged; the client sees code, domain and userMessage.
     // No branch of this ever includes a credential — R2.
-    console.error(`[pronunciation] ${err.code} (${err.domain}): ${err.message}`);
+    logger.error({ code: err.code, domain: err.domain }, `[pronunciation] ${err.message}`);
     void recordDiagnostic({
       at: new Date().toISOString(),
       source: "server",
@@ -172,7 +198,7 @@ function respondWithError(req: Request, res: Response, err: unknown): void {
     return;
   }
 
-  console.error("[pronunciation] unexpected:", String(err));
+  logger.error({ err }, "[pronunciation] unexpected error");
   void recordDiagnostic({
     at: new Date().toISOString(),
     source: "server",

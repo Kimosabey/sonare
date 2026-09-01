@@ -41,7 +41,7 @@ export function LanguagePicker() {
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="e.g. Priya"
+            placeholder="e.g. Harshan Aiyappa"
             maxLength={60}
             autoFocus
             autoComplete="off"

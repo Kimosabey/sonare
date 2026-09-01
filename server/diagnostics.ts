@@ -7,6 +7,7 @@
 
 import { getDb } from "./db.js";
 import { appendFallback } from "./fallbackLog.js";
+import { logger } from "./logger.js";
 
 export interface DiagnosticRecord {
   at: string;
@@ -28,7 +29,7 @@ export async function recordDiagnostic(record: DiagnosticRecord): Promise<void> 
     const db = await getDb();
     await db.collection<DiagnosticRecord>("diagnostics").insertOne(record);
   } catch (err) {
-    console.error("[diagnostics] failed to persist record:", String(err));
+    logger.error({ err }, "[diagnostics] failed to persist record");
     await appendFallback("diagnostics", record);
   }
 }
