@@ -291,6 +291,100 @@ button:focus-visible {
   transition: width var(--dur-slow) var(--ease);
 }
 
+/* ── step indicator ───────────────────────────────────────────────────────
+   One dot per activity — the recognizable "how far through the lesson am I"
+   pattern from Duolingo/Mondly-style apps. A row of dots rather than a bar
+   because it also shows what's ahead, not just progress so far. */
+
+.steps {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.step {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1.5px solid var(--rule);
+  transition:
+    background var(--dur-standard) var(--ease),
+    border-color var(--dur-standard) var(--ease),
+    transform var(--dur-quick) var(--ease);
+}
+
+.step-passed {
+  background: var(--pass);
+  border-color: var(--pass);
+}
+
+.step-skipped {
+  background: var(--warn-soft);
+  border-color: var(--warn);
+}
+
+.step-current {
+  border-color: var(--signal);
+  transform: scale(1.35);
+}
+
+/* ── language picker ─────────────────────────────────────────────────────── */
+
+.lang-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+@media (min-width: 460px) {
+  .lang-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.lang-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  min-height: 44px;
+  border: 1.5px solid var(--rule);
+  border-radius: 14px;
+  background: #fff;
+  text-decoration: none;
+  color: var(--ink);
+  transition:
+    border-color var(--dur-quick) var(--ease),
+    transform var(--dur-quick) var(--ease),
+    background var(--dur-quick) var(--ease);
+  animation: rise-in var(--dur-standard) var(--ease) both;
+}
+
+.lang-card:hover,
+.lang-card:focus-visible {
+  border-color: var(--signal);
+  background: var(--signal-soft);
+}
+
+.lang-card:active {
+  transform: scale(0.98);
+}
+
+.lang-card-label {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.lang-card-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
 .meter {
   height: 36px;
   border: 1px solid var(--rule);

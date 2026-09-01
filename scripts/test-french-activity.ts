@@ -28,7 +28,11 @@ import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { FRENCH_ACTIVITIES, FRENCH_LANGUAGE, MAX_ATTEMPTS, PASS_SCORE } from "../src/activities/frenchActivities.js";
+import { FRENCH } from "../src/activities/languages/french.js";
+import { MAX_ATTEMPTS, PASS_SCORE } from "../src/activities/languages/index.js";
+
+const FRENCH_ACTIVITIES = FRENCH.activities;
+const FRENCH_LANGUAGE = FRENCH.code;
 import { buildReport, verdictFor } from "../src/activities/report.js";
 import type { ActivityAttempt, ActivityProgress, SessionReport } from "../src/activities/types.js";
 import type { PronunciationResult } from "../src/speech/scoring/types.js";

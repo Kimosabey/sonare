@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { parseUserAgent } from "../ui/parseUserAgent.js";
 import type { PronunciationResult } from "../speech/scoring/types.js";
 
 const TOKEN_STORAGE_KEY = "sonare.diagnosticsToken";
@@ -159,9 +160,11 @@ export function Diagnostics() {
                   <th>Session</th>
                   <th className="num">Activity</th>
                   <th>Reference</th>
+                  <th>Heard</th>
                   <th>Lang</th>
                   <th className="num">Score</th>
                   <th>Device</th>
+                  <th>Mic ID</th>
                   <th>DSP granted</th>
                   <th className="num">SNR dB</th>
                   <th>Auto-stop</th>
@@ -179,11 +182,13 @@ export function Diagnostics() {
                       <td>{shortSessionId(a.sessionId)}</td>
                       <td className="num">{a.activityId ?? "—"}</td>
                       <td>{a.referenceText}</td>
+                      <td>{a.result.indeterminate ? "—" : a.result.recognized || "—"}</td>
                       <td>{a.language}</td>
                       <td className="num">
                         {a.result.indeterminate ? "unclear" : Math.round(a.result.accuracy)}
                       </td>
                       <td>{shortUserAgent(a.deviceContext)}</td>
+                      <td>{shortDeviceId(a.deviceContext)}</td>
                       <td>{cap.granted}</td>
                       <td className="num">{cap.snrDb}</td>
                       <td>{cap.autoStopped}</td>
@@ -289,32 +294,12 @@ function shortUserAgent(context: unknown): string {
   return parseUserAgent(ua);
 }
 
-/**
- * Browser detection has to check the most-specific tokens first — Chromium
- * derivatives (Edge, Samsung Internet, Opera, Chrome-on-iOS) all embed
- * "Chrome" or "Safari" in their UA string for compatibility, so a single
- * leftmost-match regex misidentifies most of them. Verified against real UA
- * strings for Edge, Chrome-iOS (CriOS), and Samsung Internet before fixing —
- * all three silently showed as "Chrome" or "Safari" under the old check.
- */
-function parseUserAgent(ua: string): string {
-  const platform = /iPhone|iPad|Android|Windows|Macintosh/.exec(ua)?.[0] ?? "?";
-
-  const browser = ua.includes("EdgiOS/") || ua.includes("Edg/")
-    ? "Edge"
-    : ua.includes("SamsungBrowser/")
-      ? "Samsung Internet"
-      : ua.includes("OPR/") || ua.includes("Opera")
-        ? "Opera"
-        : ua.includes("CriOS/")
-          ? "Chrome" // Chrome on iOS — Apple requires WebKit underneath, but it's still Chrome
-          : ua.includes("FxiOS/") || ua.includes("Firefox/")
-            ? "Firefox"
-            : ua.includes("Chrome/")
-              ? "Chrome"
-              : ua.includes("Safari/")
-                ? "Safari"
-                : "?";
-
-  return `${platform} · ${browser}`;
+/** The mic device id (already captured in `granted`, never surfaced until
+    now) — an opaque per-origin hash, not a real hardware name/serial. */
+function shortDeviceId(deviceContext: unknown): string {
+  if (typeof deviceContext !== "object" || deviceContext === null) return "—";
+  const id = (deviceContext as { granted?: { deviceId?: string } }).granted?.deviceId;
+  if (!id || id === "not reported") return "—";
+  if (id === "default") return "default";
+  return id.slice(0, 12);
 }

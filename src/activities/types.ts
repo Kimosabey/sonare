@@ -26,6 +26,16 @@ export interface Activity {
   focus: string;
 }
 
+export interface LanguageActivitySet {
+  /** Azure pronunciation-assessment locale, e.g. "fr-FR". */
+  code: string;
+  /** URL segment, e.g. "fr". */
+  slug: string;
+  /** Shown to the learner, e.g. "French". */
+  label: string;
+  activities: Activity[];
+}
+
 export interface ActivityAttempt {
   activityId: number;
   result: PronunciationResult;

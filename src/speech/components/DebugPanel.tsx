@@ -7,6 +7,7 @@
  */
 
 import { describeConstraint } from "../capture/constraints.js";
+import { parseUserAgent } from "../../ui/parseUserAgent.js";
 import type { CaptureResult, GrantedConstraints } from "../capture/types.js";
 import type { PronunciationResult } from "../scoring/types.js";
 
@@ -25,9 +26,21 @@ export function DebugPanel({ granted, contextSampleRate, capture, result }: Debu
         <div className="scroll-x">
         <table>
           <tbody>
+            <Row label="device" value={parseUserAgent(navigator.userAgent)} />
             <Row label="user agent" value={navigator.userAgent} />
             <Row label="secure context" value={window.isSecureContext ? "yes" : "NO — mic will not open"} />
             <Row label="context rate" value={contextSampleRate ? `${contextSampleRate} Hz` : "—"} />
+            <Row
+              label="mic id"
+              value={
+                granted
+                  ? granted.deviceId === "not reported" || granted.deviceId === "default"
+                    ? granted.deviceId
+                    : granted.deviceId.slice(0, 12)
+                  : "—"
+              }
+            />
+            <Row label="mic sample rate" value={granted ? String(granted.sampleRate) : "—"} />
             <Row label="sent as" value="16000 Hz mono PCM16" />
             <Row
               label="duration"

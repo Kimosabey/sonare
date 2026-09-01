@@ -1,6 +1,7 @@
 /**
- * French Activity Test — ten activities, unlocked one at a time, ending in a
- * report.
+ * Activity Test — ten activities per language, unlocked one at a time,
+ * ending in a report. Generalized from what was originally French-only;
+ * the language itself now comes from the route (:slug in App.tsx).
  *
  * The gate is deliberately soft: passing advances immediately, but after
  * MAX_ATTEMPTS the learner may move on with the activity marked `skipped`. A
@@ -12,6 +13,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useParams, Link } from "react-router-dom";
 import { useRecorder } from "../speech/react/useRecorder.js";
 import { hangoverForReference } from "../speech/capture/recorder.js";
 import { RecordButton } from "../speech/components/RecordButton.js";
@@ -25,17 +27,15 @@ import { InterimFeedback } from "../ui/InterimFeedback.js";
 import { useCaptureToasts } from "../ui/useCaptureToasts.js";
 import { useToast } from "../ui/ToastProvider.js";
 import { useWakeLock } from "../ui/useWakeLock.js";
-import {
-  FRENCH_ACTIVITIES,
-  FRENCH_LANGUAGE,
-  MAX_ATTEMPTS,
-  PASS_SCORE,
-} from "../activities/frenchActivities.js";
+import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
 import { buildReport } from "../activities/report.js";
 import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
 import type { PronunciationResult } from "../speech/scoring/types.js";
 
-export function FrenchActivityTest() {
+export function ActivityTest() {
+  const { slug } = useParams<{ slug: string }>();
+  const activeLanguage = getLanguage(slug);
+
   const [index, setIndex] = useState(0);
   const [progress, setProgress] = useState<ActivityProgress[]>([]);
   const [finished, setFinished] = useState(false);
@@ -48,7 +48,8 @@ export function FrenchActivityTest() {
   const sessionId = useRef(crypto.randomUUID());
   const toast = useToast();
 
-  const activity = FRENCH_ACTIVITIES[index];
+  const activities = activeLanguage?.activities ?? [];
+  const activity = activities[index];
   const current = progress.find((p) => p.activityId === activity?.id);
   const attemptsUsed = current?.attempts.length ?? 0;
 
@@ -56,7 +57,7 @@ export function FrenchActivityTest() {
 
   const recorder = useRecorder({
     referenceText: activity?.target ?? "",
-    language: FRENCH_LANGUAGE,
+    language: activeLanguage?.code ?? "en-US",
     sessionId: sessionId.current,
     activityId: activity?.id ?? -1,
     autoStop: settings.autoStop,
@@ -103,7 +104,7 @@ export function FrenchActivityTest() {
 
   const scoredAttempts = current?.attempts.filter((a) => a.accuracy !== null).length ?? 0;
   const canAdvance = Boolean(current?.passed) || scoredAttempts >= MAX_ATTEMPTS;
-  const isLast = index === FRENCH_ACTIVITIES.length - 1;
+  const isLast = index === activities.length - 1;
 
   const advance = useCallback(() => {
     recorder.reset();
@@ -135,40 +136,60 @@ export function FrenchActivityTest() {
   }, [recorder]);
 
   const report = useMemo(
-    () => buildReport(FRENCH_ACTIVITIES, progress, Date.now() - startedAt.current),
-    [progress, finished],
+    () => buildReport(activities, progress, Date.now() - startedAt.current),
+    [progress, finished, activities],
   );
 
   const exportReport = useCallback(() => {
     const payload = {
-      language: FRENCH_LANGUAGE,
+      language: activeLanguage?.code,
       generatedAt: new Date().toISOString(),
       report,
       progress,
-      activities: FRENCH_ACTIVITIES,
+      activities,
     };
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = "french-activity-report.json";
+    a.download = `${activeLanguage?.slug ?? "activity"}-activity-report.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [report, progress]);
+  }, [report, progress, activities, activeLanguage]);
+
+  if (!activeLanguage) {
+    return (
+      <section>
+        <h2>Language not found</h2>
+        <p className="what">That's not one of the available languages.</p>
+        <div className="row">
+          <Link to="/">
+            <button type="button">Back to language picker</button>
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   if (!started) {
     return (
       <section>
         <h2 className="enter-1">Ready to practice?</h2>
         <p className="what enter-2">
-          Ten short activities, French pronunciation scored phoneme by phoneme.
+          Ten short activities, {activeLanguage.label} pronunciation scored phoneme by phoneme.
         </p>
         <p className="hint enter-2">Tapping Start also turns on your microphone.</p>
         <p className="hint enter-2">
           In a noisy room? Headphones with a built-in mic score better than the
           room's speaker and mic picking up everything around you.
         </p>
+
+        {/* Set once for the whole session, not re-shown per activity — the
+            sensible defaults (auto-stop + interim) work for almost everyone,
+            so this stays collapsed rather than asking for a decision upfront. */}
+        <CaptureSettings value={settings} onChange={setSettings} hangoverMs={hangoverMs} />
+
         <div className="row">
           <button type="button" className="enter-cta" onClick={beginSession}>
             Start
@@ -182,7 +203,7 @@ export function FrenchActivityTest() {
     return (
       <ActivityReport
         report={report}
-        activities={FRENCH_ACTIVITIES}
+        activities={activities}
         progress={progress}
         onRestart={restart}
         onExport={exportReport}
@@ -198,18 +219,22 @@ export function FrenchActivityTest() {
     <>
       <section key={activity.id} className="enter-1">
         <h2>
-          Activity {activity.id} of {FRENCH_ACTIVITIES.length} — {activity.title}
+          Activity {activity.id} of {activities.length} — {activity.title}
         </h2>
         <p className="what">
           {passedCount} passed · {progress.length} attempted
         </p>
 
-        <div className="progress-track">
-          <div className="progress-fill" style={{ width: `${(index / FRENCH_ACTIVITIES.length) * 100}%` }} />
+        <div className="steps" role="list" aria-label={`Activity ${activity.id} of ${activities.length}`}>
+          {activities.map((a, i) => {
+            const p = progress.find((pr) => pr.activityId === a.id);
+            const state = i === index ? "current" : p?.passed ? "passed" : p?.skipped ? "skipped" : "upcoming";
+            return <span key={a.id} role="listitem" className={`step step-${state}`} aria-label={`Activity ${a.id}: ${state}`} />;
+          })}
         </div>
 
         <p className="what" style={{ marginTop: 14 }}>
-          {activity.kind === "respond" ? "Answer aloud in French" : "Say this aloud in French"}
+          {activity.kind === "respond" ? `Answer aloud in ${activeLanguage.label}` : `Say this aloud in ${activeLanguage.label}`}
         </p>
         <p className="what" style={{ marginBottom: 0 }}>
           <strong>{activity.prompt}</strong>
@@ -234,13 +259,6 @@ export function FrenchActivityTest() {
           Attempt {Math.min(scoredAttempts + 1, MAX_ATTEMPTS)} of {MAX_ATTEMPTS} · pass at{" "}
           {PASS_SCORE}
         </p>
-
-        <CaptureSettings
-          value={settings}
-          onChange={setSettings}
-          hangoverMs={hangoverMs}
-          disabled={recorder.state === "recording" || recorder.state === "processing"}
-        />
 
         <div className="row">
           <RecordButton
