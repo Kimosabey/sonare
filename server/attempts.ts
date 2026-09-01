@@ -37,10 +37,22 @@ export interface AttemptRecord {
   result: PronunciationResult;
 }
 
+/**
+ * `at` is a display-formatted ISO string, not a BSON Date — a Mongo TTL
+ * index can only expire documents on an actual Date field, so this adds one
+ * purely for that (db.ts's ensureIndexes()). Kept off the public
+ * AttemptRecord type so nothing calling recordAttempt() needs to know it
+ * exists.
+ */
+interface AttemptDocument extends AttemptRecord {
+  createdAt: Date;
+}
+
 export async function recordAttempt(record: AttemptRecord): Promise<void> {
   try {
     const db = await getDb();
-    await db.collection<AttemptRecord>("attempts").insertOne(record);
+    const doc: AttemptDocument = { ...record, createdAt: new Date() };
+    await db.collection<AttemptDocument>("attempts").insertOne(doc);
   } catch (err) {
     // Never fail a learner's scoring request because the log write failed.
     logger.error({ err }, "[attempts] failed to persist record");

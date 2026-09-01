@@ -24,10 +24,16 @@ export interface DiagnosticRecord {
   context?: unknown;
 }
 
+/** See attempts.ts's AttemptDocument — same reasoning, same TTL purpose. */
+interface DiagnosticDocument extends DiagnosticRecord {
+  createdAt: Date;
+}
+
 export async function recordDiagnostic(record: DiagnosticRecord): Promise<void> {
   try {
     const db = await getDb();
-    await db.collection<DiagnosticRecord>("diagnostics").insertOne(record);
+    const doc: DiagnosticDocument = { ...record, createdAt: new Date() };
+    await db.collection<DiagnosticDocument>("diagnostics").insertOne(doc);
   } catch (err) {
     logger.error({ err }, "[diagnostics] failed to persist record");
     await appendFallback("diagnostics", record);

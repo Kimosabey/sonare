@@ -15,6 +15,7 @@
  * DIAGNOSTICS_TOKEN in .env for local dev too; it's one line.
  */
 
+import { timingSafeEqual } from "node:crypto";
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
@@ -52,10 +53,27 @@ function parseLimit(raw: unknown, fallback: number): number {
   return Math.min(n, MAX_LIST_LIMIT);
 }
 
+/**
+ * Constant-time comparison — a plain `===` leaks how many leading characters
+ * matched through response timing. Low real-world risk over a network already
+ * dominated by jitter, but cheap enough to close outright rather than argue
+ * about how low.
+ */
+function tokensMatch(provided: string, required: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(required);
+  // timingSafeEqual throws on a length mismatch rather than returning false —
+  // lengths differing is not itself sensitive (the token's length isn't a
+  // secret), so short-circuiting here is safe and avoids the throw.
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 function requireDiagnosticsToken(req: Request, res: Response, next: NextFunction): void {
   const required = process.env.DIAGNOSTICS_TOKEN;
+  const provided = req.headers["x-diagnostics-token"];
   // Fail closed, not open, when it's unset — see the comment above.
-  if (required && req.headers["x-diagnostics-token"] === required) {
+  if (required && typeof provided === "string" && tokensMatch(provided, required)) {
     next();
     return;
   }
