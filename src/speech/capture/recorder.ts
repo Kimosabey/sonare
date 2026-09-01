@@ -95,6 +95,18 @@ const DEFAULTS = {
 const MIN_SPEECH_MS = 300;
 
 /**
+ * A frame above threshold only pushes the hangover countdown back out once
+ * it's been part of a run at least this long — real speech to reproduce.
+ * Without this, a single ~3ms worklet frame crossing the (necessarily
+ * noise-tolerant) threshold — a click, a chair creak, AC cycling, a breath
+ * right at the end of a phrase — resets the countdown just as effectively as
+ * genuine continued speech, so a noisy-but-quiet room can push auto-stop out
+ * indefinitely. Short enough that it never delays recognizing real renewed
+ * speech (well under a syllable), long enough to reject a single-frame blip.
+ */
+const MIN_RENEWED_SPEECH_MS = 80;
+
+/**
  * Longer prompts earn more patience: more words means more internal pauses,
  * and the cost of waiting is far lower than the cost of truncating.
  */
@@ -169,6 +181,8 @@ export class Recorder {
   private heardSpeech = false;
   private lastSpeechAt = 0;
   private autoStopFired = false;
+  /** Consecutive time above threshold since the last frame that wasn't — see MIN_RENEWED_SPEECH_MS. */
+  private aboveThresholdRunMs = 0;
 
   private captureStartedAt = 0;
   private noiseFloorDb: number | null = null;
@@ -563,6 +577,7 @@ export class Recorder {
     this.heardSpeech = false;
     this.lastSpeechAt = 0;
     this.autoStopFired = false;
+    this.aboveThresholdRunMs = 0;
     this.captureStartedAt = performance.now();
     this.noiseFloorDb = null;
     this.peakSpeechDb = null;
@@ -647,14 +662,24 @@ export class Recorder {
     if (level > threshold) {
       // Cap the increment so a stalled main thread cannot arm the endpointer
       // in a single frame.
-      this.speechMs += Math.min(sinceLastFrame, 100);
+      const capped = Math.min(sinceLastFrame, 100);
+      this.speechMs += capped;
+      this.aboveThresholdRunMs += capped;
       if (!this.heardSpeech && this.speechMs >= MIN_SPEECH_MS) {
         this.heardSpeech = true;
         this.listeners.onSpeechStart?.();
       }
-      this.lastSpeechAt = now;
+      // Only a run that's lasted long enough to plausibly be speech pushes
+      // the hangover countdown back out — a lone noise-transient frame
+      // crossing the (necessarily noise-tolerant) threshold must not.
+      if (this.aboveThresholdRunMs >= MIN_RENEWED_SPEECH_MS) {
+        this.lastSpeechAt = now;
+      }
       return;
     }
+
+    // The run is broken — the next frame above threshold starts a fresh one.
+    this.aboveThresholdRunMs = 0;
 
     if (!this.heardSpeech || this.lastSpeechAt === 0) return;
     if (this.speechMs < MIN_SPEECH_MS) return;

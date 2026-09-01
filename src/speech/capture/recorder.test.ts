@@ -90,6 +90,97 @@ describe("Recorder endpointing", () => {
     expect(onAutoStop).toHaveBeenCalledTimes(1);
   });
 
+  it("a brief noise blip during the hangover window does not reset the countdown", () => {
+    // Reported symptom: background noise loud enough to cross the (necessarily
+    // noise-tolerant) threshold kept extending the wait well past when the
+    // learner actually stopped talking. Root cause: any single ~3ms worklet
+    // frame above threshold used to reset the countdown unconditionally.
+    const { t, onAutoStop } = makeRecorder(1000);
+    let now = feed(t, 0, [
+      { level: -60, durationMs: 300 },
+      { level: -20, durationMs: 500 }, // speech ends at now=800
+    ]);
+    now = feed(t, now, [{ level: -60, durationMs: 400 }]); // real trailing silence
+    now = feed(t, now, [{ level: -40, durationMs: 40 }]); // blip: above threshold, but only 40ms — under MIN_RENEWED_SPEECH_MS
+    expect(onAutoStop).not.toHaveBeenCalled();
+
+    // If the blip had reset the countdown, this would not be enough more
+    // silence to cross a fresh 1000ms window from here.
+    feed(t, now, [{ level: -60, durationMs: 600 }]); // total since speech ended (800): 400+40+600 = 1040ms
+    expect(onAutoStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("genuine renewed speech during the hangover window does reset the countdown", () => {
+    // The companion test: the fix above must not overcorrect into cutting
+    // learners off mid-sentence, which the code's own comments call out as
+    // the worse failure mode than waiting longer.
+    const { t, onAutoStop } = makeRecorder(1000);
+    let now = feed(t, 0, [
+      { level: -60, durationMs: 300 },
+      { level: -20, durationMs: 500 }, // first utterance ends at now=800
+    ]);
+    now = feed(t, now, [{ level: -60, durationMs: 400 }]); // a mid-sentence pause
+    now = feed(t, now, [{ level: -20, durationMs: 200 }]); // real continued speech, ends at now=1400
+    expect(onAutoStop).not.toHaveBeenCalled();
+
+    now = feed(t, now, [{ level: -60, durationMs: 600 }]); // 600ms since speech resumed — not enough yet
+    expect(onAutoStop).not.toHaveBeenCalled();
+
+    feed(t, now, [{ level: -60, durationMs: 500 }]); // 1100ms since speech last stopped (1400) — crosses it
+    expect(onAutoStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("a run right at MIN_RENEWED_SPEECH_MS counts; just under it does not", () => {
+    // Just under the cutoff — same shape as the blip test above.
+    {
+      const { t, onAutoStop } = makeRecorder(1000);
+      let now = feed(t, 0, [
+        { level: -60, durationMs: 300 },
+        { level: -20, durationMs: 500 }, // speech ends at now=800
+      ]);
+      now = feed(t, now, [{ level: -60, durationMs: 200 }]);
+      now = feed(t, now, [{ level: -40, durationMs: 60 }]); // 60ms run — under the 80ms cutoff
+      feed(t, now, [{ level: -60, durationMs: 940 }]); // total since 800: 200+60+940 = 1200ms
+      expect(onAutoStop).toHaveBeenCalledTimes(1); // fired off the original speech end, unaffected by the run
+    }
+
+    // At the cutoff — this run is long enough to count as renewed speech.
+    {
+      const { t, onAutoStop } = makeRecorder(1000);
+      let now = feed(t, 0, [
+        { level: -60, durationMs: 300 },
+        { level: -20, durationMs: 500 }, // speech ends at now=800
+      ]);
+      now = feed(t, now, [{ level: -60, durationMs: 200 }]);
+      now = feed(t, now, [{ level: -40, durationMs: 80 }]); // 80ms run — meets the cutoff, counts as renewed speech
+      now = feed(t, now, [{ level: -60, durationMs: 980 }]); // 980ms since the run ended — not enough yet
+      expect(onAutoStop).not.toHaveBeenCalled();
+      feed(t, now, [{ level: -60, durationMs: 40 }]); // 1020ms since the run ended — crosses it
+      expect(onAutoStop).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("several short noise blips in a row do not cumulatively reset the countdown", () => {
+    const { t, onAutoStop } = makeRecorder(1000);
+    let now = feed(t, 0, [
+      { level: -60, durationMs: 300 },
+      { level: -20, durationMs: 500 }, // speech ends at now=800
+    ]);
+    // Three separate 40ms blips, each individually under MIN_RENEWED_SPEECH_MS,
+    // separated by silence — must not count individually, and must not add up
+    // across the gaps between them either (the run has to reset to zero on
+    // every below-threshold frame, not merely fail to reach the cutoff once).
+    for (let i = 0; i < 3; i++) {
+      now = feed(t, now, [{ level: -60, durationMs: 60 }]);
+      now = feed(t, now, [{ level: -40, durationMs: 40 }]);
+    }
+    now = feed(t, now, [{ level: -60, durationMs: 620 }]); // total since 800: 300 (blips+gaps) + 620 = 920ms
+    expect(onAutoStop).not.toHaveBeenCalled();
+
+    feed(t, now, [{ level: -60, durationMs: 100 }]); // total since 800: 1020ms
+    expect(onAutoStop).toHaveBeenCalledTimes(1);
+  });
+
   it("a loud startup transient within the calibration grace period does not permanently raise the threshold", () => {
     // Without PEAK_CALIBRATION_GRACE_MS, a click this loud at capture start
     // would anchor peakSpeechDb near 0 dBFS, pushing the threshold up near
