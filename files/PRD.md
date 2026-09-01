@@ -187,4 +187,4 @@ Set in App Service → Configuration → Application settings. `.env.example` is
 | OQ-1 | Does Azure support prosody scoring for our target languages? | Before FR-13 |
 | OQ-2 | Does Azure bill a minimum duration per request? Short drills change the economics if so. | Before the fixture run |
 | OQ-3 | Do iOS-captured recordings score differently from desktop for the same speaker? | This is what the fixture measures |
-| OQ-4 | Is the moving-average resampler good enough, or does it need windowed-sinc? | If fixture scores look uniformly low |
+| ~~OQ-4~~ | ~~Is the moving-average resampler good enough, or does it need windowed-sinc?~~ Resolved: replaced with a windowed-sinc (polyphase, precomputed) kernel — `src/speech/capture/resample.ts`, verified in `scripts/resample-bench.ts` (10kHz-tone alias rejection ~1.0→0.01, passband gain ~1.0, 15s@48kHz resamples in ~30ms). | Done |

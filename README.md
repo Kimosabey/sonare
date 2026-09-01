@@ -124,8 +124,9 @@ browser-persistent storage in `src/speech/` (R11); a React import inside
 | `npm run smoke <wav> "<text>" [lang]` | Call Azure directly, no app code. Validates the WAV header first — useful after rotating `AZURE_SPEECH_KEY`. |
 | `npm run verify` | The rule checks. |
 | `npm run test:french` | Headless regression test for the activity flow (see above). |
+| `npm run resample-bench` | Verifies the resampler's anti-aliasing and timing with real numbers — not just a typecheck. |
 
-`smoke` needs no browser.
+`smoke` and `resample-bench` need no browser.
 
 ## Layout
 

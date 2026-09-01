@@ -114,6 +114,14 @@ export function hangoverForReference(referenceText: string): number {
  */
 const FLOOR_IGNORE_BELOW_DB = -75;
 
+/**
+ * The mirror-image guard for the peak side: frames within this long of
+ * capture starting never enter the peak estimate. A worklet/AudioContext
+ * startup transient landing here would otherwise permanently raise the
+ * threshold for the rest of the take — see calibrateThreshold().
+ */
+const PEAK_CALIBRATION_GRACE_MS = 150;
+
 /** Speech must exceed the measured floor by this much to count. */
 const SPEECH_MARGIN_DB = 12;
 
@@ -551,7 +559,7 @@ export class Recorder {
   private trackEndpoint(level: number, now: number): void {
     if (this.autoStopFired) return;
 
-    const threshold = this.calibrateThreshold(level);
+    const threshold = this.calibrateThreshold(level, now - this.captureStartedAt);
 
     const sinceLastFrame = this.lastFrameAt === 0 ? 0 : now - this.lastFrameAt;
     this.lastFrameAt = now;
@@ -593,12 +601,23 @@ export class Recorder {
    * FLOOR_IGNORE_BELOW_DB never enter the floor estimate — mic warm-up would
    * otherwise drag it to near-digital-silence and the endpointer would never
    * release.
+   *
+   * The peak side needs the mirror-image guard: a worklet/AudioContext
+   * startup transient (a click or brief handling pop) can be louder than the
+   * speech that follows, and because peakSpeechDb only ever increases, one
+   * such frame permanently raises the threshold for the rest of the take —
+   * real speech then never registers as speech, and the take runs to
+   * MAX_SECONDS instead of auto-stopping. Real-world evidence: every observed
+   * TOO_LONG failure landed within a few hundred ms of MAX_SECONDS exactly,
+   * on the first take of a session (right after mic warm-up), across
+   * multiple browsers/OSes — consistent with a startup artifact, not a
+   * device- or room-specific audio quality issue.
    */
-  private calibrateThreshold(level: number): number {
+  private calibrateThreshold(level: number, elapsedMs: number): number {
     if (level > FLOOR_IGNORE_BELOW_DB) {
       this.noiseFloorDb = this.noiseFloorDb === null ? level : Math.min(this.noiseFloorDb, level);
     }
-    if (this.peakSpeechDb === null || level > this.peakSpeechDb) {
+    if (elapsedMs >= PEAK_CALIBRATION_GRACE_MS && (this.peakSpeechDb === null || level > this.peakSpeechDb)) {
       this.peakSpeechDb = level;
     }
 

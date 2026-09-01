@@ -4,12 +4,16 @@
  * Polls the read-only GET /api/v1/diagnostics and /api/v1/attempts endpoints
  * so recent activity and errors are visible without a database client.
  *
- * No auth on this repo yet — fine for local use, see README before this is
- * ever reachable outside a dev machine.
+ * Token-gated server-side when DIAGNOSTICS_TOKEN is set (server/routes/
+ * diagnostics.ts) — pass it once as #/diagnostics?token=... and it's
+ * remembered in localStorage from then on, so you don't retype it every visit.
  */
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { PronunciationResult } from "../speech/scoring/types.js";
+
+const TOKEN_STORAGE_KEY = "sonare.diagnosticsToken";
 
 // Mirrors server/attempts.ts and server/diagnostics.ts — kept as separate
 // client-side types rather than importing across the client/server boundary,
@@ -54,21 +58,50 @@ function formatAt(iso: string): string {
 }
 
 export function Diagnostics() {
+  const [searchParams] = useSearchParams();
   const [attempts, setAttempts] = useState<AttemptRecord[]>([]);
   const [diagnostics, setDiagnostics] = useState<DiagnosticRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [lastPolledAt, setLastPolledAt] = useState<Date | null>(null);
   const [pollCount, setPollCount] = useState(0);
 
+  // A token in the URL wins and is remembered; otherwise fall back to
+  // whatever was remembered from a previous visit. Neither may exist if
+  // DIAGNOSTICS_TOKEN isn't set server-side — that's fine, the server
+  // only checks the header when it has something to check it against.
+  const urlToken = searchParams.get("token");
+  if (urlToken) {
+    try {
+      localStorage.setItem(TOKEN_STORAGE_KEY, urlToken);
+    } catch {
+      // Private browsing or storage disabled — the token still works for
+      // this page load via urlToken, just won't be remembered next time.
+    }
+  }
+  const token = urlToken ?? (() => {
+    try {
+      return localStorage.getItem(TOKEN_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  })();
+
   useEffect(() => {
     let cancelled = false;
+    const headers: HeadersInit = token ? { "x-diagnostics-token": token } : {};
 
     const poll = async () => {
       try {
         const [attemptsRes, diagnosticsRes] = await Promise.all([
-          fetch("/api/v1/attempts?limit=50"),
-          fetch("/api/v1/diagnostics?limit=50"),
+          fetch("/api/v1/attempts?limit=50", { headers }),
+          fetch("/api/v1/diagnostics?limit=50", { headers }),
         ]);
+        if (attemptsRes.status === 401 || diagnosticsRes.status === 401) {
+          if (!cancelled) {
+            setError('This server requires a diagnostics token. Add ?token=... to the URL once.');
+          }
+          return;
+        }
         if (!attemptsRes.ok || !diagnosticsRes.ok) throw new Error("request failed");
 
         const attemptsBody = (await attemptsRes.json()) as { records: AttemptRecord[] };
@@ -91,7 +124,7 @@ export function Diagnostics() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, []);
+  }, [token]);
 
   return (
     <>

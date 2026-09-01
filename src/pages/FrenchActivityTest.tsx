@@ -165,6 +165,10 @@ export function FrenchActivityTest() {
           Ten short activities, French pronunciation scored phoneme by phoneme.
         </p>
         <p className="hint enter-2">Tapping Start also turns on your microphone.</p>
+        <p className="hint enter-2">
+          In a noisy room? Headphones with a built-in mic score better than the
+          room's speaker and mic picking up everything around you.
+        </p>
         <div className="row">
           <button type="button" className="enter-cta" onClick={beginSession}>
             Start

@@ -13,6 +13,7 @@ import { AppError, isAppError } from "../errors.js";
 import { assertAzureFormat, assertDuration, inspectWav } from "../wav.js";
 import { recordAttempt } from "../attempts.js";
 import { recordDiagnostic } from "../diagnostics.js";
+import { scoringLimiter } from "../rateLimit.js";
 import type { PronunciationResult } from "../services/types.js";
 
 const MIN_AUDIO_SECONDS = Number(process.env.MIN_AUDIO_SECONDS ?? 0.25);
@@ -20,7 +21,7 @@ const MAX_AUDIO_SECONDS = Number(process.env.MAX_AUDIO_SECONDS ?? 15);
 
 export const pronunciationRouter = Router();
 
-pronunciationRouter.post("/pronunciation", (req: Request, res: Response) => {
+pronunciationRouter.post("/pronunciation", scoringLimiter, (req: Request, res: Response) => {
   uploadAudio(req, res, (uploadErr: unknown) => {
     if (uploadErr) {
       const tooBig =
