@@ -186,6 +186,34 @@ export function ActivityTest() {
     if (finished) recorder.endSession();
   }, [finished, recorder.endSession]);
 
+  /**
+   * Per-activity microphone scope.
+   *
+   * Holding the device open for a whole ten-activity session means the OS
+   * recording indicator stays lit for minutes, including while the learner is
+   * reading a score they just earned and not speaking at all. So the device is
+   * handed back on every activity change, and re-acquired immediately for the
+   * new prompt.
+   *
+   * This is affordable because of two things that were already true. The
+   * expensive half of a cold start — `new AudioContext()`, `resume()`,
+   * `addModule()` — survives releaseDevice(), so re-acquiring costs only
+   * getUserMedia. And the calibration guards already discard startup
+   * artifacts (FLOOR_IGNORE_BELOW_DB keeps warm-up frames out of the noise
+   * floor, PEAK_CALIBRATION_GRACE_MS keeps the startup transient out of the
+   * peak reference), so a fresh device no longer degrades the endpointer the
+   * way the keepMicWarm comment warned it would.
+   *
+   * warm() rather than waiting for the Record tap: the learner spends seconds
+   * reading the prompt, which is exactly long enough to hide the getUserMedia
+   * round trip, so tap-to-recording stays inside NFR-01's 400ms.
+   */
+  useEffect(() => {
+    if (!started || finished) return;
+    recorder.releaseDevice();
+    recorder.warm();
+  }, [index, started, finished, recorder.releaseDevice, recorder.warm]);
+
   // A learner who already passed can still retry to beat their own score —
   // the old banner must not survive into that new attempt looking current.
   useEffect(() => {

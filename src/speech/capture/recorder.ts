@@ -215,6 +215,13 @@ export class Recorder {
 
   private frames: Float32Array[] = [];
   private lastHotAt = 0;
+  /**
+   * The AudioContext exists, is running, and its worklet module is already
+   * compiled — independent of whether a capture device is currently attached.
+   * Splitting this from graphReady is what makes per-activity mic release
+   * affordable: the device goes away, the expensive context does not.
+   */
+  private contextReady = false;
   private reportedHot = false;
   private capturing = false;
   private granted: GrantedConstraints | null = null;
@@ -338,6 +345,16 @@ export class Recorder {
       if (cancelled) return;
       this.fail(err instanceof CaptureError ? err : captureError("UNSUPPORTED_BROWSER", String(err)));
     }
+  }
+
+  /**
+   * Context and worklet are alive but no device is attached. Re-acquiring from
+   * here costs only getUserMedia plus a source node — it skips
+   * `new AudioContext()`, `resume()` and `addModule()`, which is the bulk of a
+   * cold start and, on iOS, the part that is gesture-sensitive and slow.
+   */
+  private canReuseContext(): boolean {
+    return this.contextReady && this.context?.state === "running" && this.node !== null;
   }
 
   private canReuseGraph(): boolean {
@@ -469,11 +486,72 @@ export class Recorder {
   }
 
   /** Hands the microphone back to the OS immediately. */
+  /**
+   * Wire a freshly acquired device into the existing worklet node. Also used
+   * on the cold path, so there is exactly one place that connects a source.
+   */
+  private attachSource(context: AudioContext): void {
+    if (!this.stream) throw captureError("DEVICE_LOST", "stream disappeared before graph construction");
+    if (!this.node) throw captureError("UNSUPPORTED_BROWSER", "worklet node missing");
+
+    if (this.source) this.source.disconnect();
+    this.source = context.createMediaStreamSource(this.stream);
+    this.source.connect(this.node);
+  }
+
+  /**
+   * Hand the capture device back while keeping the AudioContext and its
+   * compiled worklet. The OS recording indicator goes out — which is the whole
+   * point of per-activity scope — but the next take skips the expensive half
+   * of a cold start.
+   *
+   * Distinct from releaseMicrophone(), which tears the context down too. Use
+   * that when the session is genuinely over; use this between activities.
+   */
+  releaseDevice(): void {
+    this.generation++;
+    this.capturing = false;
+    this.frames = [];
+    this.clearTimers();
+    this.cancelIdleRelease();
+    this.graphReady = false;
+
+    if (this.source) {
+      this.source.disconnect();
+      this.source = null;
+    }
+    if (this.track) {
+      this.track.onended = null;
+      this.track = null;
+    }
+    if (this.stream) {
+      this.stream.getTracks().forEach((t) => t.stop());
+      this.stream = null;
+    }
+    // context, node and contextReady deliberately survive.
+    this.resetStateAfterRelease();
+  }
+
+  /**
+   * Drop a released recorder back to idle without stomping on an in-flight
+   * take. "processing" survives because stop() may still be encoding or
+   * uploading the final utterance — endSession() deliberately scores it rather
+   * than discarding it, and forcing idle here would hide that from the UI.
+   *
+   * Everything else must be cleared. Leaving `state` at "recording" with no
+   * device attached is not cosmetic: start() returns early on exactly that
+   * state, so the recorder would refuse to ever start again.
+   */
+  private resetStateAfterRelease(): void {
+    if (this.state !== "processing") this.setState("idle");
+  }
+
   releaseMicrophone(): void {
     this.generation++;
     this.capturing = false;
     this.frames = [];
     this.releaseAudio();
+    this.resetStateAfterRelease();
   }
 
   dispose(): void {
@@ -508,6 +586,13 @@ export class Recorder {
       throw captureError("UNSUPPORTED_BROWSER", "AudioContext is unavailable");
     }
 
+    // Reuse path: keep the compiled worklet module and the running context,
+    // attach the new device to the node that is already there.
+    if (this.canReuseContext()) {
+      this.attachSource(this.context as AudioContext);
+      return;
+    }
+
     const context = new AudioContextCtor();
     this.context = context;
 
@@ -521,14 +606,14 @@ export class Recorder {
     }
 
     await addCaptureWorklet(context);
+    this.contextReady = true;
 
     if (!this.stream) throw captureError("DEVICE_LOST", "stream disappeared before graph construction");
 
-    this.source = context.createMediaStreamSource(this.stream);
     this.node = new AudioWorkletNode(context, WORKLET_PROCESSOR_NAME);
     this.node.port.onmessage = (event: MessageEvent<Float32Array>) => this.onFrame(event.data);
 
-    this.source.connect(this.node);
+    this.attachSource(context);
     // Keeps the graph pulling. A worklet that returns no output is silent, so
     // this produces no audible feedback loop.
     this.node.connect(context.destination);
@@ -840,6 +925,7 @@ export class Recorder {
     this.generation++;
     this.cancelIdleRelease();
     this.graphReady = false;
+    this.contextReady = false;
 
     if (navigator.mediaDevices) {
       navigator.mediaDevices.removeEventListener("devicechange", this.onDeviceChange);

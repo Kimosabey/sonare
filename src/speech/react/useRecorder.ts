@@ -72,6 +72,8 @@ export interface UseRecorderValue {
   warm: () => void;
   /** Ends a continuous session and releases the microphone. */
   endSession: () => void;
+  /** Release the capture device but keep the audio graph — see recorder.ts. */
+  releaseDevice: () => void;
   reset: () => void;
 }
 
@@ -257,6 +259,17 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
     stopRef.current = stop;
   }, [stop]);
 
+  /**
+   * Per-activity scope: hand the device back so the OS indicator goes out
+   * between activities, keeping the AudioContext so the next take is cheap.
+   */
+  const releaseDevice = useCallback(() => {
+    recorderRef.current?.releaseDevice();
+    setSpeaking(false);
+    setClipping(false);
+    setLevel(-90);
+  }, []);
+
   const endSession = useCallback(() => {
     sessionActiveRef.current = false;
     setSessionActive(false);
@@ -298,6 +311,7 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
     stop,
     warm,
     endSession,
+    releaseDevice,
     reset,
   };
 }
