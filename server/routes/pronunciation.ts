@@ -5,6 +5,8 @@
  * Returns exactly the PRD §6 shape, whichever provider produced it.
  */
 
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
@@ -118,6 +120,8 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
     assertAzureFormat(info);
     assertDuration(info, MIN_AUDIO_SECONDS, MAX_AUDIO_SECONDS);
 
+    await maybeSaveAudio(file.buffer, language, sessionId);
+
     const provider = getScoringProvider();
 
     const providerStart = process.hrtime.bigint();
@@ -217,4 +221,34 @@ function respondWithError(req: Request, res: Response, err: unknown): void {
       userMessage: "Something went wrong. Please try again.",
     },
   });
+}
+
+/**
+ * Diagnostic-only: write the exact WAV the scorer received to disk.
+ *
+ * Deliberately opt-in via SAVE_AUDIO_DIR and off by default. attempts.ts is
+ * explicit that audio is not persisted — "storing learner voice recordings is
+ * a data-protection decision, not a build one" — and that still stands. This
+ * exists because a fragmentary-recognition problem cannot be diagnosed from
+ * peak/SNR/duration alone: those were indistinguishable between the takes
+ * that scored and the takes that came back indeterminate. Somebody has to
+ * listen to the audio.
+ *
+ * Turn it on for a debugging session, then unset it. Never set it in a
+ * deployment serving real learners.
+ */
+async function maybeSaveAudio(wav: Buffer, language: string, sessionId: string | undefined): Promise<void> {
+  const dir = process.env.SAVE_AUDIO_DIR;
+  if (!dir) return;
+
+  try {
+    await mkdir(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const name = `${stamp}_${language}_${sessionId?.slice(0, 8) ?? "nosession"}.wav`;
+    await writeFile(join(dir, name), wav);
+    logger.warn({ file: name, bytes: wav.length }, "[pronunciation] SAVE_AUDIO_DIR is set — learner audio written to disk");
+  } catch (err) {
+    // Diagnostics must never break a learner's take.
+    logger.error({ err }, "[pronunciation] failed to save diagnostic audio");
+  }
 }

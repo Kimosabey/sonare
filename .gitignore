@@ -31,3 +31,6 @@ french-activity-test-results.json
 # real-learner-data file that git happily offered to commit. Match the
 # directory name at any depth instead.
 data/
+
+# Diagnostic learner audio from SAVE_AUDIO_DIR. Never committed.
+audio-debug/
