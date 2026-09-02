@@ -12,6 +12,13 @@
  */
 
 const FRAME_MS = 20;
+/**
+ * Web Audio Float32 is not clamped to +/-1.0, so an over-driven input arrives
+ * above full scale and wav.ts's encoder has to clamp it — which *is* hard
+ * clipping. Counting at 0.999 rather than 1.0 catches samples already
+ * flattened by an upstream limiter too.
+ */
+const CLIP_AMPLITUDE = 0.999;
 const NOISE_PERCENTILE = 0.1;
 const SPEECH_PERCENTILE = 0.9;
 const SILENCE_FLOOR = 1e-10;
@@ -21,11 +28,23 @@ export interface SignalStats {
   peakDbfs: number;
   /** True when the whole recording is effectively silent — FR-09. */
   silent: boolean;
+  /**
+   * Fraction of samples at or beyond full scale.
+   *
+   * SNR is completely blind to clipping: a hard-clipped take has a *superb*
+   * noise ratio (measured 37.8 dB on a real one) because clipping raises the
+   * speech percentile while leaving the noise floor alone. So the SNR gate
+   * waves through the worst possible audio. Azure then returns NoMatch —
+   * "no speech recognised" — on a recording where the learner spoke clearly
+   * and loudly, which is the most confusing failure the app can produce.
+   */
+  clippedFraction: number;
 }
 
 export function analyseSignal(samples: Float32Array, sampleRate: number): SignalStats {
   const peak = peakAmplitude(samples);
   const peakDbfs = toDb(peak);
+  const clippedFraction = clippedProportion(samples);
 
   const frameSize = Math.max(1, Math.round((sampleRate * FRAME_MS) / 1000));
   const energies: number[] = [];
@@ -40,7 +59,7 @@ export function analyseSignal(samples: Float32Array, sampleRate: number): Signal
   }
 
   if (energies.length < 3) {
-    return { snrDb: 0, peakDbfs, silent: peak < 1e-4 };
+    return { snrDb: 0, peakDbfs, silent: peak < 1e-4, clippedFraction };
   }
 
   energies.sort((a, b) => a - b);
@@ -53,7 +72,23 @@ export function analyseSignal(samples: Float32Array, sampleRate: number): Signal
     snrDb: Number.isFinite(snrDb) ? snrDb : 0,
     peakDbfs,
     silent: peak < 1e-4,
+    clippedFraction,
   };
+}
+
+/**
+ * Proportion, not peak. A single transient touching full scale — a table
+ * knock, a plosive — is harmless and must not reject an otherwise good take;
+ * sustained clipping across a meaningful share of the take is what destroys
+ * the spectral detail phoneme scoring reads.
+ */
+function clippedProportion(samples: Float32Array): number {
+  if (samples.length === 0) return 0;
+  let clipped = 0;
+  for (let i = 0; i < samples.length; i++) {
+    if (Math.abs(samples[i] ?? 0) >= CLIP_AMPLITUDE) clipped += 1;
+  }
+  return clipped / samples.length;
 }
 
 /** FR-06 — level for the meter, in dBFS. */

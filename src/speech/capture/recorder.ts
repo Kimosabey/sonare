@@ -20,6 +20,8 @@ export interface RecorderOptions {
   minSeconds?: number;
   maxSeconds?: number;
   minSnrDb?: number;
+  /** Reject when this fraction of samples or more sits at full scale. */
+  maxClippedFraction?: number;
   /** The fixture runner may want the raw take regardless of noise. */
   enforceSnrGate?: boolean;
   /** Stop on trailing silence instead of waiting for a second tap. */
@@ -55,6 +57,13 @@ const DEFAULTS = {
   minSeconds: 0.25,
   maxSeconds: 15,
   minSnrDb: 10,
+  /**
+   * 2% of samples at full scale. Generous on purpose: a plosive or a knock
+   * can legitimately touch the ceiling, and rejecting a usable take is worse
+   * than scoring a slightly hot one. Sustained clipping runs far above this —
+   * the real take that triggered this gate sat at +6.3 dBFS peak.
+   */
+  maxClippedFraction: 0.02,
   enforceSnrGate: true,
   autoStop: true,
   /**
@@ -341,6 +350,23 @@ export class Recorder {
 
       if (stats.silent) {
         throw captureError("NO_AUDIO_ENERGY", `peak ${stats.peakDbfs.toFixed(1)} dBFS`);
+      }
+
+      /**
+       * Checked before the SNR gate, because SNR cannot see this. Clipping
+       * *raises* the speech percentile while leaving the noise floor alone, so
+       * a destroyed take scores a great SNR and sails through — then Azure
+       * returns NoMatch and the learner is told "no speech recognised" after
+       * speaking clearly. Same enforceSnrGate flag: the fixture runner wants
+       * the raw take either way.
+       */
+      if (this.options.enforceSnrGate && stats.clippedFraction >= this.options.maxClippedFraction) {
+        throw captureError(
+          "LEVEL_TOO_HOT",
+          `${(stats.clippedFraction * 100).toFixed(1)}% of samples clipped ` +
+            `(peak ${stats.peakDbfs.toFixed(1)} dBFS), at or above the ` +
+            `${(this.options.maxClippedFraction * 100).toFixed(1)}% ceiling`,
+        );
       }
 
       // T10: refuse to send audio that will produce a meaningless score.
