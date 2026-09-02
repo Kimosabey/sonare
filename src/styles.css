@@ -68,17 +68,42 @@ body {
      belongs to the viewport and doesn't slide around under a scrolling
      report. Paint-only — no layout, no compositing cost per frame. */
   background-color: var(--paper);
-  background-image:
-    radial-gradient(1100px 780px at 8% -12%, var(--tint-violet), transparent 62%),
-    radial-gradient(880px 680px at 102% -4%, var(--tint-lilac), transparent 58%),
-    radial-gradient(720px 620px at 52% 112%, var(--tint-violet-faint), transparent 62%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
   color: var(--ink);
   font-family: var(--sans);
   font-size: 15px;
   line-height: 1.5;
-  padding: 0 max(20px, env(safe-area-inset-left)) 80px;
+  /* Left and right resolved separately: in landscape the notch is on one side
+     only, so applying the left inset to both (which the `0 X 80px` shorthand
+     did) pads the wrong edge. Bottom clears the home indicator. */
+  padding-top: 0;
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+/**
+ * The tint wash lives on a fixed pseudo-element, not on body's own background.
+ *
+ * `background-attachment: fixed` is the obvious way to write this and the
+ * wrong one for iOS Safari: it forces a full-area repaint on every scroll
+ * frame there, which is exactly the stutter this app can least afford on the
+ * device it is meant to be tested on. A fixed-position layer gets the same
+ * viewport-anchored result, composited once, and scrolls for free.
+ *
+ * z-index -1 keeps it behind content; body sets no z-index of its own, so no
+ * stacking context traps it. pointer-events none so it can never eat a tap.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1100px 780px at 8% -12%, var(--tint-violet), transparent 62%),
+    radial-gradient(880px 680px at 102% -4%, var(--tint-lilac), transparent 58%),
+    radial-gradient(720px 620px at 52% 112%, var(--tint-violet-faint), transparent 62%);
+  background-repeat: no-repeat;
 }
 
 .wrap {
