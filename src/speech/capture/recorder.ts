@@ -22,6 +22,8 @@ export interface RecorderOptions {
   minSnrDb?: number;
   /** Reject when this fraction of samples or more sits at full scale. */
   maxClippedFraction?: number;
+  /** Reject when the peak exceeds this, in dBFS. Above 0 means over-driven. */
+  maxPeakDbfs?: number;
   /** The fixture runner may want the raw take regardless of noise. */
   enforceSnrGate?: boolean;
   /** Stop on trailing silence instead of waiting for a second tap. */
@@ -64,6 +66,21 @@ const DEFAULTS = {
    * the real take that triggered this gate sat at +6.3 dBFS peak.
    */
   maxClippedFraction: 0.02,
+  /**
+   * The fraction test alone is not enough, and the numbers say why. Speech has
+   * a high crest factor, so a take peaking at +3 dBFS — unambiguously
+   * over-driven, and being flattened by wav.ts's clamp — puts only 0.6% of
+   * samples at full scale and slips under the 2% ceiling. Measured against
+   * real audio: +7.85 dBFS -> 8.7% clipped, +4.81 -> 2.2%, +3 -> 0.63%,
+   * +1 -> 0.05%.
+   *
+   * A peak above full scale is unambiguous on its own: Float32 from a
+   * correctly levelled microphone cannot exceed 1.0, so anything over is
+   * proof of over-drive, and it is the loud syllables — where the phoneme
+   * detail lives — that are being destroyed. 0.5 dB of allowance keeps a
+   * single stray overshooting sample from rejecting an otherwise fine take.
+   */
+  maxPeakDbfs: 0.5,
   enforceSnrGate: true,
   autoStop: true,
   /**
@@ -360,12 +377,17 @@ export class Recorder {
        * speaking clearly. Same enforceSnrGate flag: the fixture runner wants
        * the raw take either way.
        */
-      if (this.options.enforceSnrGate && stats.clippedFraction >= this.options.maxClippedFraction) {
+      if (
+        this.options.enforceSnrGate &&
+        (stats.clippedFraction >= this.options.maxClippedFraction ||
+          stats.peakDbfs > this.options.maxPeakDbfs)
+      ) {
         throw captureError(
           "LEVEL_TOO_HOT",
-          `${(stats.clippedFraction * 100).toFixed(1)}% of samples clipped ` +
-            `(peak ${stats.peakDbfs.toFixed(1)} dBFS), at or above the ` +
-            `${(this.options.maxClippedFraction * 100).toFixed(1)}% ceiling`,
+          `peak ${stats.peakDbfs.toFixed(1)} dBFS with ` +
+            `${(stats.clippedFraction * 100).toFixed(2)}% of samples clipped ` +
+            `(limits: peak ${this.options.maxPeakDbfs} dBFS, ` +
+            `${(this.options.maxClippedFraction * 100).toFixed(1)}% clipped)`,
         );
       }
 
