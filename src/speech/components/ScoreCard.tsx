@@ -13,16 +13,44 @@ import { AnimatedCell } from "./AnimatedCell.js";
 
 interface ScoreCardProps {
   result: PronunciationResult;
+  /**
+   * True when the capture layer measured clear speech in this take. Lets an
+   * indeterminate result say which of two very different things happened —
+   * see the copy below.
+   */
+  heardSpeech?: boolean;
 }
 
-export function ScoreCard({ result }: ScoreCardProps) {
+/**
+ * Azure returns the same shape for "there was no speech" and "there was
+ * speech but none of it matched the target phrase": every word Omission, no
+ * phonemes. Recorded evidence for why the difference matters — one speaker,
+ * one session, one microphone:
+ *
+ *   hi-IN (fluent)   full recognition, scored 93.4 / 96.4 / 99.4
+ *   fr-FR (learning) "Je voudrais." out of a nine-word phrase, scored 23.2
+ *
+ * Told only "couldn't get a clear read", that speaker reasonably went hunting
+ * for a microphone fault — as did the debugging session that produced these
+ * numbers. The audio was flawless. The message was wrong, and it sent
+ * everyone in the wrong direction for hours.
+ */
+const NO_SPEECH_COPY = "Couldn't get a clear read — try again.";
+const NO_MATCH_COPY = "We heard you clearly, but couldn't match it to this phrase.";
+const NO_MATCH_HINT =
+  "That usually means a few sounds are far enough off that the scorer lost the thread. Try it a little slower, one word at a time.";
+
+export function ScoreCard({ result, heardSpeech = false }: ScoreCardProps) {
   if (result.indeterminate) {
+    // The provider found nothing to assess. Whether that means silence or an
+    // unmatchable utterance is something only the capture layer knows.
+    const noMatch = heardSpeech;
     return (
       <div className="verdict v-warn">
-        <div className="tag">UNCLEAR</div>
+        <div className="tag">{noMatch ? "NO MATCH" : "UNCLEAR"}</div>
         <div>
-          Couldn&rsquo;t get a clear read — try again.
-          <div className="hint">{result.reason}</div>
+          {noMatch ? NO_MATCH_COPY : NO_SPEECH_COPY}
+          <div className="hint">{noMatch ? NO_MATCH_HINT : result.reason}</div>
         </div>
       </div>
     );

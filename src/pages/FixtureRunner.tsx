@@ -32,7 +32,7 @@ import { PhraseSelector } from "../speech/components/PhraseSelector.js";
 import { CaptureSettings, DEFAULT_CAPTURE_SETTINGS, SENSITIVITY_FACTOR } from "../ui/CaptureSettings.js";
 import type { CaptureSettingsValue } from "../ui/CaptureSettings.js";
 import { InterimFeedback } from "../ui/InterimFeedback.js";
-import { useCaptureToasts } from "../ui/useCaptureToasts.js";
+import { HEARD_SPEECH_SNR_DB, useCaptureToasts } from "../ui/useCaptureToasts.js";
 import { useToast } from "../ui/ToastProvider.js";
 import { newSessionId } from "../ui/sessionId.js";
 import { LANGUAGES } from "../activities/languages/index.js";
@@ -247,7 +247,7 @@ export function FixtureRunner() {
           </div>
         )}
 
-        {recorder.result && <ScoreCard result={recorder.result} />}
+        {recorder.result && <ScoreCard result={recorder.result} heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB} />}
 
         <DebugPanel
           granted={recorder.granted}

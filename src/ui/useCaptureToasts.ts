@@ -13,6 +13,14 @@ import { useEffect, useRef } from "react";
 import { useToast } from "./ToastProvider.js";
 import type { UseRecorderValue } from "../speech/react/useRecorder.js";
 
+/**
+ * SNR at or above this means the capture layer genuinely heard speech, so an
+ * indeterminate result is the scorer failing to match it rather than an audio
+ * problem. Well below the takes that scored 93-99 in testing (12.8-33 dB), so
+ * it does not mistake a quiet room for a failed match.
+ */
+export const HEARD_SPEECH_SNR_DB = 10;
+
 const CAPTURE_KEY = "capture";
 
 export interface CaptureToastOptions {
@@ -99,12 +107,18 @@ export function useCaptureToasts(recorder: UseRecorderValue, options: CaptureToa
     if (!announceScore) return;
 
     if (result.indeterminate) {
-      // R8: never a number here. "Unclear" is the honest report.
+      // R8: never a number here. But "unclear" and "unmatched" are different
+      // facts and deserve different advice — telling a learner who spoke
+      // clearly to be louder sends them off to debug a microphone that is
+      // perfectly fine. See the recorded evidence in ScoreCard.tsx.
+      const heard = (recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB;
       toast.push({
         key: CAPTURE_KEY,
         kind: "warn",
-        title: "Couldn't get a clear read",
-        detail: "Try again a little louder, or somewhere quieter.",
+        title: heard ? "Couldn't match that to the phrase" : "Couldn't get a clear read",
+        detail: heard
+          ? "We heard you clearly. Try it slower, one word at a time."
+          : "Try again a little louder, or somewhere quieter.",
       });
       return;
     }

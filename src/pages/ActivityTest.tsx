@@ -27,7 +27,7 @@ import { ActivityReport } from "../speech/components/ActivityReport.js";
 import { CaptureSettings, DEFAULT_CAPTURE_SETTINGS, SENSITIVITY_FACTOR } from "../ui/CaptureSettings.js";
 import type { CaptureSettingsValue } from "../ui/CaptureSettings.js";
 import { InterimFeedback } from "../ui/InterimFeedback.js";
-import { useCaptureToasts } from "../ui/useCaptureToasts.js";
+import { HEARD_SPEECH_SNR_DB, useCaptureToasts } from "../ui/useCaptureToasts.js";
 import { useToast } from "../ui/ToastProvider.js";
 import { useWakeLock } from "../ui/useWakeLock.js";
 import { useOnlineStatus } from "../ui/useOnlineStatus.js";
@@ -478,7 +478,7 @@ export function ActivityTest() {
       <section>
         <h2>Result</h2>
         <div aria-live="polite">
-          {recorder.result ? <ScoreCard result={recorder.result} /> : <p className="what">No attempt yet.</p>}
+          {recorder.result ? <ScoreCard result={recorder.result} heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB} /> : <p className="what">No attempt yet.</p>}
         </div>
 
         {attemptsUsed > 1 && (
