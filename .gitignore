@@ -24,4 +24,10 @@ french-activity-test-results.json
 # server/fallbackLog.ts's last-resort local copy of attempts/diagnostics
 # records when MongoDB is unreachable — holds real learner data, never
 # committed. Replay into Mongo with `npm run replay-fallback`.
-/data/
+#
+# Unanchored on purpose. This was `/data/`, which matches only the repo root —
+# FALLBACK_DIR is relative to process.cwd(), so running the server from
+# server/ (or any older code path that wrote server/data/) produced a
+# real-learner-data file that git happily offered to commit. Match the
+# directory name at any depth instead.
+data/

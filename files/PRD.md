@@ -70,7 +70,7 @@ new authentication · offline scoring · production visual design · native app 
 | FR-08 | Detect track-ended, device change, and suspended `AudioContext`; fail with a typed error rather than hanging | P0 |
 | FR-09 | Detect zero audio energy within 3 s and raise `NO_AUDIO_ENERGY` | P0 |
 | FR-10 | Reject a recording below a configurable SNR threshold before upload, with a retry prompt | P1 |
-| FR-11 | Enforce minimum (0.4 s) and maximum (15 s) duration | P1 |
+| FR-11 | Enforce minimum (0.25 s) and maximum (15 s) duration | P1 | <br>Revised from 0.4 s: 8 of 80 synthetic single-word attempts were false-rejected as `AUDIO_TOO_SHORT`, since short words genuinely do not reach 0.4 s. See README "Known deviations and findings".
 
 ### Scoring endpoint (`server/`)
 

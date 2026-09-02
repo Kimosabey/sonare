@@ -1,7 +1,7 @@
-# Sonare — Lingotran French speech activity
+# Sonare — Lingotran speech activity
 
-Phoneme-level French pronunciation practice: ten activities, unlocked one at a
-time, ending in a report. Built on Azure AI Speech phoneme scoring instead of
+Phoneme-level pronunciation practice in French, Spanish, German and Hindi: ten
+activities per language, unlocked one at a time, ending in a report. Built on Azure AI Speech phoneme scoring instead of
 the Web Speech API's transcript-match approach (no phoneme data, and biased
 against accented speech — see `files/CONTEXT.md`).
 
@@ -38,7 +38,11 @@ shell and fails with `ENOENT` on Windows; run the two above instead there.)
 Ports are deliberately off the usual 3000/5173/8080 to avoid collisions. Vite
 proxies `/api` to the API, so the browser only ever talks to one origin.
 
-Single view, no routing — <http://localhost:5180/>. For real iOS testing,
+Four routes behind a `HashRouter` (`src/App.tsx`): the language picker at
+<http://localhost:5180/#/>, a language's activities at `#/fr` (`es`, `de`,
+`hi`), and two internal screens with no nav link to them anywhere —
+`#/diagnostics` (needs `DIAGNOSTICS_TOKEN`) and `#/fixture`. Append `?debug=1`
+to an activity route for the device-grant panel. For real iOS testing,
 `getUserMedia` needs a secure context (`localhost` is exempt, a LAN address is
 not); `vite.config.ts` already allows `ngrok`/Cloudflare tunnel hosts, so
 `ngrok http 5180` and opening the HTTPS URL on-device works out of the box.
@@ -125,8 +129,10 @@ browser-persistent storage in `src/speech/` (R11); a React import inside
 | `npm run verify` | The rule checks. |
 | `npm run test:french` | Headless regression test for the activity flow (see above). |
 | `npm run resample-bench` | Verifies the resampler's anti-aliasing and timing with real numbers — not just a typecheck. |
+| `npm run replay-fallback` | Replays `server/fallbackLog.ts`'s local NDJSON into MongoDB after an outage. |
+| `python3 scripts/analyze_fixture.py <export.json>` | T18/PRD §8 — Set A vs Set B separation, per language and per platform. Standard library only; `matplotlib` adds the plot. |
 
-`smoke` and `resample-bench` need no browser.
+`smoke`, `resample-bench` and `analyze_fixture.py` need no browser.
 
 ## Layout
 
@@ -135,11 +141,13 @@ src/speech/capture/     framework-free capture — ports to React Native, zero R
 src/speech/react/       useRecorder.ts, the only React file under src/speech/
 src/speech/scoring/     upload client + the PRD §6 response type
 src/speech/components/  score card, word chips, phoneme detail, debug panel
-src/activities/         the activity set, progress types, report aggregation
-src/pages/              FrenchActivityTest — the whole app
+src/activities/         per-language activity sets, progress types, report aggregation
+src/pages/              LanguagePicker, ActivityTest, Diagnostics, FixtureRunner
+src/ui/                 toasts, capture settings, wake lock, progress persistence
 server/services/        ScoringProvider interface + azureSpeech.ts (only SDK importer)
-server/routes/          POST /api/v1/pronunciation
-scripts/                smoke, verify, dev, test:french
+server/routes/          POST /api/v1/pronunciation, /api/v1/diagnostics + /attempts
+scripts/                smoke, verify, dev, test:french, resample-bench,
+                        replay-fallback, analyze_fixture.py (T18)
 ```
 
 ## Known deviations and findings
@@ -154,9 +162,12 @@ scripts/                smoke, verify, dev, test:french
   all-words-omitted-with-no-phonemes as `indeterminate` (R8).
 - **No prosody for `en-US`.** Azure returned no `ProsodyScore`. PRD §6 was right
   to make it optional; coverage for other languages is unconfirmed (OQ-1).
-- **The resampler is the harness's moving-average filter.** Adequate-looking so
-  far, but PRD OQ-4 tracks whether it needs a windowed-sinc kernel. Revisit if
-  fixture scores come back uniformly low.
+- **The resampler is a windowed-sinc (polyphase, precomputed) kernel.**
+  Started as the harness's moving average; PRD OQ-4 asked whether that was
+  good enough and is now **resolved** — it was replaced. `npm run
+  resample-bench` verifies it with numbers: a 10 kHz tone's alias at 6 kHz
+  drops from ~1.0 unfiltered to 0.011, passband gain is 0.9999, and 15 s of
+  48 kHz audio resamples in ~28 ms with the kernel cached.
 - **Blob Storage is not used.** It appears in no PRD requirement and nothing in
   the scoring path needs it.
 - **Azure returns unlabeled phonemes for `fr-FR`.** Segments come back with real
