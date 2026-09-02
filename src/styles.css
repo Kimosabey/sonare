@@ -943,7 +943,11 @@ details .body {
 textarea {
   width: 100%;
   font-family: var(--mono);
-  font-size: 11px;
+  /* 16px, like input/select above: iOS Safari zooms the viewport on focus for
+     anything smaller, which on the fixture runner meant tapping the export box
+     mid-session threw the layout around. Larger mono in an export field costs
+     nothing — it is more legible, not less. */
+  font-size: 16px;
   padding: 10px;
   border: 1px solid var(--rule);
   border-radius: 10px;

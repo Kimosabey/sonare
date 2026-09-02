@@ -20,6 +20,23 @@ const ENDPOINT = "/api/v1/pronunciation";
  */
 const RETRY_DELAYS_MS = [600, 1800];
 
+/**
+ * Hard ceiling on one upload attempt.
+ *
+ * Without this a fetch has no deadline at all: a mobile connection that stalls
+ * mid-upload leaves the promise pending, the recorder stuck in "processing",
+ * and the learner staring at "Scoring…" forever with no way back except a
+ * reload. A dropped connection rejects quickly; a *stalled* one does not, and
+ * that is the common failure on a train or in a lift.
+ *
+ * Sized for the slow case rather than the fast one. A 4s take is ~130 kB of
+ * 16 kHz PCM, which is several seconds on a poor connection, and the server
+ * then allows Azure up to 8s (RECOGNITION_TIMEOUT_MS) before giving up. 25s
+ * leaves room for both plus the response, while still being decisively short
+ * of "forever".
+ */
+const UPLOAD_TIMEOUT_MS = 25_000;
+
 export class ScoringError extends Error {
   readonly code: string;
   readonly domain: "client" | "network" | "server" | "provider" | "model";
@@ -110,7 +127,18 @@ export async function scoreRecording(req: ScoreRequest): Promise<PronunciationRe
       reportTiming("success");
       return result;
     } catch (err) {
-      const retryDelayMs = err instanceof ScoringError && err.domain === "network" ? RETRY_DELAYS_MS[attempt] : undefined;
+      /**
+       * Retry a connection that dropped, never one we abandoned on a deadline.
+       * UPLOAD_TIMEOUT keeps domain "network" because that is honestly what it
+       * is, but it is excluded here on cost grounds: a fetch that rejects
+       * immediately never reached the scorer, while one still pending after
+       * 25s may already have called and been billed by Azure. Re-sending that
+       * automatically would double-charge on exactly the flaky connections
+       * where it happens most. The learner can retry deliberately.
+       */
+      const retryable =
+        err instanceof ScoringError && err.domain === "network" && err.code !== "UPLOAD_TIMEOUT";
+      const retryDelayMs = retryable ? RETRY_DELAYS_MS[attempt] : undefined;
       if (retryDelayMs === undefined) {
         reportTiming("failure");
         throw err;
@@ -123,15 +151,28 @@ export async function scoreRecording(req: ScoreRequest): Promise<PronunciationRe
 
 async function post(form: FormData): Promise<PronunciationResult> {
   let response: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
   try {
-    response = await fetch(ENDPOINT, { method: "POST", body: form });
+    response = await fetch(ENDPOINT, { method: "POST", body: form, signal: controller.signal });
   } catch (err) {
+    // Excluded from the retry loop above on cost grounds — see the comment there.
+    if (controller.signal.aborted) {
+      throw new ScoringError(
+        "UPLOAD_TIMEOUT",
+        "network",
+        `upload exceeded ${UPLOAD_TIMEOUT_MS} ms`,
+        "That took too long to send — the connection looks slow. Tap to try again.",
+      );
+    }
     throw new ScoringError(
       "NETWORK_FAILED",
       "network",
       `fetch failed: ${String(err)}`,
       "Couldn't reach the server. Check your connection and try again.",
     );
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!response.ok) {
