@@ -265,15 +265,30 @@ export class Recorder {
    * R10/FR-07 — must be called from a user gesture. iOS requires it; there is
    * no workaround and we are not going to invent one.
    */
-  async start(): Promise<void> {
+  /**
+   * `prewarm` marks an acquisition that no learner asked for — done ahead of
+   * time so the next Record tap is instant. It differs in two ways that both
+   * matter, and getting either wrong turns an optimisation into a fault:
+   *
+   *  - No gesture pre-check. A prewarm runs on an activity change, where the
+   *    transient activation from the tap that got there may already have
+   *    expired. getUserMedia is the authority; pre-failing here produced a
+   *    GESTURE_REQUIRED error on a screen the learner had not interacted with.
+   *  - Failures are swallowed, never surfaced. Nothing is lost if a prewarm
+   *    does not land — the next real tap acquires normally — so showing an
+   *    error for it is pure noise, and alarming noise at that.
+   */
+  async start(options: { prewarm?: boolean } = {}): Promise<void> {
     if (this.state === "recording") return;
 
     // Chrome and Edge expose this; Safari does not. When it is absent we cannot
     // tell, so we proceed and let getUserMedia be the authority.
-    const activation = navigator.userActivation;
-    if (activation && activation.isActive === false) {
-      this.fail(captureError("GESTURE_REQUIRED", "start() called outside a user gesture"));
-      return;
+    if (!options.prewarm) {
+      const activation = navigator.userActivation;
+      if (activation && activation.isActive === false) {
+        this.fail(captureError("GESTURE_REQUIRED", "start() called outside a user gesture"));
+        return;
+      }
     }
 
     this.setAudioSessionType();
@@ -324,6 +339,11 @@ export class Recorder {
       const cancelled = stale();
       this.releaseAudio();
       if (cancelled) return;
+      // A prewarm that fails is a non-event — see the note on start().
+      if (options.prewarm) {
+        this.setState("idle");
+        return;
+      }
       this.fail(err instanceof CaptureError ? err : captureError("UNSUPPORTED_BROWSER", String(err)));
     }
   }

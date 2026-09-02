@@ -208,8 +208,24 @@ export function ActivityTest() {
    * reading the prompt, which is exactly long enough to hide the getUserMedia
    * round trip, so tap-to-recording stays inside NFR-01's 400ms.
    */
+  const lastScopedIndex = useRef(index);
   useEffect(() => {
     if (!started || finished) return;
+
+    /**
+     * Only on a genuine move between activities.
+     *
+     * Keying this on `started` as well was a real fault, not a nicety:
+     * beginSession() warms the microphone and *then* sets started, so this
+     * effect fired on that same transition and released the device the Start
+     * tap had just acquired — then re-warmed it with no transient activation
+     * left, surfacing GESTURE_REQUIRED on a screen the learner had only just
+     * tapped into. The ref makes the effect ignore everything except the index
+     * actually changing.
+     */
+    if (lastScopedIndex.current === index) return;
+    lastScopedIndex.current = index;
+
     recorder.releaseDevice();
     recorder.warm();
   }, [index, started, finished, recorder.releaseDevice, recorder.warm]);

@@ -172,14 +172,19 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
 
   const warm = useCallback(() => {
     const recorder = ensureRecorder();
-    void recorder.start().then(() => {
+    void recorder
+      .start({ prewarm: true })
+      .then(() => {
       setGranted(recorder.getGrantedConstraints());
       setContextSampleRate(recorder.getContextSampleRate());
-      // Abandon the take but keep the graph alive (Recorder.cancel() honours
-      // keepMicWarm) — this call exists purely to pay the getUserMedia +
-      // AudioWorklet cost ahead of the learner's first real Record tap.
-      if (recorder.getState() === "recording") recorder.cancel();
-    });
+        // Abandon the take but keep the graph alive (Recorder.cancel() honours
+        // keepMicWarm) — this call exists purely to pay the getUserMedia +
+        // AudioWorklet cost ahead of the learner's first real Record tap.
+        if (recorder.getState() === "recording") recorder.cancel();
+      })
+      // Belt and braces: start({prewarm}) already swallows its own failures,
+      // but a prewarm must never become an unhandled rejection either.
+      .catch(() => undefined);
   }, [ensureRecorder]);
 
   const start = useCallback(() => {

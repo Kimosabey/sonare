@@ -163,3 +163,42 @@ describe("Recorder per-activity scope", () => {
     expect(vi.mocked(addCaptureWorklet)).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("prewarm never surfaces an error", () => {
+  it("does not fail into the error state when there is no user gesture", async () => {
+    const { Recorder } = await import("./recorder.js");
+    const { acquireMicrophone } = await import("./constraints.js");
+    const { addCaptureWorklet } = await import("./worklet.js");
+    vi.mocked(addCaptureWorklet).mockResolvedValue(undefined as never);
+    mockDevice(vi.mocked(acquireMicrophone));
+
+    // Exactly the condition that produced GESTURE_REQUIRED on an activity
+    // change: no transient activation left from the tap that got there.
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: { userActivation: { isActive: false }, mediaDevices: undefined },
+    });
+
+    const errors: string[] = [];
+    const recorder = new Recorder({}, { onError: (e) => errors.push(e.code) });
+    await recorder.start({ prewarm: true });
+
+    expect(errors).toEqual([]);
+    expect(recorder.getState()).not.toBe("error");
+  });
+
+  it("still refuses a real start with no gesture — the guard is not gone", async () => {
+    const { Recorder } = await import("./recorder.js");
+
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: { userActivation: { isActive: false }, mediaDevices: undefined },
+    });
+
+    const errors: string[] = [];
+    const recorder = new Recorder({}, { onError: (e) => errors.push(e.code) });
+    await recorder.start();
+
+    expect(errors).toEqual(["GESTURE_REQUIRED"]);
+  });
+});
