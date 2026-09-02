@@ -34,6 +34,7 @@ import type { CaptureSettingsValue } from "../ui/CaptureSettings.js";
 import { InterimFeedback } from "../ui/InterimFeedback.js";
 import { useCaptureToasts } from "../ui/useCaptureToasts.js";
 import { useToast } from "../ui/ToastProvider.js";
+import { newSessionId } from "../ui/sessionId.js";
 import { LANGUAGES } from "../activities/languages/index.js";
 import type { CaptureResult, GrantedConstraints } from "../speech/capture/types.js";
 import type { PronunciationResult } from "../speech/scoring/types.js";
@@ -74,7 +75,7 @@ export function FixtureRunner() {
   // Regenerated per set switch, not per recording — every take in one
   // A-or-B pass belongs to the same funnel-analysis session, same
   // convention ActivityTest.tsx uses.
-  const sessionId = useRef(crypto.randomUUID());
+  const sessionId = useRef(newSessionId());
 
   const hangoverMs = Math.round(hangoverForReference(referenceText) * SENSITIVITY_FACTOR[settings.sensitivity]);
 
@@ -148,7 +149,7 @@ export function FixtureRunner() {
   const clear = () => {
     if (log.length > 0 && !window.confirm(`Discard ${log.length} unexported attempts?`)) return;
     setLog([]);
-    sessionId.current = crypto.randomUUID();
+    sessionId.current = newSessionId();
   };
 
   const countFor = (id: SetId) => log.filter((e) => e.set === id).length;

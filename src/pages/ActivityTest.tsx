@@ -9,7 +9,10 @@
  * activity 3 — which is the exact failure this POC exists to detect, not to
  * inflict.
  *
- * R11: progress is in-memory. A refresh restarts the session by design.
+ * R11 applies to the *capture* layer, not here: progress is persisted per
+ * language + learner (useProgressPersistence.ts), so a refresh resumes the
+ * session instead of discarding it. Start still needs a fresh user gesture to
+ * open the microphone (R10), so a reload does land back on the intro screen.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -29,6 +32,7 @@ import { useToast } from "../ui/ToastProvider.js";
 import { useWakeLock } from "../ui/useWakeLock.js";
 import { useOnlineStatus } from "../ui/useOnlineStatus.js";
 import { useLearnerName } from "../ui/useLearnerName.js";
+import { newSessionId } from "../ui/sessionId.js";
 import { useProgressPersistence } from "../ui/useProgressPersistence.js";
 import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
 import { buildReport } from "../activities/report.js";
@@ -63,7 +67,7 @@ export function ActivityTest() {
   // Ties every attempt and diagnostic in one session together for funnel
   // analysis (#/diagnostics) — regenerated on beginSession()/restart() so a
   // fresh session never gets attributed to the previous one's data.
-  const sessionId = useRef(crypto.randomUUID());
+  const sessionId = useRef(newSessionId());
   const toast = useToast();
 
   // A refresh still lands back on the intro screen (Start still needs a
@@ -195,7 +199,7 @@ export function ActivityTest() {
     setFinished(false);
     setCelebration(null);
     startedAt.current = Date.now();
-    sessionId.current = crypto.randomUUID();
+    sessionId.current = newSessionId();
     progressStore.clear();
   }, [recorder, progressStore.clear]);
 
