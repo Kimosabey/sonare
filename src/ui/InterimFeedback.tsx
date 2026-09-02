@@ -11,7 +11,7 @@
  * is about to end.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 interface InterimFeedbackProps {
   recording: boolean;
@@ -22,7 +22,7 @@ interface InterimFeedbackProps {
   autoStop: boolean;
 }
 
-export function InterimFeedback({ recording, speaking, level, hangoverMs, autoStop }: InterimFeedbackProps) {
+function InterimFeedbackBase({ recording, speaking, level, hangoverMs, autoStop }: InterimFeedbackProps) {
   const [elapsed, setElapsed] = useState(0);
   const [silentFor, setSilentFor] = useState(0);
   const startedAt = useRef(0);
@@ -82,3 +82,13 @@ export function InterimFeedback({ recording, speaking, level, hangoverMs, autoSt
     </div>
   );
 }
+
+/**
+ * Memoised because the level meter drives a 30Hz state update on the page that
+ * renders this. Without a bail-out, every component in that subtree re-rendered
+ * thirty times a second for the whole take — on the exact frames the recording
+ * UI needs to stay smooth. Props here are referentially stable between level
+ * ticks, so the comparison genuinely short-circuits rather than just moving
+ * the cost.
+ */
+export const InterimFeedback = memo(InterimFeedbackBase);

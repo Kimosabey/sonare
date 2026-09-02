@@ -18,6 +18,8 @@
  * be transcription.
  */
 
+import { memo } from "react";
+
 export type SilenceSensitivity = "quick" | "normal" | "patient";
 
 export const SENSITIVITY_FACTOR: Record<SilenceSensitivity, number> = {
@@ -55,7 +57,7 @@ interface CaptureSettingsProps {
   disabled?: boolean;
 }
 
-export function CaptureSettings({ value, onChange, hangoverMs, disabled }: CaptureSettingsProps) {
+function CaptureSettingsBase({ value, onChange, hangoverMs, disabled }: CaptureSettingsProps) {
   const set = <K extends keyof CaptureSettingsValue>(key: K, next: CaptureSettingsValue[K]) =>
     onChange({ ...value, [key]: next });
 
@@ -170,3 +172,13 @@ function Switch({ id, label, description, checked, disabled, onChange }: SwitchP
     </div>
   );
 }
+
+/**
+ * Memoised because the level meter drives a 30Hz state update on the page that
+ * renders this. Without a bail-out, every component in that subtree re-rendered
+ * thirty times a second for the whole take — on the exact frames the recording
+ * UI needs to stay smooth. Props here are referentially stable between level
+ * ticks, so the comparison genuinely short-circuits rather than just moving
+ * the cost.
+ */
+export const CaptureSettings = memo(CaptureSettingsBase);

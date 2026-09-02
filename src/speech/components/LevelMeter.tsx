@@ -12,16 +12,25 @@ interface LevelMeterProps {
   clipping?: boolean;
 }
 
-/** Maps a useful speech range (-70..0 dBFS) onto the bar. */
-function toPercent(dbfs: number): number {
-  return Math.max(0, Math.min(100, ((dbfs + 70) / 70) * 100));
+/**
+ * Maps a useful speech range (-70..0 dBFS) onto the bar, as a 0..1 scale
+ * factor rather than a percentage width.
+ *
+ * The distinction matters at this update rate: this element changes 30 times a
+ * second for the whole take, and animating `width` puts layout and paint on
+ * every one of those frames. `transform: scaleX()` is composited, so the same
+ * visual result costs no layout at all. Everything else in styles.css already
+ * animates transform/opacity only — this was the one hot path that did not.
+ */
+function toScale(dbfs: number): number {
+  return Math.max(0, Math.min(1, (dbfs + 70) / 70));
 }
 
 export function LevelMeter({ level, active, clipping = false }: LevelMeterProps) {
   const hot = active && clipping;
   return (
     <div className={`meter${hot ? " meter-hot" : ""}`}>
-      <i style={{ width: active ? `${toPercent(level)}%` : "0%" }} />
+      <i style={{ transform: `scaleX(${active ? toScale(level).toFixed(3) : 0})` }} />
       <em>{hot ? "too loud" : "level"}</em>
       {/* assertive: this is worth interrupting for — it is the difference
           between finishing the take and having it rejected. */}

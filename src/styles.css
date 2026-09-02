@@ -506,7 +506,12 @@ button:focus-visible {
 .meter i {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 0;
+  /* Full width, scaled down — LevelMeter.tsx drives transform: scaleX() rather
+     than width so the 30Hz level updates stay off the layout path. */
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
   background: var(--signal);
   opacity: 0.22;
 }

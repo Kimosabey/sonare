@@ -10,6 +10,7 @@
 import type { PronunciationResult } from "../scoring/types.js";
 import { WordChips } from "./WordChips.js";
 import { AnimatedCell } from "./AnimatedCell.js";
+import { memo } from "react";
 
 interface ScoreCardProps {
   result: PronunciationResult;
@@ -40,7 +41,7 @@ const NO_MATCH_COPY = "We heard you clearly, but couldn't match it to this phras
 const NO_MATCH_HINT =
   "That usually means a few sounds are far enough off that the scorer lost the thread. Try it a little slower, one word at a time.";
 
-export function ScoreCard({ result, heardSpeech = false }: ScoreCardProps) {
+function ScoreCardBase({ result, heardSpeech = false }: ScoreCardProps) {
   if (result.indeterminate) {
     // The provider found nothing to assess. Whether that means silence or an
     // unmatchable utterance is something only the capture layer knows.
@@ -76,3 +77,13 @@ export function ScoreCard({ result, heardSpeech = false }: ScoreCardProps) {
     </>
   );
 }
+
+/**
+ * Memoised because the level meter drives a 30Hz state update on the page that
+ * renders this. Without a bail-out, every component in that subtree re-rendered
+ * thirty times a second for the whole take — on the exact frames the recording
+ * UI needs to stay smooth. Props here are referentially stable between level
+ * ticks (callbacks are useCallback'd, the report is useMemo'd), so the
+ * comparison genuinely short-circuits rather than just moving the cost.
+ */
+export const ScoreCard = memo(ScoreCardBase);

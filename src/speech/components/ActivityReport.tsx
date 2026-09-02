@@ -4,6 +4,7 @@ import { verdictFor } from "../../activities/report.js";
 import type { Activity, ActivityProgress, SessionReport } from "../../activities/types.js";
 import { band } from "./band.js";
 import { AnimatedCell } from "./AnimatedCell.js";
+import { memo } from "react";
 
 interface ActivityReportProps {
   report: SessionReport;
@@ -13,7 +14,7 @@ interface ActivityReportProps {
   onExport: () => void;
 }
 
-export function ActivityReport({ report, activities, progress, onRestart, onExport }: ActivityReportProps) {
+function ActivityReportBase({ report, activities, progress, onRestart, onExport }: ActivityReportProps) {
   const byId = new Map(progress.map((p) => [p.activityId, p]));
   const allPassed = report.totalCount > 0 && report.passedCount === report.totalCount;
 
@@ -160,3 +161,13 @@ export function ActivityReport({ report, activities, progress, onRestart, onExpo
     </section>
   );
 }
+
+/**
+ * Memoised because the level meter drives a 30Hz state update on the page that
+ * renders this. Without a bail-out, every component in that subtree re-rendered
+ * thirty times a second for the whole take — on the exact frames the recording
+ * UI needs to stay smooth. Props here are referentially stable between level
+ * ticks (callbacks are useCallback'd, the report is useMemo'd), so the
+ * comparison genuinely short-circuits rather than just moving the cost.
+ */
+export const ActivityReport = memo(ActivityReportBase);

@@ -1,6 +1,6 @@
 /** T12/FR-22 — per-word chips, coloured by accuracy. Tapping opens FR-23. */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { ScoredWord } from "../scoring/types.js";
 import { PhonemeDetail } from "./PhonemeDetail.js";
 import { band } from "./band.js";
@@ -11,7 +11,7 @@ interface WordChipsProps {
 
 const DETAIL_ID = "phoneme-detail";
 
-export function WordChips({ words }: WordChipsProps) {
+function WordChipsBase({ words }: WordChipsProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const open = openIndex === null ? null : words[openIndex];
 
@@ -43,3 +43,13 @@ export function WordChips({ words }: WordChipsProps) {
     </>
   );
 }
+
+/**
+ * Memoised because the level meter drives a 30Hz state update on the page that
+ * renders this. Without a bail-out, every component in that subtree re-rendered
+ * thirty times a second for the whole take — on the exact frames the recording
+ * UI needs to stay smooth. Props here are referentially stable between level
+ * ticks (callbacks are useCallback'd, the report is useMemo'd), so the
+ * comparison genuinely short-circuits rather than just moving the cost.
+ */
+export const WordChips = memo(WordChipsBase);
