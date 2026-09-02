@@ -63,6 +63,46 @@ interface RankedRow {
   detail?: string;
 }
 
+/**
+ * Mirrors server/spend.ts. Unlike everything else on this screen, these are
+ * whole-history figures from a server-side aggregation rather than a sum over
+ * the loaded snapshot — a spend number covering only the last 50 attempts
+ * would read as a total and be wrong.
+ */
+interface SpendWindow {
+  calls: number;
+  audioSeconds: number;
+  billableSeconds: number;
+  indeterminateCalls: number;
+  indeterminateSeconds: number;
+  cost: number | null;
+  indeterminateCost: number | null;
+}
+
+interface SpendReport {
+  allTime: SpendWindow;
+  today: SpendWindow;
+  rate: { perAudioHour: number | null; currency: string };
+  dailyCallCap: number;
+  capUsedFraction: number | null;
+}
+
+/** Small amounts are the norm here — a whole fixture run costs cents — so
+    four decimals, and never scientific notation. */
+function formatMoney(value: number, currency: string): string {
+  const symbol = currency === "USD" ? "$" : `${currency} `;
+  return `${symbol}${value < 1 ? value.toFixed(4) : value.toFixed(2)}`;
+}
+
+/** Reuses the score-band colours: the cap is a budget, and running out of it
+    stops scoring outright, so it earns the same fail red as a failed word. */
+function capBand(fraction: number | null): string {
+  if (fraction === null) return "pass";
+  if (fraction >= 0.9) return "fail";
+  if (fraction >= 0.6) return "warn";
+  return "pass";
+}
+
 interface Aggregates {
   total: number;
   scoredCount: number;
@@ -225,6 +265,8 @@ export function Diagnostics() {
   // whatever was remembered from a previous visit. Neither may exist if
   // DIAGNOSTICS_TOKEN isn't set server-side — that's fine, the server
   // only checks the header when it has something to check it against.
+  const [spend, setSpend] = useState<SpendReport | null>(null);
+
   const urlToken = searchParams.get("token");
   if (urlToken) {
     try {
@@ -248,9 +290,10 @@ export function Diagnostics() {
 
     const poll = async () => {
       try {
-        const [attemptsRes, diagnosticsRes] = await Promise.all([
+        const [attemptsRes, diagnosticsRes, spendRes] = await Promise.all([
           fetch("/api/v1/attempts?limit=50", { headers }),
           fetch("/api/v1/diagnostics?limit=50", { headers }),
+          fetch("/api/v1/spend", { headers }),
         ]);
         if (attemptsRes.status === 401 || diagnosticsRes.status === 401) {
           if (!cancelled) {
@@ -266,6 +309,10 @@ export function Diagnostics() {
         if (cancelled) return;
         setAttempts(attemptsBody.records);
         setDiagnostics(diagnosticsBody.records);
+        // Non-fatal on its own: spend is an extra, and a Mongo aggregation
+        // failing should not blank the whole screen the way a failed attempts
+        // fetch legitimately does.
+        setSpend(spendRes.ok ? ((await spendRes.json()) as SpendReport) : null);
         setLastPolledAt(new Date());
         setPollCount((n) => n + 1);
         setError(null);
@@ -341,6 +388,90 @@ export function Diagnostics() {
           </p>
         )}
 
+      </section>
+
+      <section>
+        <h2>Provider spend</h2>
+        {spend === null ? (
+          <p className="what">Spend aggregation unavailable — is MongoDB reachable?</p>
+        ) : (
+          <>
+            <p className="what">
+              Whole history within the retention window, from a server-side aggregation — not the
+              snapshot above. Every scored attempt is one billed provider call.
+            </p>
+
+            <div className="overall">
+              <div>
+                <div className="n">{spend.allTime.calls}</div>
+                <div className="l">calls all-time</div>
+              </div>
+              <div>
+                <div className="n">{spend.today.calls}</div>
+                <div className="l">calls today</div>
+              </div>
+              <div>
+                {/* Billable, not raw: the provider rounds each request up to a
+                    whole second, so summing durations understates the bill. */}
+                <div className="n">{spend.allTime.billableSeconds}</div>
+                <div className="l">billable seconds</div>
+              </div>
+              <div>
+                <div className="n">
+                  {spend.allTime.cost === null ? "—" : formatMoney(spend.allTime.cost, spend.rate.currency)}
+                </div>
+                <div className="l">cost all-time</div>
+              </div>
+            </div>
+
+            {spend.rate.perAudioHour === null ? (
+              <p className="hint">
+                No rate configured, so only usage is shown. Set{" "}
+                <code>AZURE_SPEECH_RATE_PER_AUDIO_HOUR</code> to see cost — deliberately unset by
+                default, because a wrong rate displayed as money is worse than no money at all.
+              </p>
+            ) : (
+              <p className="hint">
+                At {formatMoney(spend.rate.perAudioHour, spend.rate.currency)} per audio-hour ·{" "}
+                {spend.allTime.audioSeconds}s of audio sent, {spend.allTime.billableSeconds}s billed
+                after the per-request round-up
+                {spend.today.cost !== null && (
+                  <> · {formatMoney(spend.today.cost, spend.rate.currency)} today</>
+                )}
+              </p>
+            )}
+
+            {spend.allTime.indeterminateCalls > 0 && (
+              <p className="hint">
+                {spend.allTime.indeterminateCalls} of those calls returned no score and were billed
+                the same
+                {spend.allTime.indeterminateCost !== null && (
+                  <> — {formatMoney(spend.allTime.indeterminateCost, spend.rate.currency)}</>
+                )}
+                . Not a bug: an indeterminate result is the honest answer. It is spend that bought no
+                learner feedback, which is the figure to watch when a fixture run costs more than
+                expected.
+              </p>
+            )}
+
+            <label>
+              Daily cap — {spend.today.calls} of {spend.dailyCallCap} calls used
+            </label>
+            <div className="band-bar">
+              <span
+                className={`band-bar-seg ${capBand(spend.capUsedFraction)}`}
+                style={{ width: `${(spend.capUsedFraction ?? 0) * 100}%` }}
+              />
+            </div>
+            <p className="hint">
+              Counted from MongoDB rather than the in-process counter, so it survives a restart. The
+              cap bounds total spend regardless of how many callers it is spread across.
+            </p>
+          </>
+        )}
+      </section>
+
+      <section>
         <label>Score bands (scored attempts only — {stats.indeterminateCount} indeterminate excluded)</label>
         {scoredTotal === 0 ? (
           <p className="what">No scored attempts yet.</p>
