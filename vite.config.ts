@@ -25,6 +25,31 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    sourcemap: true,
+    // "hidden" still emits the .map for local post-mortem work but drops the
+    // //# sourceMappingURL comment, so a deployed build no longer advertises
+    // (or serves to any visitor's devtools) the app's full original source.
+    sourcemap: "hidden",
+    rollupOptions: {
+      output: {
+        /**
+         * React, ReactDOM and the router are ~80% of the bundle's source and
+         * change only when a dependency is upgraded. Bundled together with
+         * app code, every one-line app edit invalidated the whole 98 kB for
+         * every returning visitor. Splitting them means an app deploy busts
+         * only the small app chunk and the vendor half stays cached.
+         */
+        // Vite 8 bundles with rolldown, which requires the function form —
+        // the object map that classic Rollup accepted fails outright with
+        // "manualChunks is not a function".
+        manualChunks(id: string): string | undefined {
+          if (id.includes("node_modules")) {
+            if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+              return "vendor";
+            }
+          }
+          return undefined;
+        },
+      },
+    },
   },
 });

@@ -9,11 +9,25 @@
  * config.
  */
 
+import { lazy, Suspense } from "react";
 import { HashRouter, Routes, Route, Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { LanguagePicker } from "./pages/LanguagePicker.js";
 import { ActivityTest } from "./pages/ActivityTest.js";
-import { Diagnostics } from "./pages/Diagnostics.js";
-import { FixtureRunner } from "./pages/FixtureRunner.js";
+
+/**
+ * Split, not statically imported. Both screens are reached only by typing the
+ * URL — there is no nav link to either anywhere in the product UI (see the
+ * file comment above) — so every learner was downloading and parsing ~30 kB
+ * of internal tooling they will never open. The learner flow (picker +
+ * activities) is what should be fast; these two can afford a fetch on the
+ * rare visit that actually wants them.
+ */
+const Diagnostics = lazy(() =>
+  import("./pages/Diagnostics.js").then((m) => ({ default: m.Diagnostics })),
+);
+const FixtureRunner = lazy(() =>
+  import("./pages/FixtureRunner.js").then((m) => ({ default: m.FixtureRunner })),
+);
 import { getLanguage, LANGUAGES } from "./activities/languages/index.js";
 
 /**
@@ -137,12 +151,17 @@ function Shell() {
         <Header />
       </header>
 
-      <Routes>
-        <Route path="/" element={<LanguagePicker />} />
-        <Route path="/diagnostics" element={<Diagnostics />} />
-        <Route path="/fixture" element={<FixtureRunner />} />
-        <Route path="/:slug" element={<ActivityTestRoute />} />
-      </Routes>
+      {/* Suspense wraps only the lazy routes. The learner path (picker and
+          activities) is statically imported and never suspends, so it renders
+          exactly as before with no fallback flash. */}
+      <Suspense fallback={<p className="dim">Loading…</p>}>
+        <Routes>
+          <Route path="/" element={<LanguagePicker />} />
+          <Route path="/diagnostics" element={<Diagnostics />} />
+          <Route path="/fixture" element={<FixtureRunner />} />
+          <Route path="/:slug" element={<ActivityTestRoute />} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }
