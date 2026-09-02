@@ -31,3 +31,11 @@ jobs:
       # into the endpointer directly, and azureSpeech.ts tests build hand-made
       # response shapes rather than calling Azure.
       - run: npm run test
+
+      # Last, because it is the slowest and the others localise a failure
+      # better — but not optional. typecheck, lint and test all passed on a
+      # change whose bundle failed outright ("manualChunks is not a function",
+      # Vite 8 requiring the function form), so without this a broken
+      # production build merges clean. Also typechecks the server build, which
+      # `tsconfig.json` alone does not cover.
+      - run: npm run build
