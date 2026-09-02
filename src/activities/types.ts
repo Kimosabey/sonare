@@ -60,6 +60,21 @@ export interface WeakPhoneme {
   occurrences: number;
 }
 
+/**
+ * A syllable the learner is consistently getting wrong, keyed by the written
+ * form Azure labelled it with ("jour", "ment") rather than a phonetic symbol.
+ *
+ * Never carries an empty grapheme: an unnamed syllable cannot be grouped with
+ * the other takes of the same syllable, so it is counted for
+ * `syllableLabelsAvailable` and then dropped rather than pooled into one blank
+ * bucket that would read as a finding.
+ */
+export interface WeakSyllable {
+  grapheme: string;
+  meanAccuracy: number;
+  occurrences: number;
+}
+
 export interface WordMistake {
   activityId: number;
   activityTitle: string;
@@ -84,7 +99,22 @@ export interface SessionReport {
    * unattributable, so per-sound advice cannot be given.
    */
   phonemeLabelsAvailable: boolean;
+  /**
+   * Empty in practice — every locale Sonare ships returns unlabelled phonemes,
+   * so nothing survives the aggregation. Retained because other code reads it
+   * and because the exported report JSON is a contract, not because it can
+   * still produce advice; the syllable fields below do that.
+   */
   weakPhonemes: WeakPhoneme[];
+  /**
+   * False when syllables came back scored but none came back named, so no
+   * syllable can be advised on. Measured per locale, one phrase each: de-DE
+   * 8/8 named, es-ES 8/10, fr-FR 4/7, hi-IN 0/7 — Devanagari returns no
+   * graphemes at all while still scoring every syllable, and that is the case
+   * this flag exists to report honestly instead of showing blanks.
+   */
+  syllableLabelsAvailable: boolean;
+  weakSyllables: WeakSyllable[];
   mistakes: WordMistake[];
   /** Focus areas from activities that were not passed. */
   improvementAreas: string[];

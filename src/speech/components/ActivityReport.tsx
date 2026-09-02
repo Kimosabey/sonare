@@ -80,27 +80,40 @@ function ActivityReportBase({ report, activities, progress, onRestart, onExport 
       </table>
       </div>
 
-      {/* Weakest sounds — the actionable part */}
+      {/*
+        Weakest syllables — the actionable part.
+
+        Keyed on syllables, not phonemes: Azure returns empty `Phoneme` labels
+        for every locale this product ships, so `weakPhonemes` is permanently
+        empty and this section rendered nothing but its own apology. Syllables
+        come back named 83% of the time across the French set, and a written
+        syllable is the better unit anyway — most learners cannot read IPA, but
+        they can re-read a piece of the word they just said.
+      */}
       <h2 style={{ marginTop: 22 }}>Sounds to work on</h2>
-      {!report.phonemeLabelsAvailable ? (
+      {!report.syllableLabelsAvailable ? (
+        // Not a hypothetical: hi-IN scores all 7 syllables of its phrase and
+        // names none of them. Saying so beats a row of blank chips.
         <p className="what">
-          The scorer returned per-sound scores for this language but did not label which sound each
-          one is, so they cannot be named here. Word-level detail below is unaffected.
+          The scorer returned per-syllable scores for this language but did not name any of the
+          syllables, so they cannot be listed here. Word-level detail below is unaffected.
         </p>
-      ) : report.weakPhonemes.length === 0 ? (
+      ) : report.weakSyllables.length === 0 ? (
         <p className="what">
-          No individual sound scored consistently low. Nothing stands out as a systematic problem.
+          No individual syllable scored consistently low. Nothing stands out as a systematic
+          problem.
         </p>
       ) : (
         <>
           <p className="what">
-            Averaged across every activity, weakest first. Only sounds that came up at least twice.
+            Averaged across every activity, weakest first. Only syllables that came up at least
+            twice.
           </p>
           <div className="phonemes">
-            {report.weakPhonemes.map((p) => (
-              <span key={p.phoneme} className={`p ${band(p.meanAccuracy)}`}>
-                {p.phoneme} <b>{Math.round(p.meanAccuracy)}</b>
-                <small style={{ color: "var(--dim)" }}> ×{p.occurrences}</small>
+            {report.weakSyllables.map((syllable) => (
+              <span key={syllable.grapheme} className={`p ${band(syllable.meanAccuracy)}`}>
+                {syllable.grapheme} <b>{Math.round(syllable.meanAccuracy)}</b>
+                <small style={{ color: "var(--dim)" }}> ×{syllable.occurrences}</small>
               </span>
             ))}
           </div>

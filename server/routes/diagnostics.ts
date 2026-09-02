@@ -21,6 +21,7 @@ import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { recordDiagnostic, listDiagnostics } from "../diagnostics.js";
 import { listAttempts } from "../attempts.js";
+import { getSpendReport } from "../spend.js";
 import { diagnosticsLimiter } from "../rateLimit.js";
 import { logger } from "../logger.js";
 
@@ -114,6 +115,21 @@ diagnosticsRouter.get("/diagnostics", requireDiagnosticsToken, (req: Request, re
     .catch((err: unknown) => {
       logger.error({ err }, "[diagnostics] list failed");
       res.status(503).json({ error: "diagnostics store unavailable" });
+    });
+});
+
+/**
+ * Token-gated like the other reads. It exposes no spoken phrases or device
+ * detail — only counts, durations and money — but it is still an aggregate
+ * over every learner's activity, and the reason the read endpoints are gated
+ * is that they cross sessions.
+ */
+diagnosticsRouter.get("/spend", requireDiagnosticsToken, (_req: Request, res: Response) => {
+  getSpendReport()
+    .then((report) => res.json(report))
+    .catch((err: unknown) => {
+      logger.error({ err }, "[spend] aggregation failed");
+      res.status(503).json({ error: "spend store unavailable" });
     });
 });
 

@@ -129,9 +129,17 @@ function printReport(label: string, report: SessionReport): void {
   console.log(`  passed         ${report.passedCount}/${report.totalCount}`);
   console.log(`  indeterminate  ${report.indeterminateCount}`);
 
-  if (report.weakPhonemes.length) {
-    const shown = report.weakPhonemes
-      .map((p) => `${p.phoneme}:${Math.round(p.meanAccuracy)}(×${p.occurrences})`)
+  /**
+   * Syllables, not phonemes. This printed nothing useful for any shipped
+   * locale, because Azure returns empty `Phoneme` labels for all of them —
+   * so `weakPhonemes` is always empty and this always said "none stood out",
+   * which read as a clean result rather than an unavailable one.
+   */
+  if (!report.syllableLabelsAvailable) {
+    console.log(`  weak sounds    unavailable — provider returned no syllable names`);
+  } else if (report.weakSyllables.length) {
+    const shown = report.weakSyllables
+      .map((sy) => `${sy.grapheme}:${Math.round(sy.meanAccuracy)}(×${sy.occurrences})`)
       .join("  ");
     console.log(`  weak sounds    ${shown}`);
   } else {

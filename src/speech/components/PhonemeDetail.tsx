@@ -1,7 +1,24 @@
-/** T13/FR-23 — the phonemes behind one word, with its error type. */
+/**
+ * T13/FR-23 — the detail behind one word: its syllables, its phonemes where
+ * they exist, and its error type.
+ *
+ * Syllables lead because they are the level Azure actually labels. Phonemes
+ * come back with real scores and **empty labels** for every locale this
+ * product ships (fr-FR, es-ES, de-DE, hi-IN), so this panel used to render a
+ * row of "sound 1, sound 2, sound 3" — true, and useless to a learner.
+ * Syllables carry a written grapheme instead: 83% of them across the French
+ * activity set, and always a score and a time range.
+ *
+ * The phoneme row is kept rather than deleted because it is not universally
+ * dead: en-US returns fully labelled phonemes (21 of 21 measured), and the
+ * fixture runner can select en-US. So it renders when the labels are real and
+ * stands aside when they are not, instead of showing a second numbered row
+ * beside the syllables that already say it better.
+ */
 
 import type { ScoredWord } from "../scoring/types.js";
 import { band } from "./band.js";
+import { SyllableChips } from "./SyllableChips.js";
 import { memo } from "react";
 
 interface PhonemeDetailProps {
@@ -10,28 +27,32 @@ interface PhonemeDetailProps {
 }
 
 function PhonemeDetailBase({ word, id }: PhonemeDetailProps) {
-  // Azure labels phonemes for en-* but returns empty labels for fr-FR and other
-  // non-English locales. The scores are still real, so show them positionally
-  // rather than rendering a row of blanks.
-  const unlabeled = word.phonemes.length > 0 && word.phonemes.every((p) => !p.phoneme);
+  /**
+   * `?? []` because this word may have been restored from browser-persisted
+   * progress rather than received from the server — a saved session can
+   * predate a field becoming required, and a type cannot make a claim about
+   * JSON written before it existed. Same guard, same reason, in report.ts.
+   */
+  const syllables = word.syllables ?? [];
+  const phonemes = word.phonemes ?? [];
+
+  // Only worth a row when the provider actually named them. Every shipped
+  // locale returns them empty; en-US does not.
+  const labelledPhonemes = phonemes.filter((p) => p.phoneme);
 
   return (
     <div className="phonemes" id={id}>
-      {word.phonemes.length === 0 ? (
-        <span>no phoneme detail returned for this word</span>
-      ) : (
-        word.phonemes.map((p, i) => (
-          <span key={`${p.phoneme}-${i}`} className={`p ${band(p.accuracy)}`}>
-            {p.phoneme || `sound ${i + 1}`} <b>{Math.round(p.accuracy)}</b>
-          </span>
-        ))
-      )}
+      <SyllableChips syllables={syllables} />
 
-      {unlabeled && (
-        <div style={{ marginTop: 8, color: "var(--dim)" }}>
-          This language returns per-sound scores without labels, so sounds are numbered in order.
-        </div>
-      )}
+      {/* Rendered into this same container, not a nested `.phonemes` one:
+          WordChips asserts exactly one expanded panel exists, and a second
+          element carrying that class counts as a second panel. */}
+      {labelledPhonemes.map((p, i) => (
+        <span key={`${p.phoneme}-${i}`} className={`p ${band(p.accuracy)}`}>
+          {p.phoneme} <b>{Math.round(p.accuracy)}</b>
+        </span>
+      ))}
+
       {word.errorType && word.errorType !== "None" && (
         <div style={{ marginTop: 8, color: "var(--fail)" }}>error type: {word.errorType}</div>
       )}

@@ -20,8 +20,22 @@ export interface PersistedProgress {
 
 const EMPTY: PersistedProgress = { index: 0, progress: [], finished: false };
 
+/**
+ * Bumped whenever the persisted shape changes in a way older data cannot
+ * satisfy. It is part of the key, so a bump orphans the old entry rather than
+ * reading it — the learner starts that language fresh, which is a far smaller
+ * cost than the alternative.
+ *
+ * v2: `ScoredWord.syllables` became required. A v1 entry restores results
+ * whose words have no `syllables` at all, and report.ts crashed on
+ * "word.syllables is not iterable" the moment a saved session was reopened.
+ * The consuming loops now guard as well — two defences, because a type cannot
+ * make a claim about JSON that was written before the type existed.
+ */
+const SCHEMA_VERSION = "v2";
+
 function storageKey(slug: string, learnerName: string | null): string {
-  return `sonare.progress.${slug}.${learnerName ?? "anonymous"}`;
+  return `sonare.progress.${SCHEMA_VERSION}.${slug}.${learnerName ?? "anonymous"}`;
 }
 
 function readStored(key: string): PersistedProgress {
