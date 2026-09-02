@@ -38,10 +38,34 @@ const RawPhonemeSchema = z.looseObject({
   PronunciationAssessment: RawAssessmentSchema.optional(),
 });
 
+/**
+ * Syllables carry what phonemes do not.
+ *
+ * `Phoneme` and `Syllable` come back as empty strings for every locale this
+ * product ships — verified per locale with native TTS, and unchanged by
+ * `phonemeAlphabet` (IPA and SAPI alike) or `nbestPhonemeCount`. `Grapheme`
+ * is populated: across the ten French activity targets, 91 of 110 syllables
+ * (83%) came back named, and 110 of 110 came back scored and timed.
+ *
+ * The misses are systematic rather than random — they cluster on elision and
+ * hyphenation (allez-vous, m'appelle, j'habite, quarante-deux, L'addition),
+ * where Azure cannot map a grapheme across the boundary. So a named syllable
+ * is the normal case and an unnamed one is a known shape to fall back for,
+ * not an anomaly.
+ */
+const RawSyllableSchema = z.looseObject({
+  Syllable: z.string().optional(),
+  Grapheme: z.string().optional(),
+  PronunciationAssessment: RawAssessmentSchema.optional(),
+  Offset: z.number().optional(),
+  Duration: z.number().optional(),
+});
+
 const RawWordSchema = z.looseObject({
   Word: z.string().optional(),
   PronunciationAssessment: RawAssessmentSchema.optional(),
   Phonemes: z.array(RawPhonemeSchema).optional(),
+  Syllables: z.array(RawSyllableSchema).optional(),
 });
 
 const RawNBestSchema = z.looseObject({
@@ -256,6 +280,14 @@ export function toPronunciationResult(result: sdk.SpeechRecognitionResult): Pron
     phonemes: (w.Phonemes ?? []).map((p) => ({
       phoneme: p.Phoneme ?? "",
       accuracy: p.PronunciationAssessment?.AccuracyScore ?? 0,
+    })),
+    // Ticks passed through unconverted — the client needs them to slice its
+    // own recording, and converting twice is how rounding drift starts.
+    syllables: (w.Syllables ?? []).map((sy) => ({
+      grapheme: sy.Grapheme ?? "",
+      accuracy: sy.PronunciationAssessment?.AccuracyScore ?? 0,
+      offsetTicks: sy.Offset ?? 0,
+      durationTicks: sy.Duration ?? 0,
     })),
   }));
 

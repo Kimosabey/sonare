@@ -17,10 +17,40 @@ import type { ScoredWord } from "../scoring/types.js";
 // in this codebase's explicit-import test style).
 afterEach(cleanup);
 
+/**
+ * Phonemes carry a label here only because these are hand-made fixtures; real
+ * responses return them empty for every locale Sonare ships. The syllables are
+ * shaped like the real thing instead: "Bonjour" named, "allez" unnamed — the
+ * elision/hyphenation case Azure cannot map a grapheme across.
+ */
 const WORDS: ScoredWord[] = [
-  { word: "Bonjour", accuracy: 85, errorType: "None", phonemes: [{ phoneme: "b", accuracy: 90 }] },
-  { word: "comment", accuracy: 65, errorType: "Mispronunciation", phonemes: [{ phoneme: "k", accuracy: 65 }] },
-  { word: "allez", accuracy: 40, errorType: "Mispronunciation", phonemes: [{ phoneme: "a", accuracy: 40 }] },
+  {
+    word: "Bonjour",
+    accuracy: 85,
+    errorType: "None",
+    phonemes: [{ phoneme: "b", accuracy: 90 }],
+    syllables: [
+      { grapheme: "bon", accuracy: 100, offsetTicks: 400000, durationTicks: 2500000 },
+      { grapheme: "jour", accuracy: 93, offsetTicks: 3000000, durationTicks: 5300000 },
+    ],
+  },
+  {
+    word: "comment",
+    accuracy: 65,
+    errorType: "Mispronunciation",
+    phonemes: [{ phoneme: "k", accuracy: 65 }],
+    syllables: [
+      { grapheme: "com", accuracy: 100, offsetTicks: 9000000, durationTicks: 2000000 },
+      { grapheme: "ment", accuracy: 77, offsetTicks: 11000000, durationTicks: 2400000 },
+    ],
+  },
+  {
+    word: "allez",
+    accuracy: 40,
+    errorType: "Mispronunciation",
+    phonemes: [{ phoneme: "a", accuracy: 40 }],
+    syllables: [{ grapheme: "", accuracy: 40, offsetTicks: 14000000, durationTicks: 3000000 }],
+  },
 ];
 
 describe("WordChips", () => {

@@ -150,3 +150,124 @@ describe("toPronunciationResult", () => {
     if (!withProsody.indeterminate) expect(withProsody.prosody).toBe(75);
   });
 });
+
+/**
+ * Syllables are where per-sound feedback actually lives on Azure.
+ *
+ * Every locale this product ships returns empty `Phoneme` labels — verified
+ * per locale with native TTS, and unaffected by `phonemeAlphabet` or
+ * `nbestPhonemeCount`. `Grapheme` on the syllable is populated instead: 91 of
+ * 110 syllables (83%) across the ten French activity targets, and 110 of 110
+ * scored and timed. These shapes are lifted from real fr-FR responses.
+ */
+describe("toPronunciationResult syllables", () => {
+  const withSyllables = (syllables: unknown[]) =>
+    fakeResult(
+      sdk.ResultReason.RecognizedSpeech,
+      {
+        NBest: [
+          {
+            Display: "Bonjour",
+            PronunciationAssessment: {
+              PronScore: 93,
+              AccuracyScore: 95,
+              FluencyScore: 90,
+              CompletenessScore: 100,
+            },
+            Words: [
+              {
+                Word: "Bonjour",
+                PronunciationAssessment: { AccuracyScore: 94, ErrorType: "None" },
+                Phonemes: [{ Phoneme: "", PronunciationAssessment: { AccuracyScore: 100 } }],
+                Syllables: syllables,
+              },
+            ],
+          },
+        ],
+      },
+      "Bonjour",
+    );
+
+  it("carries grapheme, accuracy and ticks through the contract", () => {
+    const result = toPronunciationResult(
+      withSyllables([
+        {
+          Syllable: "",
+          Grapheme: "bon",
+          PronunciationAssessment: { AccuracyScore: 100 },
+          Offset: 400000,
+          Duration: 2500000,
+        },
+        {
+          Syllable: "",
+          Grapheme: "jour",
+          PronunciationAssessment: { AccuracyScore: 93 },
+          Offset: 3000000,
+          Duration: 5300000,
+        },
+      ]),
+    );
+
+    expect(result.indeterminate).toBe(false);
+    if (result.indeterminate) return;
+    expect(result.words[0]?.syllables).toEqual([
+      { grapheme: "bon", accuracy: 100, offsetTicks: 400000, durationTicks: 2500000 },
+      { grapheme: "jour", accuracy: 93, offsetTicks: 3000000, durationTicks: 5300000 },
+    ]);
+  });
+
+  it("keeps an unnamed syllable rather than dropping it — score and timing still work", () => {
+    // The elision/hyphenation case: allez-vous, m'appelle, L'addition. 17% of
+    // French syllables arrive like this. Dropping them would silently lose a
+    // scored, playable segment; the UI shows a position instead of a name.
+    const result = toPronunciationResult(
+      withSyllables([
+        { Grapheme: "", PronunciationAssessment: { AccuracyScore: 42 }, Offset: 400000, Duration: 900000 },
+      ]),
+    );
+
+    expect(result.indeterminate).toBe(false);
+    if (result.indeterminate) return;
+    expect(result.words[0]?.syllables).toHaveLength(1);
+    expect(result.words[0]?.syllables[0]).toEqual({
+      grapheme: "",
+      accuracy: 42,
+      offsetTicks: 400000,
+      durationTicks: 900000,
+    });
+  });
+
+  it("gives an empty array when the provider sends no Syllables at all", () => {
+    const result = toPronunciationResult(
+      fakeResult(
+        sdk.ResultReason.RecognizedSpeech,
+        {
+          NBest: [
+            {
+              Display: "hello",
+              PronunciationAssessment: {
+                PronScore: 80,
+                AccuracyScore: 80,
+                FluencyScore: 80,
+                CompletenessScore: 100,
+              },
+              Words: [
+                {
+                  Word: "hello",
+                  PronunciationAssessment: { AccuracyScore: 80, ErrorType: "None" },
+                  Phonemes: [{ Phoneme: "h", PronunciationAssessment: { AccuracyScore: 80 } }],
+                },
+              ],
+            },
+          ],
+        },
+        "hello",
+      ),
+    );
+
+    expect(result.indeterminate).toBe(false);
+    if (result.indeterminate) return;
+    // Absent, not undefined — nothing downstream should need a null check.
+    expect(result.words[0]?.syllables).toEqual([]);
+  });
+});
