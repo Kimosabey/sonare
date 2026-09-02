@@ -101,6 +101,18 @@ export function frameLevelDbfs(frame: Float32Array): number {
   return toDb(Math.sqrt(sum / Math.max(1, frame.length)));
 }
 
+/**
+ * Peak level for one frame, in dBFS.
+ *
+ * Deliberately separate from frameLevelDbfs(), which is RMS and drives the
+ * meter. RMS cannot see clipping: audio peaking at +7.9 dBFS still reads
+ * around -8 dBFS RMS, so the meter looks healthy while every loud syllable is
+ * being flattened. Warning the learner in time needs the peak.
+ */
+export function framePeakDbfs(frame: Float32Array): number {
+  return toDb(peakAmplitude(frame));
+}
+
 function peakAmplitude(samples: Float32Array): number {
   let peak = 0;
   for (let i = 0; i < samples.length; i++) {

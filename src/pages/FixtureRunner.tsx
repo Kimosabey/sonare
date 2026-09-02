@@ -229,7 +229,11 @@ export function FixtureRunner() {
           />
         )}
 
-        <LevelMeter level={recorder.level} active={recorder.state === "recording"} />
+        <LevelMeter
+          level={recorder.level}
+          active={recorder.state === "recording"}
+          clipping={recorder.clipping}
+        />
 
         {recorder.error && (
           <div className="verdict v-fail">

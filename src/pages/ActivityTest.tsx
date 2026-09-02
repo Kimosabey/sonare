@@ -170,6 +170,22 @@ export function ActivityTest() {
   // most of the risk is the learner reading the prompt before they tap Record.
   useWakeLock(started && !finished);
 
+  /**
+   * Let the microphone go the moment the session is over.
+   *
+   * The warm mic is deliberate — see keepMicWarm in recorder.ts — but nothing
+   * was ending it here, so a learner reading their report sat with the OS
+   * recording indicator lit until the 45s idle timer happened to fire. That
+   * reads as the app still listening after it has finished with you, which is
+   * exactly the impression a recording indicator exists to prevent.
+   *
+   * endSession() also scores a final in-flight utterance rather than
+   * discarding it, so this is safe even if the last take is still running.
+   */
+  useEffect(() => {
+    if (finished) recorder.endSession();
+  }, [finished, recorder.endSession]);
+
   // A learner who already passed can still retry to beat their own score —
   // the old banner must not survive into that new attempt looking current.
   useEffect(() => {
@@ -377,7 +393,11 @@ export function ActivityTest() {
           />
         )}
 
-        <LevelMeter level={recorder.level} active={recorder.state === "recording"} />
+        <LevelMeter
+          level={recorder.level}
+          active={recorder.state === "recording"}
+          clipping={recorder.clipping}
+        />
 
         {recorder.error && (
           <div className="verdict v-fail" role="status" aria-live="polite">

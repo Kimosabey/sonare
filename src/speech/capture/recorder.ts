@@ -11,7 +11,7 @@
 import { acquireMicrophone, readGrantedConstraints } from "./constraints.js";
 import { captureError, CaptureError } from "./errors.js";
 import { concatFrames, resampleTo16k, TARGET_SAMPLE_RATE } from "./resample.js";
-import { analyseSignal, frameLevelDbfs } from "./snr.js";
+import { analyseSignal, frameLevelDbfs, framePeakDbfs } from "./snr.js";
 import { encodeWav } from "./wav.js";
 import { addCaptureWorklet, WORKLET_PROCESSOR_NAME } from "./worklet.js";
 import type { CaptureResult, GrantedConstraints, RecorderState } from "./types.js";
@@ -45,6 +45,11 @@ export interface RecorderOptions {
 export interface RecorderListeners {
   onState?: (state: RecorderState) => void;
   onLevel?: (dbfs: number) => void;
+  /**
+   * Frames are arriving above full scale — the take is being destroyed as it
+   * records. Lets the UI warn mid-utterance instead of rejecting afterwards.
+   */
+  onClipping?: (hot: boolean) => void;
   onError?: (error: CaptureError) => void;
   /** Trailing silence ended the take; the owner should now call stop(). */
   onAutoStop?: () => void;
@@ -133,6 +138,20 @@ const MIN_SPEECH_MS = 300;
 const MIN_RENEWED_SPEECH_MS = 80;
 
 /**
+ * Frame peak above this counts as over-driven for the live warning. Slightly
+ * under the 0.5 dBFS the post-take gate rejects at, so the warning appears
+ * before the take is actually lost rather than at the same instant.
+ */
+const HOT_FRAME_DBFS = -0.5;
+
+/**
+ * Hold the warning this long after the last hot frame. Clipping arrives in
+ * bursts on syllable peaks, so without a hold the indicator would strobe
+ * once per syllable and read as a glitch rather than a warning.
+ */
+const HOT_HOLD_MS = 600;
+
+/**
  * Longer prompts earn more patience: more words means more internal pauses,
  * and the cost of waiting is far lower than the cost of truncating.
  */
@@ -195,6 +214,8 @@ export class Recorder {
   private node: AudioWorkletNode | null = null;
 
   private frames: Float32Array[] = [];
+  private lastHotAt = 0;
+  private reportedHot = false;
   private capturing = false;
   private granted: GrantedConstraints | null = null;
 
@@ -620,6 +641,11 @@ export class Recorder {
 
   private beginCapture(): void {
     this.frames = [];
+    this.lastHotAt = 0;
+    if (this.reportedHot) {
+      this.reportedHot = false;
+      this.listeners.onClipping?.(false);
+    }
     this.sawEnergy = false;
     this.sampleCount = 0;
     this.heardSpeech = false;
@@ -673,6 +699,8 @@ export class Recorder {
     const level = frameLevelDbfs(frame);
     if (level > -80) this.sawEnergy = true;
 
+    if (framePeakDbfs(frame) > HOT_FRAME_DBFS) this.lastHotAt = performance.now();
+
     for (let i = 0; i < frame.length; i++) {
       if (Math.abs(frame[i] ?? 0) > ENERGY_THRESHOLD) {
         this.sawEnergy = true;
@@ -685,6 +713,12 @@ export class Recorder {
     if (now - this.lastLevelAt >= LEVEL_INTERVAL_MS) {
       this.lastLevelAt = now;
       this.listeners.onLevel?.(level);
+
+      const hot = this.lastHotAt > 0 && now - this.lastHotAt < HOT_HOLD_MS;
+      if (hot !== this.reportedHot) {
+        this.reportedHot = hot;
+        this.listeners.onClipping?.(hot);
+      }
     }
 
     if (this.options.autoStop) this.trackEndpoint(level, now);

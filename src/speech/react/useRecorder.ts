@@ -49,6 +49,8 @@ export interface UseRecorderValue {
   state: RecorderState;
   /** dBFS, updated at ~30 Hz while recording. */
   level: number;
+  /** Frames are arriving above full scale — warn before the take is lost. */
+  clipping: boolean;
   /** True once speech has been heard in the current take. */
   speaking: boolean;
   /** Continuous mode only: the session is open and will re-arm after each utterance. */
@@ -77,6 +79,7 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
   const [state, setState] = useState<RecorderState>("idle");
   const [level, setLevel] = useState(-90);
   const [speaking, setSpeaking] = useState(false);
+  const [clipping, setClipping] = useState(false);
   const [result, setResult] = useState<PronunciationResult | null>(null);
   const [error, setError] = useState<RecorderErrorView | null>(null);
   const [lastCapture, setLastCapture] = useState<CaptureResult | null>(null);
@@ -132,6 +135,7 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
         onLevel: setLevel,
         onError: (e) => setError(toErrorView(e)),
         onSpeechStart: () => setSpeaking(true),
+        onClipping: setClipping,
         onAutoStop: () => stopRef.current(),
       },
     );
@@ -281,6 +285,7 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
   return {
     state,
     level,
+    clipping,
     speaking,
     sessionActive,
     utteranceCount,
