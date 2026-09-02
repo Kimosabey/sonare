@@ -113,7 +113,7 @@ export function framePeakDbfs(frame: Float32Array): number {
   return toDb(peakAmplitude(frame));
 }
 
-function peakAmplitude(samples: Float32Array): number {
+export function peakAmplitude(samples: Float32Array): number {
   let peak = 0;
   for (let i = 0; i < samples.length; i++) {
     const a = Math.abs(samples[i] ?? 0);

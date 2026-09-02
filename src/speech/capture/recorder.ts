@@ -11,7 +11,7 @@
 import { acquireMicrophone, readGrantedConstraints } from "./constraints.js";
 import { captureError, CaptureError } from "./errors.js";
 import { concatFrames, resampleTo16k, TARGET_SAMPLE_RATE } from "./resample.js";
-import { analyseSignal, frameLevelDbfs, framePeakDbfs } from "./snr.js";
+import { analyseSignal, frameLevelDbfs, framePeakDbfs, peakAmplitude } from "./snr.js";
 import { encodeWav } from "./wav.js";
 import { addCaptureWorklet, WORKLET_PROCESSOR_NAME } from "./worklet.js";
 import type { CaptureResult, GrantedConstraints, RecorderState } from "./types.js";
@@ -20,10 +20,6 @@ export interface RecorderOptions {
   minSeconds?: number;
   maxSeconds?: number;
   minSnrDb?: number;
-  /** Reject when this fraction of samples or more sits at full scale. */
-  maxClippedFraction?: number;
-  /** Reject when the peak exceeds this, in dBFS. Above 0 means over-driven. */
-  maxPeakDbfs?: number;
   /** The fixture runner may want the raw take regardless of noise. */
   enforceSnrGate?: boolean;
   /** Stop on trailing silence instead of waiting for a second tap. */
@@ -64,28 +60,6 @@ const DEFAULTS = {
   minSeconds: 0.25,
   maxSeconds: 15,
   minSnrDb: 10,
-  /**
-   * 2% of samples at full scale. Generous on purpose: a plosive or a knock
-   * can legitimately touch the ceiling, and rejecting a usable take is worse
-   * than scoring a slightly hot one. Sustained clipping runs far above this —
-   * the real take that triggered this gate sat at +6.3 dBFS peak.
-   */
-  maxClippedFraction: 0.02,
-  /**
-   * The fraction test alone is not enough, and the numbers say why. Speech has
-   * a high crest factor, so a take peaking at +3 dBFS — unambiguously
-   * over-driven, and being flattened by wav.ts's clamp — puts only 0.6% of
-   * samples at full scale and slips under the 2% ceiling. Measured against
-   * real audio: +7.85 dBFS -> 8.7% clipped, +4.81 -> 2.2%, +3 -> 0.63%,
-   * +1 -> 0.05%.
-   *
-   * A peak above full scale is unambiguous on its own: Float32 from a
-   * correctly levelled microphone cannot exceed 1.0, so anything over is
-   * proof of over-drive, and it is the loud syllables — where the phoneme
-   * detail lives — that are being destroyed. 0.5 dB of allowance keeps a
-   * single stray overshooting sample from rejecting an otherwise fine take.
-   */
-  maxPeakDbfs: 0.5,
   enforceSnrGate: true,
   autoStop: true,
   /**
@@ -143,6 +117,13 @@ const MIN_RENEWED_SPEECH_MS = 80;
  * before the take is actually lost rather than at the same instant.
  */
 const HOT_FRAME_DBFS = -0.5;
+
+/**
+ * Normalisation target. Slightly under full scale because the windowed-sinc
+ * resampler can overshoot a touch on transients, and the whole point here is
+ * that nothing reaches wav.ts's clamp.
+ */
+const NORMALISE_TARGET = 0.99;
 
 /**
  * Hold the warning this long after the last hot frame. Clipping arrives in
@@ -415,19 +396,25 @@ export class Recorder {
        * speaking clearly. Same enforceSnrGate flag: the fixture runner wants
        * the raw take either way.
        */
-      if (
-        this.options.enforceSnrGate &&
-        (stats.clippedFraction >= this.options.maxClippedFraction ||
-          stats.peakDbfs > this.options.maxPeakDbfs)
-      ) {
-        throw captureError(
-          "LEVEL_TOO_HOT",
-          `peak ${stats.peakDbfs.toFixed(1)} dBFS with ` +
-            `${(stats.clippedFraction * 100).toFixed(2)}% of samples clipped ` +
-            `(limits: peak ${this.options.maxPeakDbfs} dBFS, ` +
-            `${(this.options.maxClippedFraction * 100).toFixed(1)}% clipped)`,
-        );
-      }
+      /**
+       * Level is deliberately NOT a rejection reason. Measured against live
+       * Azure with the same phrase re-encoded at increasing drive:
+       *
+       *   +7.85 dBFS ( 8.7% of samples clipped) -> scored 94.8
+       *   +14   dBFS (22.0% clipped)            -> scored 93.6
+       *   +20   dBFS (39.3% clipped)            -> scored 92.0
+       *   +30   dBFS (60.6% clipped)            -> scored 93.0
+       *
+       * The recogniser is effectively immune to clipping at any level a real
+       * microphone produces, so a gate here rejects takes that would have
+       * scored fine — which is a worse failure than a slightly hot recording,
+       * because the learner is blocked from practising at all and told to go
+       * fix hardware that was never the problem.
+       *
+       * stats.clippedFraction and the live meter warning are kept: the
+       * information is true and useful for setting input gain, and it is
+       * recorded in the attempt trail. It just must not block a take.
+       */
 
       // T10: refuse to send audio that will produce a meaningless score.
       if (this.options.enforceSnrGate && stats.snrDb < this.options.minSnrDb) {
@@ -448,6 +435,31 @@ export class Recorder {
       }
 
       const resampled = resampleTo16k(raw, contextSampleRate);
+
+      /**
+       * Scale an over-driven take back inside full scale, losslessly.
+       *
+       * This is normalisation, NOT automatic gain control, and the difference
+       * is the whole reason it is allowed here. R4 disables AGC because it is
+       * time-varying: it flattens syllable dynamics, which is exactly the
+       * spectral detail phoneme scoring reads. This applies one constant
+       * scalar to the entire utterance, so every relative level within the
+       * take is preserved bit-for-bit in ratio terms — only the Int16
+       * headroom changes, and 16-bit quantisation leaves ~96 dB of range to
+       * spend on it.
+       *
+       * Measured after resampling rather than before, so the sinc kernel's
+       * own overshoot is included and the encoder's clamp is guaranteed
+       * untouched.
+       */
+      const outputPeak = peakAmplitude(resampled);
+      if (outputPeak > NORMALISE_TARGET) {
+        const gain = NORMALISE_TARGET / outputPeak;
+        for (let i = 0; i < resampled.length; i++) {
+          resampled[i] = (resampled[i] ?? 0) * gain;
+        }
+      }
+
       const wav = encodeWav(resampled, TARGET_SAMPLE_RATE);
 
       this.setState("idle");

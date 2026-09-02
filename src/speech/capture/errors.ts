@@ -18,7 +18,6 @@ export type CaptureErrorCode =
   | "TOO_SHORT"
   | "TOO_LONG"
   | "SNR_TOO_LOW"
-  | "LEVEL_TOO_HOT"
   | "INSECURE_CONTEXT"
   | "INTERRUPTED"
   | "ROUTE_CHANGED"
@@ -51,8 +50,6 @@ const USER_TEXT: Record<CaptureErrorCode, string> = {
   TOO_SHORT: "That was too short. Hold on and say the whole phrase.",
   TOO_LONG: "That was too long. Try saying just the phrase on its own.",
   SNR_TOO_LOW: "It's too noisy to score fairly. Move somewhere quieter and try again.",
-  LEVEL_TOO_HOT:
-    "That came through too loud to score — the sound is distorting. Lower your input volume or move the microphone further away, then try again.",
   INSECURE_CONTEXT: "Recording needs a secure connection (HTTPS).",
   INTERRUPTED:
     "Recording was interrupted — a call, another app, or the screen locking may have taken the microphone. Tap record to try again.",
