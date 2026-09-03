@@ -12,6 +12,8 @@ import { CaptureError } from "../capture/errors.js";
 import type { CaptureResult, GrantedConstraints, RecorderState } from "../capture/types.js";
 import { scoreRecording, ScoringError } from "../scoring/client.js";
 import type { PronunciationResult } from "../scoring/types.js";
+import { createLevelStore } from "../../ui/levelStore.js";
+import type { LevelStore } from "../../ui/levelStore.js";
 
 export interface UseRecorderOptions {
   referenceText: string;
@@ -48,7 +50,12 @@ export interface RecorderErrorView {
 export interface UseRecorderValue {
   state: RecorderState;
   /** dBFS, updated at ~30 Hz while recording. */
-  level: number;
+  /**
+   * The level lives outside React state — see levelStore.ts. Subscribe via
+   * LiveLevelMeter / LiveInterimFeedback rather than reading it in a page,
+   * which is what put a 30Hz re-render on the whole recording screen.
+   */
+  levelStore: LevelStore;
   /** Frames are arriving above full scale — warn before the take is lost. */
   clipping: boolean;
   /** True once speech has been heard in the current take. */
@@ -79,7 +86,11 @@ export interface UseRecorderValue {
 
 export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
   const [state, setState] = useState<RecorderState>("idle");
-  const [level, setLevel] = useState(-90);
+  // Created once per hook instance; identity must be stable or every
+  // subscriber would resubscribe on each render.
+  const levelStore = useRef<LevelStore | null>(null);
+  levelStore.current ??= createLevelStore();
+  const store = levelStore.current;
   const [speaking, setSpeaking] = useState(false);
   const [clipping, setClipping] = useState(false);
   const [result, setResult] = useState<PronunciationResult | null>(null);
@@ -134,7 +145,7 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
       },
       {
         onState: setState,
-        onLevel: setLevel,
+        onLevel: store.set,
         onError: (e) => setError(toErrorView(e)),
         onSpeechStart: () => setSpeaking(true),
         onClipping: setClipping,
@@ -272,7 +283,7 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
     recorderRef.current?.releaseDevice();
     setSpeaking(false);
     setClipping(false);
-    setLevel(-90);
+    store.reset();
   }, []);
 
   const endSession = useCallback(() => {
@@ -295,14 +306,14 @@ export function useRecorder(options: UseRecorderOptions): UseRecorderValue {
     setError(null);
     setResult(null);
     setLastCapture(null);
-    setLevel(-90);
+    store.reset();
     setSpeaking(false);
     setState("idle");
   }, []);
 
   return {
     state,
-    level,
+    levelStore: store,
     clipping,
     speaking,
     sessionActive,

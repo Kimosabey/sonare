@@ -20,14 +20,13 @@ import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useRecorder } from "../speech/react/useRecorder.js";
 import { hangoverForReference } from "../speech/capture/recorder.js";
 import { RecordButton } from "../speech/components/RecordButton.js";
-import { LevelMeter } from "../speech/components/LevelMeter.js";
 import { ScoreCard } from "../speech/components/ScoreCard.js";
 import { ScoreCardSkeleton } from "../speech/components/ScoreCardSkeleton.js";
 import { DebugPanel } from "../speech/components/DebugPanel.js";
 import { ActivityReport } from "../speech/components/ActivityReport.js";
 import { CaptureSettings, DEFAULT_CAPTURE_SETTINGS, SENSITIVITY_FACTOR } from "../ui/CaptureSettings.js";
 import type { CaptureSettingsValue } from "../ui/CaptureSettings.js";
-import { InterimFeedback } from "../ui/InterimFeedback.js";
+import { LiveInterimFeedback, LiveLevelMeter } from "../ui/LiveLevel.js";
 import { HEARD_SPEECH_SNR_DB, useCaptureToasts } from "../ui/useCaptureToasts.js";
 import { useToast } from "../ui/ToastProvider.js";
 import { useWakeLock } from "../ui/useWakeLock.js";
@@ -495,17 +494,17 @@ export function ActivityTest() {
         </div>
 
         {settings.interim && (
-          <InterimFeedback
+          <LiveInterimFeedback
+            store={recorder.levelStore}
             recording={recorder.state === "recording"}
             speaking={recorder.speaking}
-            level={recorder.level}
             hangoverMs={hangoverMs}
             autoStop={settings.autoStop}
           />
         )}
 
-        <LevelMeter
-          level={recorder.level}
+        <LiveLevelMeter
+          store={recorder.levelStore}
           active={recorder.state === "recording"}
           clipping={recorder.clipping}
         />
