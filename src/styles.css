@@ -384,6 +384,18 @@ button.rec {
   }
 }
 
+/* Programmatic focus targets (WCAG 2.4.3).
+   `:focus-visible` is a browser heuristic and generally does NOT fire when
+   script moves focus to a heading or region, so these use plain `:focus` —
+   otherwise the focus move is silent for a sighted keyboard user, who then
+   cannot tell where they now are. They are tabIndex -1, so this can only ever
+   appear as a result of the move, never from tabbing. */
+[tabindex="-1"]:focus {
+  outline: 2px solid var(--signal);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
 button:focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: 2px;

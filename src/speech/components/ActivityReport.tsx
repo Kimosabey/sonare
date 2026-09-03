@@ -4,7 +4,7 @@ import { verdictFor } from "../../activities/report.js";
 import type { Activity, ActivityProgress, SessionReport } from "../../activities/types.js";
 import { band } from "./band.js";
 import { AnimatedCell } from "./AnimatedCell.js";
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
 
 interface ActivityReportProps {
   report: SessionReport;
@@ -18,11 +18,23 @@ function ActivityReportBase({ report, activities, progress, onRestart, onExport 
   const byId = new Map(progress.map((p) => [p.activityId, p]));
   const allPassed = report.totalCount > 0 && report.passedCount === report.totalCount;
 
+  /**
+   * Finishing replaces the entire activity view with this one, so the button
+   * that got here unmounts and focus falls to <body> — same WCAG 2.4.3 problem
+   * as advancing an activity, at the moment the learner most wants to be told
+   * what they scored. Mount-time focus is right here precisely because this is
+   * a navigation: the learner asked for this view.
+   */
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+
   return (
     <section className="enter-1">
       <div className="report-hero">
         <div className="report-hero-badge">{allPassed ? "Perfect run" : "Session complete"}</div>
-        <h2 className="report-hero-count">
+        <h2 className="report-hero-count" ref={headingRef} tabIndex={-1}>
           {report.passedCount}/{report.totalCount} passed
         </h2>
         <p className="what" style={{ marginBottom: 0 }}>

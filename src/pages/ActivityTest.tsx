@@ -70,6 +70,13 @@ export function ActivityTest() {
    * renders and would make every attempt look like a gain of zero.
    */
   const [bestBeforeAttempt, setBestBeforeAttempt] = useState<number | null>(null);
+
+  /**
+   * Focus targets. Both are `tabIndex={-1}` headings/regions: programmatically
+   * focusable, but never a stop on the natural tab order.
+   */
+  const activityHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const errorRef = useRef<HTMLDivElement | null>(null);
   const startedAt = useRef(Date.now());
   // Ties every attempt and diagnostic in one session together for funnel
   // analysis (#/diagnostics) — regenerated on beginSession()/restart() so a
@@ -216,6 +223,42 @@ export function ActivityTest() {
    * reading the prompt, which is exactly long enough to hide the getUserMedia
    * round trip, so tap-to-recording stays inside NFR-01's 400ms.
    */
+  /**
+   * Move focus to the new activity when the learner advances (WCAG 2.4.3).
+   *
+   * The button they pressed to get here — "Next activity" — unmounts as part
+   * of the advance, which drops focus to <body>. A keyboard or switch user is
+   * then at the top of the document and has to traverse the whole page again
+   * to reach the new prompt, on every one of ten activities. A screen reader
+   * user is simply told nothing changed.
+   *
+   * Deliberately not on first render: `advancedOnce` keeps this from stealing
+   * focus when the session opens, where the learner has just pressed Start
+   * and expects to be on the record button. It also stays out of the way
+   * mid-take — nothing should move focus while someone is speaking.
+   */
+  const advancedOnce = useRef(false);
+  useEffect(() => {
+    if (!advancedOnce.current) {
+      advancedOnce.current = true;
+      return;
+    }
+    if (recorder.state === "recording" || recorder.state === "processing") return;
+    activityHeadingRef.current?.focus();
+  }, [index, recorder.state]);
+
+  /**
+   * And to an error when one appears, so it is both announced and reachable.
+   * `aria-live` alone reads it out but leaves focus wherever it was, which for
+   * a capture failure is usually a record button that is now disabled.
+   */
+  const lastErrorCode = useRef<string | null>(null);
+  useEffect(() => {
+    const code = recorder.error?.code ?? null;
+    if (code !== null && code !== lastErrorCode.current) errorRef.current?.focus();
+    lastErrorCode.current = code;
+  }, [recorder.error]);
+
   const lastScopedIndex = useRef(index);
   useEffect(() => {
     if (!started || finished) return;
@@ -373,7 +416,9 @@ export function ActivityTest() {
   return (
     <>
       <section key={activity.id} className="enter-1">
-        <h2>
+        {/* tabIndex -1: focusable by the advance effect above, never a tab
+            stop of its own. */}
+        <h2 ref={activityHeadingRef} tabIndex={-1}>
           Activity {activity.id} of {activities.length} — {activity.title}
         </h2>
         <p className="what">
@@ -458,7 +503,7 @@ export function ActivityTest() {
         />
 
         {recorder.error && (
-          <div className="verdict v-fail" role="status" aria-live="polite">
+          <div className="verdict v-fail" role="status" aria-live="polite" ref={errorRef} tabIndex={-1}>
             <div className="tag">ERROR</div>
             <div>
               {recorder.error.userMessage}
