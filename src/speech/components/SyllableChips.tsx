@@ -22,6 +22,16 @@ interface SyllableChipsProps {
    */
   syllables: ScoredSyllable[];
   /**
+   * BCP-47 tag for the language being taught, e.g. "fr-FR" (WCAG 3.1.2).
+   *
+   * Applied to the grapheme alone, never to the sentence around it: the
+   * accessible name is "jour, scored 93 out of 100", and tagging the whole
+   * string would have a screen reader pronounce "scored 93 out of 100" in
+   * French. The ordinal fallback stays untagged for the same reason — "2nd"
+   * is English regardless of what is being learnt.
+   */
+  lang?: string;
+  /**
    * Tap-to-replay, wired in a later step: `offsetTicks`/`durationTicks` are
    * enough to slice this syllable out of the take the learner just recorded.
    * Given a handler, every chip becomes a real button; without one they are
@@ -67,7 +77,7 @@ const NO_SYLLABLES_COPY = "no syllable detail returned for this word";
 const UNNAMED_COPY =
   "This language scores and times every syllable but returns no written form, so they are labelled by position.";
 
-function SyllableChipsBase({ syllables, onSelect, id }: SyllableChipsProps) {
+function SyllableChipsBase({ syllables, onSelect, id, lang }: SyllableChipsProps) {
   const total = syllables.length;
   const noneNamed = total > 0 && syllables.every((s) => !s.grapheme);
 
@@ -94,16 +104,25 @@ function SyllableChipsBase({ syllables, onSelect, id }: SyllableChipsProps) {
            * a screen reader user cannot. Colour is never the sole carrier of
            * the score — the numeral is real text, and this is its context.
            */
-          const spoken = `${named ? s.grapheme : `syllable ${i + 1} of ${total}`}, scored ${score} out of 100`;
           const body = (
             <>
-              <span className={named ? "sy-grapheme" : "sy-pos"} aria-hidden="true">
+              {/* lang on the grapheme too, not only the spoken name: browsers
+                  pick fonts and shaping from it, which matters for any script
+                  the page's own font stack does not cover. */}
+              <span
+                className={named ? "sy-grapheme" : "sy-pos"}
+                lang={named ? lang : undefined}
+                aria-hidden="true"
+              >
                 {named ? s.grapheme : ordinal(i + 1)}
               </span>
               <b className="sy-score" aria-hidden="true">
                 {score}
               </b>
-              <span className="sr-only">{spoken}</span>
+              <span className="sr-only">
+                {named ? <span lang={lang}>{s.grapheme}</span> : `syllable ${i + 1} of ${total}`}
+                {`, scored ${score} out of 100`}
+              </span>
             </>
           );
           // Ticks, not the grapheme, are the stable identity here: an entire

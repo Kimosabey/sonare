@@ -76,7 +76,12 @@ export function PhraseSelector({ language, referenceText, onChange, disabled }: 
       </div>
 
       <label htmlFor="ref">Reference text — what they should say</label>
+      {/* Holds text in the language being taught, so it is tagged like any
+          other target-language content (WCAG 3.1.2) — and the tag also steers
+          the on-screen keyboard and spellchecker, which matters most on the
+          device this screen exists to be used on. */}
       <input
+        lang={language}
         id="ref"
         type="text"
         value={referenceText}

@@ -24,9 +24,11 @@ import { memo } from "react";
 interface PhonemeDetailProps {
   word: ScoredWord;
   id?: string;
+  /** BCP-47 tag for the language being taught — see WordChips. */
+  lang?: string;
 }
 
-function PhonemeDetailBase({ word, id }: PhonemeDetailProps) {
+function PhonemeDetailBase({ word, id, lang }: PhonemeDetailProps) {
   /**
    * `?? []` because this word may have been restored from browser-persisted
    * progress rather than received from the server — a saved session can
@@ -42,7 +44,7 @@ function PhonemeDetailBase({ word, id }: PhonemeDetailProps) {
 
   return (
     <div className="phonemes" id={id}>
-      <SyllableChips syllables={syllables} />
+      <SyllableChips syllables={syllables} lang={lang} />
 
       {/* Rendered into this same container, not a nested `.phonemes` one:
           WordChips asserts exactly one expanded panel exists, and a second

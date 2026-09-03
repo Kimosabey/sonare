@@ -42,12 +42,48 @@ const UNNAMED: ScoredSyllable[] = [
 
 describe("SyllableChips — named syllables", () => {
   it("shows each grapheme with its rounded score", () => {
-    render(<SyllableChips syllables={NAMED} />);
+    const { container } = render(<SyllableChips syllables={NAMED} />);
 
-    expect(screen.getByText("bon")).toBeInTheDocument();
-    expect(screen.getByText("jour")).toBeInTheDocument();
-    expect(screen.getByText("100")).toBeInTheDocument();
-    expect(screen.getByText("93")).toBeInTheDocument();
+    /**
+     * Queried by class rather than by text, because each grapheme is
+     * deliberately in the DOM twice: once visibly (aria-hidden) and once
+     * inside the accessible name, where it needs to be its own element to
+     * carry `lang`. A plain getByText finds both and fails on the ambiguity,
+     * which would say nothing about whether the component is correct.
+     */
+    const visible = [...container.querySelectorAll(".sy-grapheme")].map((e) => e.textContent);
+    expect(visible).toEqual(["bon", "jour"]);
+
+    const scores = [...container.querySelectorAll(".sy-score")].map((e) => e.textContent);
+    expect(scores).toEqual(["100", "93"]);
+  });
+
+  it("tags only the grapheme with the language, never the sentence around it", () => {
+    // WCAG 3.1.2. "jour, scored 93 out of 100" is one string with two
+    // languages in it: tagging the whole thing would have a screen reader
+    // pronounce "scored 93 out of 100" in French.
+    const { container } = render(<SyllableChips syllables={NAMED} lang="fr-FR" />);
+
+    const tagged = [...container.querySelectorAll('[lang="fr-FR"]')].map((e) => e.textContent);
+    expect(tagged).toEqual(["bon", "bon", "jour", "jour"]);
+
+    const name = container.querySelector(".sr-only");
+    expect(name?.textContent).toBe("bon, scored 100 out of 100");
+    expect(name?.querySelector('[lang="fr-FR"]')?.textContent).toBe("bon");
+  });
+
+  it("leaves the positional fallback untagged — an ordinal is English either way", () => {
+    const { container } = render(
+      <SyllableChips
+        syllables={[{ grapheme: "", accuracy: 70, offsetTicks: 0, durationTicks: 10 }]}
+        lang="hi-IN"
+      />,
+    );
+
+    expect(container.querySelectorAll('[lang="hi-IN"]')).toHaveLength(0);
+    expect(container.querySelector(".sr-only")?.textContent).toBe(
+      "syllable 1 of 1, scored 70 out of 100",
+    );
   });
 
   it("rounds a fractional accuracy for display", () => {

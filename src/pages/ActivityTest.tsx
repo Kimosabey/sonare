@@ -390,7 +390,13 @@ export function ActivityTest() {
           <strong>{activity.prompt}</strong>
         </p>
 
-        <div className="prompt">{activity.target}</div>
+        {/* The one field here genuinely in the language being taught. The
+            prompt above and the gloss below are English instruction *about*
+            it, so they stay untagged — tagging them would have a screen
+            reader speak English in a French voice. WCAG 3.1.2. */}
+        <div className="prompt" lang={activeLanguage.code}>
+          {activity.target}
+        </div>
         <p className="hint">&ldquo;{activity.gloss}&rdquo;</p>
 
         <details>
@@ -494,7 +500,8 @@ export function ActivityTest() {
       <section>
         <h2>Result</h2>
         <div aria-live="polite">
-          {recorder.result ? <ScoreCard result={recorder.result} heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB} /> : <p className="what">No attempt yet.</p>}
+          {recorder.result ? <ScoreCard result={recorder.result} heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
+          lang={activeLanguage.code} /> : <p className="what">No attempt yet.</p>}
         </div>
 
         {attemptsUsed > 1 && (

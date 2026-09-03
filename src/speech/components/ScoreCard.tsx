@@ -20,6 +20,20 @@ interface ScoreCardProps {
    * see the copy below.
    */
   heardSpeech?: boolean;
+/**
+ * BCP-47 tag for the language being *taught*, e.g. "fr-FR".
+ *
+ * WCAG 3.1.2 (Language of Parts). Without it a screen reader pronounces
+ * French with English phonetics and Devanagari not at all, in a product whose
+ * entire purpose is pronunciation — the one place a synthetic voice must get
+ * a phrase right. Azure's locale codes are already valid BCP-47 tags, so they
+ * pass straight through.
+ *
+ * Applied only to text genuinely in that language. The prompt, gloss and focus
+ * are English instruction *about* the phrase, and tagging those would make a
+ * reader speak English in a French voice — worse than leaving them untagged.
+ */
+  lang?: string;
 }
 
 /**
@@ -41,7 +55,7 @@ const NO_MATCH_COPY = "We heard you clearly, but couldn't match it to this phras
 const NO_MATCH_HINT =
   "That usually means a few sounds are far enough off that the scorer lost the thread. Try it a little slower, one word at a time.";
 
-function ScoreCardBase({ result, heardSpeech = false }: ScoreCardProps) {
+function ScoreCardBase({ result, heardSpeech = false, lang }: ScoreCardProps) {
   if (result.indeterminate) {
     // The provider found nothing to assess. Whether that means silence or an
     // unmatchable utterance is something only the capture layer knows.
@@ -71,9 +85,13 @@ function ScoreCardBase({ result, heardSpeech = false }: ScoreCardProps) {
         <p className="hint">prosody {Math.round(result.prosody)}</p>
       )}
 
-      {result.recognized && <p className="hint">Heard: &ldquo;{result.recognized}&rdquo;</p>}
+      {result.recognized && (
+        <p className="hint">
+          Heard: &ldquo;<span lang={lang}>{result.recognized}</span>&rdquo;
+        </p>
+      )}
 
-      {result.words.length > 0 && <WordChips words={result.words} />}
+      {result.words.length > 0 && <WordChips words={result.words} lang={lang} />}
     </>
   );
 }

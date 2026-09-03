@@ -7,11 +7,25 @@ import { band } from "./band.js";
 
 interface WordChipsProps {
   words: ScoredWord[];
+/**
+ * BCP-47 tag for the language being *taught*, e.g. "fr-FR".
+ *
+ * WCAG 3.1.2 (Language of Parts). Without it a screen reader pronounces
+ * French with English phonetics and Devanagari not at all, in a product whose
+ * entire purpose is pronunciation — the one place a synthetic voice must get
+ * a phrase right. Azure's locale codes are already valid BCP-47 tags, so they
+ * pass straight through.
+ *
+ * Applied only to text genuinely in that language. The prompt, gloss and focus
+ * are English instruction *about* the phrase, and tagging those would make a
+ * reader speak English in a French voice — worse than leaving them untagged.
+ */
+  lang?: string;
 }
 
 const DETAIL_ID = "phoneme-detail";
 
-function WordChipsBase({ words }: WordChipsProps) {
+function WordChipsBase({ words, lang }: WordChipsProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const open = openIndex === null ? null : words[openIndex];
 
@@ -32,14 +46,14 @@ function WordChipsBase({ words }: WordChipsProps) {
             style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
             onClick={() => setOpenIndex(openIndex === i ? null : i)}
           >
-            {w.word}
+            <span lang={lang}>{w.word}</span>
             <small>{Math.round(w.accuracy)}</small>
           </button>
         ))}
       </div>
       {/* key forces a fresh mount (and re-plays the reveal) on every switch
           between words, not just the first open. */}
-      {open && <PhonemeDetail key={openIndex} word={open} id={DETAIL_ID} />}
+      {open && <PhonemeDetail key={openIndex} word={open} id={DETAIL_ID} lang={lang} />}
     </>
   );
 }

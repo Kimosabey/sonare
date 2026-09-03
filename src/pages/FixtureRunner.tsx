@@ -247,7 +247,13 @@ export function FixtureRunner() {
           </div>
         )}
 
-        {recorder.result && <ScoreCard result={recorder.result} heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB} />}
+        {recorder.result && (
+          <ScoreCard
+            result={recorder.result}
+            heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
+            lang={language}
+          />
+        )}
 
         <DebugPanel
           granted={recorder.granted}
