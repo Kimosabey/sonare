@@ -22,6 +22,7 @@ import { hangoverForReference } from "../speech/capture/recorder.js";
 import { RecordButton } from "../speech/components/RecordButton.js";
 import { LevelMeter } from "../speech/components/LevelMeter.js";
 import { ScoreCard } from "../speech/components/ScoreCard.js";
+import { ScoreCardSkeleton } from "../speech/components/ScoreCardSkeleton.js";
 import { DebugPanel } from "../speech/components/DebugPanel.js";
 import { ActivityReport } from "../speech/components/ActivityReport.js";
 import { CaptureSettings, DEFAULT_CAPTURE_SETTINGS, SENSITIVITY_FACTOR } from "../ui/CaptureSettings.js";
@@ -500,8 +501,23 @@ export function ActivityTest() {
       <section>
         <h2>Result</h2>
         <div aria-live="polite">
-          {recorder.result ? <ScoreCard result={recorder.result} heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
-          lang={activeLanguage.code} /> : <p className="what">No attempt yet.</p>}
+          {/*
+            Three states, not two. "processing" is its own — it used to fall
+            through to "No attempt yet.", which is actively wrong: the learner
+            has just made an attempt and is told there isn't one, for the
+            second and a half they most want reassurance.
+          */}
+          {recorder.result ? (
+            <ScoreCard
+              result={recorder.result}
+              heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
+              lang={activeLanguage.code}
+            />
+          ) : recorder.state === "processing" ? (
+            <ScoreCardSkeleton />
+          ) : (
+            <p className="what">No attempt yet.</p>
+          )}
         </div>
 
         {attemptsUsed > 1 && (

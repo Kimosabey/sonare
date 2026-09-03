@@ -642,6 +642,70 @@ button:focus-visible {
   line-height: 1.1;
 }
 
+/* ── scoring skeleton ─────────────────────────────────────────────────────
+   Holds the score card's shape for the ~1.4s the provider takes, so the real
+   numbers replace it in place rather than shoving the page down when they
+   land. See ScoreCardSkeleton.tsx for why this is a skeleton and not a
+   spinner. */
+.overall-pending div {
+  /* The cells must not re-run rise-in when the real card swaps in — that
+     would animate the same four boxes twice for one attempt. */
+  animation: none;
+}
+.sk-bar,
+.sk-chip {
+  position: relative;
+  overflow: hidden;
+  background: var(--rule);
+  border-radius: 4px;
+}
+.sk-bar {
+  /* Matches .overall .n's line box (23px x 1.1) so nothing shifts on swap. */
+  height: 25px;
+  width: 60%;
+  margin: 0 auto;
+}
+.sk-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.sk-chip {
+  height: 34px;
+  width: 78px;
+}
+.sk-chip:nth-child(2) { width: 104px; }
+.sk-chip:nth-child(3) { width: 62px; }
+
+/* Transform-only sweep: a moving pseudo-element, never background-position,
+   which would repaint the element every frame for the whole wait. The global
+   prefers-reduced-motion rule removes this entirely and the status text below
+   carries the message alone. */
+.sk-bar::after,
+.sk-chip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--signal-soft) 45%,
+    var(--signal-soft) 55%,
+    transparent 100%
+  );
+  animation: sk-sweep 1.25s var(--ease) infinite;
+}
+.sk-chip:nth-child(2)::after { animation-delay: 120ms; }
+.sk-chip:nth-child(3)::after { animation-delay: 240ms; }
+
+@keyframes sk-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 .overall .l {
   font-family: var(--mono);
   font-size: 9.5px;
