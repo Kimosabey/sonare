@@ -64,6 +64,12 @@ export function ActivityTest() {
   const [celebration, setCelebration] = useState<{ kind: "pass" | "personalBest" | "firstTry"; score: number } | null>(
     null,
   );
+  /**
+   * The best as it stood immediately before the attempt now on screen — not
+   * `current?.best`, which has already absorbed it by the time the score
+   * renders and would make every attempt look like a gain of zero.
+   */
+  const [bestBeforeAttempt, setBestBeforeAttempt] = useState<number | null>(null);
   const startedAt = useRef(Date.now());
   // Ties every attempt and diagnostic in one session together for funnel
   // analysis (#/diagnostics) — regenerated on beginSession()/restart() so a
@@ -133,6 +139,7 @@ export function ActivityTest() {
       const existingBefore = progress.find((p) => p.activityId === activity.id);
       const previousBest = existingBefore?.best ?? null;
       const isFirstAttempt = (existingBefore?.attempts.length ?? 0) === 0;
+      setBestBeforeAttempt(previousBest);
 
       if (accuracy !== null && accuracy >= PASS_SCORE) {
         if (isFirstAttempt) setCelebration({ kind: "firstTry", score: accuracy });
@@ -512,6 +519,7 @@ export function ActivityTest() {
               result={recorder.result}
               heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
               lang={activeLanguage.code}
+              previousBest={bestBeforeAttempt}
             />
           ) : recorder.state === "processing" ? (
             <ScoreCardSkeleton />

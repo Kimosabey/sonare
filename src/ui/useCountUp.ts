@@ -13,7 +13,17 @@ import { useEffect, useRef, useState } from "react";
 
 const DURATION_MS = 650;
 
-export function useCountUp(target: number | null | undefined): number | null | undefined {
+/**
+ * `from` defaults to 0, which is right for a first attempt and wrong for a
+ * repeat. Counting up from zero states the score; counting up from the
+ * learner's previous best states the *improvement*, which is the thing they
+ * actually want to know on attempt two or three. The motion carries the
+ * comparison, so the number does not have to explain it.
+ */
+export function useCountUp(
+  target: number | null | undefined,
+  from = 0,
+): number | null | undefined {
   const [displayed, setDisplayed] = useState(target);
   const frameRef = useRef<number>(0);
 
@@ -29,7 +39,6 @@ export function useCountUp(target: number | null | undefined): number | null | u
       return;
     }
 
-    const from = 0;
     const startedAt = performance.now();
 
     const tick = (now: number) => {
@@ -43,7 +52,7 @@ export function useCountUp(target: number | null | undefined): number | null | u
 
     frameRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frameRef.current);
-  }, [target]);
+  }, [target, from]);
 
   return displayed;
 }

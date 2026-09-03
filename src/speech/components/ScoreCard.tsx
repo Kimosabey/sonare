@@ -34,6 +34,14 @@ interface ScoreCardProps {
  * reader speak English in a French voice — worse than leaving them untagged.
  */
   lang?: string;
+  /**
+   * The learner's best accuracy on this activity *before* this attempt, when
+   * there was one. Applied to the accuracy cell alone, because that is the
+   * figure `best` tracks and the gate uses — animating overall or fluency
+   * from it would compare two different numbers and imply a gain that was
+   * never measured.
+   */
+  previousBest?: number | null;
 }
 
 /**
@@ -55,7 +63,7 @@ const NO_MATCH_COPY = "We heard you clearly, but couldn't match it to this phras
 const NO_MATCH_HINT =
   "That usually means a few sounds are far enough off that the scorer lost the thread. Try it a little slower, one word at a time.";
 
-function ScoreCardBase({ result, heardSpeech = false, lang }: ScoreCardProps) {
+function ScoreCardBase({ result, heardSpeech = false, lang, previousBest }: ScoreCardProps) {
   if (result.indeterminate) {
     // The provider found nothing to assess. Whether that means silence or an
     // unmatchable utterance is something only the capture layer knows.
@@ -75,7 +83,11 @@ function ScoreCardBase({ result, heardSpeech = false, lang }: ScoreCardProps) {
     <>
       <div className="overall">
         <AnimatedCell value={result.overall} label="overall" />
-        <AnimatedCell value={result.accuracy} label="accuracy" />
+        <AnimatedCell
+          value={result.accuracy}
+          label="accuracy"
+          {...(previousBest === null || previousBest === undefined ? {} : { from: previousBest })}
+        />
         <AnimatedCell value={result.fluency} label="fluency" />
         <AnimatedCell value={result.completeness} label="complete" />
       </div>
