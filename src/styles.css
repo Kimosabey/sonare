@@ -728,6 +728,32 @@ button:focus-visible {
    which is the part that carries the meaning. */
 /* Sits above the chip row, so it reads as an instruction for the group
    rather than a note attached to whichever chip happens to be first. */
+/* The attempt sequence in the report table. Mono and tabular so the numbers
+   line up down the column, and each step banded like the score it is — the
+   shape of the climb should be readable without reading the digits. */
+.trajectory {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.trajectory-step {
+  font-weight: 600;
+}
+/* hi/mid/lo, which is what band() returns — not pass/warn/fail. Those are
+   the .band-bar segment names, and using them here silently matched nothing. */
+.trajectory-step.hi { color: var(--pass); }
+.trajectory-step.mid { color: var(--warn); }
+.trajectory-step.lo { color: var(--fail); }
+.trajectory-step.dim { color: var(--faint, var(--dim)); font-weight: 400; }
+.trajectory-arrow {
+  color: var(--rule-strong, var(--dim));
+  margin: 0 3px;
+}
+
 .sy-hint {
   flex-basis: 100%;
   margin: 0 0 2px;

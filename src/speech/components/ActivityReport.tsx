@@ -14,8 +14,52 @@ interface ActivityReportProps {
   onExport: () => void;
 }
 
+/**
+ * The sequence of scored attempts, in the order they happened.
+ *
+ * The report showed only `best`, so a learner who went 41 → 52 → 68 was told
+ * "68" and nothing about having climbed there. Improvement is the thing a
+ * learner most wants to see and it was the one thing withheld, even though
+ * every attempt was already stored.
+ *
+ * Indeterminate attempts render as a dash rather than being dropped: they
+ * happened, they cost the learner a moment, and silently removing them would
+ * make the sequence disagree with the "Tries" count beside it. They carry no
+ * number, per R8.
+ */
+function Trajectory({ attempts }: { attempts: ActivityProgress["attempts"] }) {
+  if (attempts.length === 0) return <span className="dim">—</span>;
+
+  return (
+    <span className="trajectory">
+      {attempts.map((a, i) => (
+        <span key={a.at + String(i)}>
+          {i > 0 && <span className="trajectory-arrow" aria-hidden="true">→</span>}
+          <span className={a.accuracy === null ? "trajectory-step dim" : `trajectory-step ${band(a.accuracy)}`}>
+            {a.accuracy === null ? "—" : Math.round(a.accuracy)}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function ActivityReportBase({ report, activities, progress, onRestart, onExport }: ActivityReportProps) {
   const byId = new Map(progress.map((p) => [p.activityId, p]));
+
+  /**
+   * Counted on scored attempts only, and only where the last one beat the
+   * first — "improved" has to mean the learner actually ended up better than
+   * they started, not merely that their best happened later.
+   */
+  const improvedCount = progress.filter((p) => {
+    // Mapped to numbers before filtering: a predicate on the attempt does not
+    // narrow `accuracy` away from `number | null` for the reads below.
+    const scored = p.attempts.map((a) => a.accuracy).filter((x): x is number => x !== null);
+    const first = scored[0];
+    const last = scored[scored.length - 1];
+    return scored.length > 1 && first !== undefined && last !== undefined && last > first;
+  }).length;
   const allPassed = report.totalCount > 0 && report.passedCount === report.totalCount;
 
   /**
@@ -64,6 +108,14 @@ function ActivityReportBase({ report, activities, progress, onRestart, onExport 
 
       {/* Per-activity breakdown */}
       <h2 style={{ marginTop: 22 }}>By activity</h2>
+      {improvedCount > 0 && (
+        <p className="what">
+          {improvedCount === 1
+            ? "1 activity improved across its attempts."
+            : `${improvedCount} activities improved across their attempts.`}{" "}
+          Best score is what the pass gate uses; the sequence is what the practice looked like.
+        </p>
+      )}
       <div className="scroll-x">
       <table>
         <thead>
@@ -72,6 +124,7 @@ function ActivityReportBase({ report, activities, progress, onRestart, onExport 
             <th>Activity</th>
             <th className="num">Best</th>
             <th className="num">Tries</th>
+            <th>Progress</th>
             <th>Result</th>
           </tr>
         </thead>
@@ -84,6 +137,9 @@ function ActivityReportBase({ report, activities, progress, onRestart, onExport 
                 <td>{a.title}</td>
                 <td className="num">{p?.best === null || p?.best === undefined ? "—" : Math.round(p.best)}</td>
                 <td className="num">{p?.attempts.length ?? 0}</td>
+                <td>
+                  <Trajectory attempts={p?.attempts ?? []} />
+                </td>
                 <td>{!p ? "not reached" : p.passed ? "passed" : p.skipped ? "skipped" : "—"}</td>
               </tr>
             );
