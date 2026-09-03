@@ -7,7 +7,7 @@
  * apart and will act on the number.
  */
 
-import type { PronunciationResult } from "../scoring/types.js";
+import type { PronunciationResult, ScoredSyllable } from "../scoring/types.js";
 import { WordChips } from "./WordChips.js";
 import { AnimatedCell } from "./AnimatedCell.js";
 import { memo } from "react";
@@ -42,6 +42,10 @@ interface ScoreCardProps {
    * never measured.
    */
   previousBest?: number | null;
+  /** Tap a syllable to hear that slice of the take — see useSyllablePlayback. */
+  onSelectSyllable?: (syllable: ScoredSyllable, index: number) => void;
+  /** Offset of the syllable currently sounding, or null. */
+  playingOffsetTicks?: number | null;
 }
 
 /**
@@ -63,7 +67,14 @@ const NO_MATCH_COPY = "We heard you clearly, but couldn't match it to this phras
 const NO_MATCH_HINT =
   "That usually means a few sounds are far enough off that the scorer lost the thread. Try it a little slower, one word at a time.";
 
-function ScoreCardBase({ result, heardSpeech = false, lang, previousBest }: ScoreCardProps) {
+function ScoreCardBase({
+  result,
+  heardSpeech = false,
+  lang,
+  previousBest,
+  onSelectSyllable,
+  playingOffsetTicks,
+}: ScoreCardProps) {
   if (result.indeterminate) {
     // The provider found nothing to assess. Whether that means silence or an
     // unmatchable utterance is something only the capture layer knows.
@@ -103,7 +114,14 @@ function ScoreCardBase({ result, heardSpeech = false, lang, previousBest }: Scor
         </p>
       )}
 
-      {result.words.length > 0 && <WordChips words={result.words} lang={lang} />}
+      {result.words.length > 0 && (
+          <WordChips
+            words={result.words}
+            lang={lang}
+            {...(onSelectSyllable ? { onSelectSyllable } : {})}
+            playingOffsetTicks={playingOffsetTicks ?? null}
+          />
+        )}
     </>
   );
 }

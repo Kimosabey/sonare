@@ -254,3 +254,61 @@ describe("SyllableChips — no syllables at all", () => {
     expect(container.querySelector("#syllable-detail")).toHaveClass("syllables");
   });
 });
+
+describe("SyllableChips — replay affordance", () => {
+  it("marks only the syllable currently sounding", () => {
+    const { container } = render(
+      <SyllableChips syllables={NAMED} onSelect={() => undefined} playingOffsetTicks={3000000} />,
+    );
+
+    const playing = container.querySelectorAll(".sy-playing");
+    expect(playing).toHaveLength(1);
+    // 3000000 ticks is "jour" in this fixture, not "bon".
+    expect(playing[0]?.textContent).toContain("jour");
+  });
+
+  it("marks nothing when no syllable is sounding", () => {
+    const { container } = render(
+      <SyllableChips syllables={NAMED} onSelect={() => undefined} playingOffsetTicks={null} />,
+    );
+
+    expect(container.querySelectorAll(".sy-playing")).toHaveLength(0);
+  });
+
+  it("hands the tapped syllable back with its ticks, so the caller can slice the take", () => {
+    const onSelect = vi.fn();
+    render(<SyllableChips syllables={NAMED} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /jour/ }));
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    const [syllable, index] = onSelect.mock.calls[0] as unknown as [
+      { grapheme: string; offsetTicks: number; durationTicks: number },
+      number,
+    ];
+    expect(syllable.grapheme).toBe("jour");
+    expect(syllable.offsetTicks).toBe(3000000);
+    expect(syllable.durationTicks).toBe(5300000);
+    expect(index).toBe(1);
+  });
+
+  it("states the affordance once for the group, not inside every chip's name", () => {
+    // An accessible name should say what a control is, not how to operate it —
+    // the button role already carries that. Repeating it per chip means a
+    // screen reader user hears it once per syllable, every word.
+    render(<SyllableChips syllables={NAMED} onSelect={() => undefined} />);
+
+    expect(screen.getByText(/tap a syllable to hear it back/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "bon, scored 100 out of 100" })).toBeInTheDocument();
+  });
+
+  it("offers no affordance at all when there is nothing to play", () => {
+    // available: false in useSyllablePlayback means no handler is passed, and
+    // the chips must then be static rather than inviting a tap that does
+    // nothing.
+    render(<SyllableChips syllables={NAMED} />);
+
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByText(/tap a syllable/i)).toBeNull();
+  });
+});

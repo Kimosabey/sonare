@@ -721,6 +721,37 @@ button:focus-visible {
 /* The improvement, beside the number rather than instead of it. Small and
    in the pass green: it is good news, and it should not compete with the
    score it qualifies. */
+/* The syllable currently sounding. A ring rather than a fill: the band colour
+   on the chip is the score and must keep saying that, so "playing" has to be
+   a different channel entirely. Transform/opacity only, like everything else,
+   and the global prefers-reduced-motion rule leaves the static ring behind —
+   which is the part that carries the meaning. */
+/* Sits above the chip row, so it reads as an instruction for the group
+   rather than a note attached to whichever chip happens to be first. */
+.sy-hint {
+  flex-basis: 100%;
+  margin: 0 0 2px;
+}
+
+.sy-playing {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+.sy-playing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 rgb(65 0 154 / 22%);
+  animation: sy-sound 700ms var(--ease) infinite;
+  pointer-events: none;
+}
+@keyframes sy-sound {
+  to {
+    box-shadow: 0 0 0 8px rgb(65 0 154 / 0%);
+  }
+}
+
 .overall .gain {
   font-family: var(--mono);
   font-size: 11px;

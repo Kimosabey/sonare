@@ -16,7 +16,7 @@
  * beside the syllables that already say it better.
  */
 
-import type { ScoredWord } from "../scoring/types.js";
+import type { ScoredSyllable, ScoredWord } from "../scoring/types.js";
 import { band } from "./band.js";
 import { SyllableChips } from "./SyllableChips.js";
 import { memo } from "react";
@@ -26,9 +26,13 @@ interface PhonemeDetailProps {
   id?: string;
   /** BCP-47 tag for the language being taught — see WordChips. */
   lang?: string;
+  /** Tap a syllable to hear that slice of the take — see useSyllablePlayback. */
+  onSelectSyllable?: (syllable: ScoredSyllable, index: number) => void;
+  /** Offset of the syllable currently sounding, or null. */
+  playingOffsetTicks?: number | null;
 }
 
-function PhonemeDetailBase({ word, id, lang }: PhonemeDetailProps) {
+function PhonemeDetailBase({ word, id, lang, onSelectSyllable, playingOffsetTicks }: PhonemeDetailProps) {
   /**
    * `?? []` because this word may have been restored from browser-persisted
    * progress rather than received from the server — a saved session can
@@ -44,7 +48,12 @@ function PhonemeDetailBase({ word, id, lang }: PhonemeDetailProps) {
 
   return (
     <div className="phonemes" id={id}>
-      <SyllableChips syllables={syllables} lang={lang} />
+      <SyllableChips
+        syllables={syllables}
+        lang={lang}
+        {...(onSelectSyllable ? { onSelect: onSelectSyllable } : {})}
+        playingOffsetTicks={playingOffsetTicks ?? null}
+      />
 
       {/* Rendered into this same container, not a nested `.phonemes` one:
           WordChips asserts exactly one expanded panel exists, and a second

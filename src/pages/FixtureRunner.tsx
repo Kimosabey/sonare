@@ -33,6 +33,7 @@ import { CaptureSettings, DEFAULT_CAPTURE_SETTINGS, SENSITIVITY_FACTOR } from ".
 import type { CaptureSettingsValue } from "../ui/CaptureSettings.js";
 import { InterimFeedback } from "../ui/InterimFeedback.js";
 import { HEARD_SPEECH_SNR_DB, useCaptureToasts } from "../ui/useCaptureToasts.js";
+import { useSyllablePlayback } from "../ui/useSyllablePlayback.js";
 import { useToast } from "../ui/ToastProvider.js";
 import { newSessionId } from "../ui/sessionId.js";
 import { LANGUAGES } from "../activities/languages/index.js";
@@ -113,6 +114,14 @@ export function FixtureRunner() {
     sessionId: sessionId.current,
     activityId: log.length,
   });
+
+  /**
+   * The same replay affordance as the activity screen. Worth having here in
+   * particular: this is the screen used on a real device during a fixture
+   * session, where hearing what the scorer actually received is the fastest
+   * way to tell a capture problem from a pronunciation one.
+   */
+  const playback = useSyllablePlayback(recorder.lastCapture?.wav ?? null);
 
   // Unexported attempts are unrecoverable — the log is in memory by design.
   useEffect(() => {
@@ -252,6 +261,10 @@ export function FixtureRunner() {
             result={recorder.result}
             heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
             lang={language}
+            {...(playback.available
+              ? { onSelectSyllable: (s: { offsetTicks: number; durationTicks: number }) => playback.play(s.offsetTicks, s.durationTicks) }
+              : {})}
+            playingOffsetTicks={playback.playingOffsetTicks}
           />
         )}
 

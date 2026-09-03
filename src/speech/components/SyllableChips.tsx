@@ -32,6 +32,13 @@ interface SyllableChipsProps {
    */
   lang?: string;
   /**
+   * Offset of the syllable currently sounding, so the chip being played can
+   * show it. A tick offset rather than an index because it is unique across
+   * the whole take, and the chips for one word do not know their word's
+   * position in it.
+   */
+  playingOffsetTicks?: number | null;
+  /**
    * Tap-to-replay, wired in a later step: `offsetTicks`/`durationTicks` are
    * enough to slice this syllable out of the take the learner just recorded.
    * Given a handler, every chip becomes a real button; without one they are
@@ -77,12 +84,21 @@ const NO_SYLLABLES_COPY = "no syllable detail returned for this word";
 const UNNAMED_COPY =
   "This language scores and times every syllable but returns no written form, so they are labelled by position.";
 
-function SyllableChipsBase({ syllables, onSelect, id, lang }: SyllableChipsProps) {
+function SyllableChipsBase({ syllables, onSelect, id, lang, playingOffsetTicks }: SyllableChipsProps) {
   const total = syllables.length;
   const noneNamed = total > 0 && syllables.every((s) => !s.grapheme);
 
   return (
     <div className="syllables" id={id}>
+      {total > 0 && onSelect && (
+        /*
+         * Stated once rather than folded into each chip's accessible name.
+         * "Activate to hear it back" on twelve chips is heard twelve times,
+         * and an accessible name should say what a control *is*, not how to
+         * operate it — the button role already carries that.
+         */
+        <p className="hint sy-hint">Tap a syllable to hear it back.</p>
+      )}
       {total === 0 ? (
         <span className="hint">{NO_SYLLABLES_COPY}</span>
       ) : (
@@ -95,7 +111,8 @@ function SyllableChipsBase({ syllables, onSelect, id, lang }: SyllableChipsProps
            * unnamed syllable is a different label, not a damaged chip. See
            * UNNAMED_COPY: a whole language only ever sees this state.
            */
-          const chipClass = `sy ${band(s.accuracy)}`;
+          const sounding = playingOffsetTicks !== null && playingOffsetTicks === s.offsetTicks;
+          const chipClass = `sy ${band(s.accuracy)}${sounding ? " sy-playing" : ""}`;
           /**
            * Read aloud, "2nd 70" is not a sentence in any language, so the
            * visible label is hidden from assistive tech and restated once as
@@ -134,7 +151,16 @@ function SyllableChipsBase({ syllables, onSelect, id, lang }: SyllableChipsProps
           const style = { animationDelay: `${Math.min(i, 6) * 30}ms` };
 
           return onSelect ? (
-            <button key={key} type="button" className={chipClass} style={style} onClick={() => onSelect(s, i)}>
+            <button
+              key={key}
+              type="button"
+              className={chipClass}
+              style={style}
+              // Not aria-pressed: this is a momentary action, not a toggle.
+              // A screen reader announces the state change via the live region
+              // the score card already owns.
+              onClick={() => onSelect(s, i)}
+            >
               {body}
             </button>
           ) : (

@@ -1,7 +1,7 @@
 /** T12/FR-22 — per-word chips, coloured by accuracy. Tapping opens FR-23. */
 
 import { memo, useState } from "react";
-import type { ScoredWord } from "../scoring/types.js";
+import type { ScoredSyllable, ScoredWord } from "../scoring/types.js";
 import { PhonemeDetail } from "./PhonemeDetail.js";
 import { band } from "./band.js";
 
@@ -21,11 +21,15 @@ interface WordChipsProps {
  * reader speak English in a French voice — worse than leaving them untagged.
  */
   lang?: string;
+  /** Tap a syllable to hear that slice of the take — see useSyllablePlayback. */
+  onSelectSyllable?: (syllable: ScoredSyllable, index: number) => void;
+  /** Offset of the syllable currently sounding, or null. */
+  playingOffsetTicks?: number | null;
 }
 
 const DETAIL_ID = "phoneme-detail";
 
-function WordChipsBase({ words, lang }: WordChipsProps) {
+function WordChipsBase({ words, lang, onSelectSyllable, playingOffsetTicks }: WordChipsProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const open = openIndex === null ? null : words[openIndex];
 
@@ -53,7 +57,16 @@ function WordChipsBase({ words, lang }: WordChipsProps) {
       </div>
       {/* key forces a fresh mount (and re-plays the reveal) on every switch
           between words, not just the first open. */}
-      {open && <PhonemeDetail key={openIndex} word={open} id={DETAIL_ID} lang={lang} />}
+      {open && (
+        <PhonemeDetail
+          key={openIndex}
+          word={open}
+          id={DETAIL_ID}
+          lang={lang}
+          {...(onSelectSyllable ? { onSelectSyllable } : {})}
+          playingOffsetTicks={playingOffsetTicks ?? null}
+        />
+      )}
     </>
   );
 }

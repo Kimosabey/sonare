@@ -33,6 +33,7 @@ import { useToast } from "../ui/ToastProvider.js";
 import { useWakeLock } from "../ui/useWakeLock.js";
 import { useOnlineStatus } from "../ui/useOnlineStatus.js";
 import { useLearnerName } from "../ui/useLearnerName.js";
+import { useSyllablePlayback } from "../ui/useSyllablePlayback.js";
 import { newSessionId } from "../ui/sessionId.js";
 import { useProgressPersistence } from "../ui/useProgressPersistence.js";
 import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
@@ -77,6 +78,7 @@ export function ActivityTest() {
    */
   const activityHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const errorRef = useRef<HTMLDivElement | null>(null);
+
   const startedAt = useRef(Date.now());
   // Ties every attempt and diagnostic in one session together for funnel
   // analysis (#/diagnostics) — regenerated on beginSession()/restart() so a
@@ -181,6 +183,12 @@ export function ActivityTest() {
     activityId: activity?.id,
     ...(learnerName ? { learnerName } : {}),
   });
+  /**
+   * Replay of the take that produced the score now on screen. Reads the blob
+   * straight off the recorder's own state, so nothing extra is retained and
+   * the next take replaces it — the audio is never persisted anywhere.
+   */
+  const playback = useSyllablePlayback(recorder.lastCapture?.wav ?? null);
   // Screen must stay awake for the whole session, not just while recording —
   // most of the risk is the learner reading the prompt before they tap Record.
   useWakeLock(started && !finished);
@@ -565,6 +573,10 @@ export function ActivityTest() {
               heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
               lang={activeLanguage.code}
               previousBest={bestBeforeAttempt}
+              {...(playback.available
+                ? { onSelectSyllable: (s: { offsetTicks: number; durationTicks: number }) => playback.play(s.offsetTicks, s.durationTicks) }
+                : {})}
+              playingOffsetTicks={playback.playingOffsetTicks}
             />
           ) : recorder.state === "processing" ? (
             <ScoreCardSkeleton />
