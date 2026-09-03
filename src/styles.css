@@ -754,6 +754,21 @@ button:focus-visible {
   margin: 0 3px;
 }
 
+/* Secondary to the record button, which is the primary action on this screen
+   — listening is preparation, not the task. Outlined rather than filled so it
+   never competes with Start. */
+.listen {
+  background: transparent;
+  color: var(--signal);
+  border: 1.5px solid var(--signal);
+  margin-top: 4px;
+  min-height: 44px;
+}
+.listen:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .sy-hint {
   flex-basis: 100%;
   margin: 0 0 2px;

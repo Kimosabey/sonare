@@ -33,6 +33,7 @@ import { useWakeLock } from "../ui/useWakeLock.js";
 import { useOnlineStatus } from "../ui/useOnlineStatus.js";
 import { useLearnerName } from "../ui/useLearnerName.js";
 import { useSyllablePlayback } from "../ui/useSyllablePlayback.js";
+import { useModelSpeech } from "../ui/useModelSpeech.js";
 import { newSessionId } from "../ui/sessionId.js";
 import { useProgressPersistence } from "../ui/useProgressPersistence.js";
 import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
@@ -188,6 +189,32 @@ export function ActivityTest() {
    * the next take replaces it — the audio is never persisted anywhere.
    */
   const playback = useSyllablePlayback(recorder.lastCapture?.wav ?? null);
+
+  /**
+   * The model pronunciation of the current target.
+   */
+  // Same fallback the recorder uses: this runs before the "language not
+  // found" guard below, and nothing in that branch renders the control.
+  const model = useModelSpeech(activeLanguage?.code ?? "en-US");
+
+  /**
+   * Silence the model the instant the microphone opens.
+   *
+   * This is the one way this feature could actively damage the product rather
+   * than merely fail: a phrase still sounding through the speaker while the
+   * mic is live is captured into the learner's own take and scored as if they
+   * had said it. On a device without headphones that is the normal case, not
+   * an edge one — and the result would be a learner credited or blamed for a
+   * synthetic voice.
+   */
+  useEffect(() => {
+    if (recorder.state === "recording" || recorder.state === "requesting") model.cancel();
+  }, [recorder.state, model.cancel]);
+
+  // A new prompt makes the previous one's audio wrong, not merely stale.
+  useEffect(() => {
+    model.cancel();
+  }, [index, model.cancel]);
   // Screen must stay awake for the whole session, not just while recording —
   // most of the risk is the learner reading the prompt before they tap Record.
   useWakeLock(started && !finished);
@@ -457,6 +484,21 @@ export function ActivityTest() {
         <div className="prompt" lang={activeLanguage.code}>
           {activity.target}
         </div>
+        {model.available && (
+          <button
+            type="button"
+            className="listen"
+            /* Disabled rather than hidden while the mic is live: hiding it
+               would shift the layout at the exact moment the learner is
+               about to speak. */
+            disabled={recorder.state === "recording" || recorder.state === "requesting"}
+            onClick={() =>
+              model.speaking ? model.cancel() : model.speak(activity.target, activeLanguage.code)
+            }
+          >
+            {model.speaking ? "Stop" : "Listen"}
+          </button>
+        )}
         <p className="hint">&ldquo;{activity.gloss}&rdquo;</p>
 
         <details>
