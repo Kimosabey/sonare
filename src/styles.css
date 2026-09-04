@@ -287,9 +287,6 @@ h1 {
 .enter-2 {
   animation: rise-in var(--dur-standard) var(--ease) 80ms both;
 }
-.enter-3 {
-  animation: rise-in var(--dur-standard) var(--ease) 160ms both;
-}
 .enter-cta {
   animation: rise-in-cta var(--dur-slow) var(--ease) 250ms both;
 }
@@ -422,20 +419,6 @@ button:focus-visible {
   font-weight: 560;
   padding: 18px 0 6px;
   letter-spacing: -0.01em;
-}
-
-.progress-track {
-  height: 6px;
-  background: var(--panel);
-  border-radius: 3px;
-  overflow: hidden;
-  border: 1px solid var(--rule);
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--signal);
-  transition: width var(--dur-slow) var(--ease);
 }
 
 /* ── step indicator ───────────────────────────────────────────────────────
@@ -1158,13 +1141,6 @@ button.sy {
 
 /* Long lists get a ceiling and scroll internally rather than pushing the
    actions off the bottom of the screen. */
-.scroll-y {
-  max-height: 320px;
-  overflow-y: auto;
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  padding: 0 10px;
-}
 
 table {
   width: 100%;
