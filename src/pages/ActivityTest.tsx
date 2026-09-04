@@ -38,6 +38,7 @@ import { newSessionId } from "../ui/sessionId.js";
 import { useProgressPersistence } from "../ui/useProgressPersistence.js";
 import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
 import { buildReport } from "../activities/report.js";
+import { adviceFor } from "../activities/advice.js";
 import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
 import type { PronunciationResult } from "../speech/scoring/types.js";
 
@@ -608,6 +609,15 @@ export function ActivityTest() {
             has just made an attempt and is told there isn't one, for the
             second and a half they most want reassurance.
           */}
+          {/*
+            Specific to the attempt just made, unlike the activity's own focus
+            text, which reads the same at 41 and at 79. Rendered above the
+            score card because it is the actionable half — the numbers say how
+            it went, this says what to do about it.
+          */}
+          {recorder.result && adviceFor(recorder.result) && (
+            <p className="advice">{adviceFor(recorder.result)}</p>
+          )}
           {recorder.result ? (
             <ScoreCard
               result={recorder.result}

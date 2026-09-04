@@ -769,6 +769,19 @@ button:focus-visible {
   cursor: default;
 }
 
+/* The one thing to change next time. Given the lilac panel rather than the
+   fail red: it is guidance, not a verdict — the score above already delivered
+   the verdict, and repeating that tone here would read as being told off
+   twice for one attempt. */
+.advice {
+  background: var(--panel);
+  border-left: 3px solid var(--signal);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 0 0 12px;
+  font-size: 14.5px;
+}
+
 .sy-hint {
   flex-basis: 100%;
   margin: 0 0 2px;
