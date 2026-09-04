@@ -24,6 +24,21 @@ export default defineConfig({
     },
   },
   build: {
+    /**
+     * The five platforms PRD §3 S2 names, stated rather than inherited.
+     *
+     * Without this the bundle is built for Vite's default ("modules" — any
+     * browser with native ESM, which reaches back further than this app can
+     * actually run). The real floor is AudioWorklet, which Safari only gained
+     * in 14.1: shipping syntax an older Safari parses but an API it lacks
+     * means a blank failure instead of the typed UNSUPPORTED_BROWSER the
+     * capture layer raises. safari15 is the first version comfortably past
+     * that line.
+     *
+     * Chrome 90 covers Android Chrome and desktop Chrome/Edge of the same
+     * vintage; Firefox is not in S2 but costs nothing to keep working.
+     */
+    target: ["es2020", "safari15", "chrome90", "firefox90", "edge90"],
     outDir: "dist",
     // "hidden" still emits the .map for local post-mortem work but drops the
     // //# sourceMappingURL comment, so a deployed build no longer advertises

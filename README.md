@@ -105,6 +105,36 @@ so the numbers it prints are the numbers the UI renders.
 not, so plain `http://192.168.x.x:5180` will not open the microphone. Put an
 HTTPS tunnel in front of the Vite port, or serve the built output over TLS.
 
+## Browser support
+
+Declared in `vite.config.ts` (`build.target`) rather than inherited from
+Vite's default, so the floor is a decision and the bundle is transpiled to
+match it.
+
+| Platform | Minimum | Why that floor |
+|---|---|---|
+| iOS / iPadOS Safari | 15 | AudioWorklet landed in 14.1; 15 is the first comfortable version past it |
+| macOS Safari | 15 | Same |
+| Chrome / Edge (desktop, Android) | 90 | Covers Android Chrome of the same vintage |
+| Firefox | 90 | Not in PRD §3 S2, but costs nothing to keep working |
+
+The real constraint is **AudioWorklet**, not syntax. A browser can parse the
+bundle and still lack the API, so `worklet.ts` checks for it explicitly and
+raises a typed `UNSUPPORTED_BROWSER` — without that the failure is a
+`TypeError` that reaches the learner as the right message but reaches the
+attempt trail as a useless string.
+
+Two platform behaviours worth knowing before testing on a device:
+
+- **A LAN address is not a secure context.** `getUserMedia` will not open the
+  microphone on `http://192.168.x.x:5180`, so on-device testing needs the
+  HTTPS tunnel. `crypto.randomUUID` is also absent there — `src/ui/sessionId.ts`
+  falls back rather than crashing.
+- **iOS is strictest about user gestures.** The AudioContext is created and
+  resumed inside the tap, and the per-activity prewarm calls `getUserMedia`
+  outside one. That path is verified on Chrome and **unverified on Safari** —
+  it is the first thing to check on a real iPhone.
+
 ## Verify
 
 ```bash

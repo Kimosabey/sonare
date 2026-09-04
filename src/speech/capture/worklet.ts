@@ -10,6 +10,8 @@
  * proxied, or opened from a LAN address during iPhone testing.
  */
 
+import { captureError } from "./errors.js";
+
 export const WORKLET_PROCESSOR_NAME = "lingotran-capture";
 
 const WORKLET_SOURCE = `
@@ -28,6 +30,22 @@ let moduleUrl: string | null = null;
 
 /** Registers the processor on the given context. Safe to call more than once. */
 export async function addCaptureWorklet(context: AudioContext): Promise<void> {
+  /**
+   * Checked rather than assumed. Without this, a browser lacking AudioWorklet
+   * (Safari before 14.1, older Android WebViews) throws "Cannot read
+   * properties of undefined (reading 'addModule')" — which the recorder's
+   * catch does convert into UNSUPPORTED_BROWSER, so the learner sees the right
+   * message either way. What is lost is the diagnostic: the attempt trail
+   * records a TypeError string instead of the actual reason, on precisely the
+   * devices nobody has in front of them.
+   */
+  if (!context.audioWorklet) {
+    throw captureError("UNSUPPORTED_BROWSER", "AudioWorklet is unavailable in this browser");
+  }
+  if (typeof AudioWorkletNode === "undefined") {
+    throw captureError("UNSUPPORTED_BROWSER", "AudioWorkletNode is unavailable in this browser");
+  }
+
   moduleUrl ??= URL.createObjectURL(new Blob([WORKLET_SOURCE], { type: "application/javascript" }));
   await context.audioWorklet.addModule(moduleUrl);
 }
