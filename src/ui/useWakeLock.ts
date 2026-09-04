@@ -33,11 +33,22 @@ export function useWakeLock(active: boolean): void {
 
     void acquire();
 
-    // The Wake Lock API releases automatically when the tab backgrounds
-    // (app switch, screen lock); re-request when it comes back to the
-    // foreground while the session is still active.
+    /**
+     * The Wake Lock API releases automatically when the tab backgrounds (app
+     * switch, screen lock), so the lock has to be re-requested on the way
+     * back while the session is still active.
+     *
+     * The platform's release does not clear our reference — it flips the
+     * sentinel's own `released` flag and leaves the object in place. Guarding
+     * on the reference alone therefore never re-acquires after the first
+     * successful request, and the whole re-request path is dead: a learner who
+     * checks a message mid-session comes back to a screen that sleeps again
+     * shortly after, which reads as the feature simply not working. The flag
+     * is what has to be consulted.
+     */
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible" && !sentinelRef.current) {
+      const held = sentinelRef.current;
+      if (document.visibilityState === "visible" && (!held || held.released)) {
         void acquire();
       }
     };
