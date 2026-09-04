@@ -85,6 +85,13 @@ function ScoreCardBase({
         <div>
           {noMatch ? NO_MATCH_COPY : NO_SPEECH_COPY}
           <div className="hint">{noMatch ? NO_MATCH_HINT : result.reason}</div>
+          {/*
+            The code has always known this — "an indeterminate attempt does not
+            burn a try" — and never told the learner. They see UNCLEAR, know
+            they get three tries, and reasonably assume they have spent one.
+            The report says so afterwards; the moment it matters is now.
+          */}
+          <div className="hint">This one didn&rsquo;t count as an attempt.</div>
         </div>
       </div>
     );
@@ -92,13 +99,28 @@ function ScoreCardBase({
 
   return (
     <>
+      {/*
+        Accuracy first, because accuracy is what decides.
+
+        ActivityTest gates on `result.accuracy` — `passed = best >= PASS_SCORE`
+        where best comes from accuracy — and tells the learner "pass at 60"
+        directly beneath the record button. `overall` was nonetheless the first
+        and largest number, so a learner could read 71, see the bar was 60, and
+        still not advance, because accuracy was 58. Nothing on screen explained
+        the difference.
+
+        Gating on accuracy is the right call for a pronunciation product: it
+        isolates pronunciation from fluency and completeness, which penalise
+        hesitation and partial reads rather than mispronunciation. So the
+        display moves to match the gate, not the other way round.
+      */}
       <div className="overall">
-        <AnimatedCell value={result.overall} label="overall" />
         <AnimatedCell
           value={result.accuracy}
           label="accuracy"
           {...(previousBest === null || previousBest === undefined ? {} : { from: previousBest })}
         />
+        <AnimatedCell value={result.overall} label="overall" />
         <AnimatedCell value={result.fluency} label="fluency" />
         <AnimatedCell value={result.completeness} label="complete" />
       </div>
