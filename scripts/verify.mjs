@@ -177,6 +177,32 @@ forbid({
   });
 }
 
+// ── rate limiting — trust exactly one proxy hop ──────────────────────────────
+// `app.set("trust proxy", true)` trusts every hop, which means express-rate-
+// limit reads whatever X-Forwarded-For says — and anyone can send that header.
+// The per-IP ceiling on a metered provider becomes decorative, and nothing
+// fails: the limiter still runs, still counts, and counts a different
+// attacker-chosen address every request. One hop is the real topology (an
+// ngrok tunnel today, a single load balancer later). The wrong value here is a
+// one-word edit that no type or test would catch.
+forbid({
+  rule: "NFR-04",
+  what: 'trust proxy set to a value other than exactly 1',
+  why: "Trusting every hop lets a spoofed X-Forwarded-For dodge the per-IP rate limit entirely.",
+  files: walk("server"),
+  // The dangerous values named explicitly rather than "anything but 1". A
+  // negative lookahead here has a backtracking hole: `\s*` can match zero
+  // characters, so the lookahead lands on a space, succeeds, and the check
+  // fires on the correct code. `true` trusts every hop; `false` trusts none,
+  // so every request appears to come from the proxy and shares one bucket; a
+  // two-digit hop count is nobody's real topology.
+  pattern: /trust proxy["']\s*,\s*(?:true|false|["']|\d\d)/,
+  // Test harnesses legitimately trust every hop: rateLimit.test.ts gives each
+  // simulated caller its own X-Forwarded-For precisely to prove the ceiling is
+  // counted per-caller rather than globally. Nothing there is deployed.
+  allow: (f) => /\.test\.[tj]sx?$/.test(f),
+});
+
 // ── report ───────────────────────────────────────────────────────────────────
 if (failures.length === 0) {
   console.log("verify: all checks passed");
