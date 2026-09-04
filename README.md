@@ -118,6 +118,13 @@ match it.
 | Chrome / Edge (desktop, Android) | 90 | Covers Android Chrome of the same vintage |
 | Firefox | 90 | Not in PRD §3 S2, but costs nothing to keep working |
 
+Two typefaces are loaded: Nunito for Latin, and Noto Sans Devanagari for
+Hindi. Nunito has no Devanagari coverage, so without the second every Hindi
+prompt fell through to a system font — a different typeface from the other
+three languages at best, tofu boxes on a device without one. `unicode-range`
+keeps the 121 kB Devanagari face from being fetched by anyone not rendering
+Devanagari.
+
 The real constraint is **AudioWorklet**, not syntax. A browser can parse the
 bundle and still lack the API, so `worklet.ts` checks for it explicitly and
 raises a typed `UNSUPPORTED_BROWSER` — without that the failure is a

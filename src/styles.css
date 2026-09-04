@@ -35,7 +35,23 @@
   --warn-soft: #fcf3e3;
   --fail: #c0273c;
   --fail-soft: #fbe9ec;
-  --sans: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /**
+   * Nunito covers Latin, Latin-Ext, Cyrillic and Greek — and no Devanagari.
+   * Every Hindi prompt therefore fell past it to whatever system font the
+   * device happened to have, which renders in a different typeface from the
+   * other three languages on a good device and as tofu boxes on one without a
+   * Devanagari face at all. A quarter of the shipped languages had unstyled
+   * text, unnoticed because every machine this was written on has the font.
+   *
+   * Noto Sans Devanagari sits after it, not instead: the browser matches per
+   * character, so Latin still resolves to Nunito and only Devanagari reaches
+   * the second family. Its face is 121 kB, and `unicode-range` means it is
+   * fetched only when Devanagari is actually rendered — a French learner never
+   * pays for it, and a Hindi learner pays it to be able to read their own
+   * language.
+   */
+  --sans: "Nunito", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* Motion — one signature curve, three durations. Premium personality:
