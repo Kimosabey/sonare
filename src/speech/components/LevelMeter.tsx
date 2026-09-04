@@ -34,8 +34,16 @@ export function LevelMeter({ level, active, clipping = false }: LevelMeterProps)
       <em>{hot ? "too loud" : "level"}</em>
       {/* assertive: this is worth interrupting for — it is the difference
           between finishing the take and having it rejected. */}
+      {/*
+        No dBFS numeral. "-42.3 dBFS" is engineering units in a learner's
+        interface: it reassures nobody who does not already know what dBFS is,
+        and the bar beside it already carries the same information in a form
+        that needs no training. The exact figure still reaches the attempt
+        trail, and ?debug=1 still shows it, which are the two places it is
+        actually read.
+      */}
       <span aria-live={hot ? "assertive" : "off"}>
-        {hot ? "distorting — back off the mic" : active ? `${level.toFixed(1)} dBFS` : "—"}
+        {hot ? "distorting — back off the mic" : active ? "hearing you" : "—"}
       </span>
     </div>
   );

@@ -42,6 +42,8 @@ interface ScoreCardProps {
    * never measured.
    */
   previousBest?: number | null;
+  /** ?debug=1 — shows figures that diagnose rather than teach. */
+  detailed?: boolean;
   /** Tap a syllable to hear that slice of the take — see useSyllablePlayback. */
   onSelectSyllable?: (syllable: ScoredSyllable, index: number) => void;
   /** Offset of the syllable currently sounding, or null. */
@@ -72,6 +74,7 @@ function ScoreCardBase({
   heardSpeech = false,
   lang,
   previousBest,
+  detailed = false,
   onSelectSyllable,
   playingOffsetTicks,
 }: ScoreCardProps) {
@@ -125,8 +128,29 @@ function ScoreCardBase({
         <AnimatedCell value={result.completeness} label="complete" />
       </div>
 
-      {/* PRD §6: prosody is optional — many languages never return it. */}
-      {result.prosody !== undefined && (
+      {/*
+        Four bare numbers with mono labels is a readout, not feedback — a
+        learner has no way to know that "complete" means "did you say all the
+        words" rather than something about their pronunciation.
+        
+        Explained rather than hidden, which is a correction of an earlier
+        instinct to move these behind ?debug=1. Completeness in particular is
+        the opposite of noise: it is what tells a learner a low accuracy was
+        caused by stopping halfway, not by saying the words badly. Removing it
+        would take away the explanation for the number that decides.
+      */}
+      <p className="hint">
+        Accuracy is the one that counts toward passing. Fluency reflects
+        hesitation, and complete is how much of the phrase you said.
+      </p>
+
+      {/*
+        Prosody stays behind ?debug=1. Azure returns it for some locales and
+        not others, so to a learner it appears and vanishes between activities
+        with no explanation — and "prosody" is a term of art they have no
+        reason to know. PRD §6 was right to make it optional.
+      */}
+      {detailed && result.prosody !== undefined && (
         <p className="hint">prosody {Math.round(result.prosody)}</p>
       )}
 

@@ -624,6 +624,7 @@ export function ActivityTest() {
               heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
               lang={activeLanguage.code}
               previousBest={bestBeforeAttempt}
+              detailed={debugEnabled}
               {...(playback.available
                 ? { onSelectSyllable: (s: { offsetTicks: number; durationTicks: number }) => playback.play(s.offsetTicks, s.durationTicks) }
                 : {})}

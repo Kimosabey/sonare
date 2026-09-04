@@ -260,6 +260,7 @@ export function FixtureRunner() {
             result={recorder.result}
             heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
             lang={language}
+            detailed
             {...(playback.available
               ? { onSelectSyllable: (s: { offsetTicks: number; durationTicks: number }) => playback.play(s.offsetTicks, s.durationTicks) }
               : {})}
