@@ -60,7 +60,15 @@ export async function recordAttempt(record: AttemptRecord): Promise<void> {
     // product exists to produce (PRD.md §8). Fall back to a local file so a
     // transient Mongo outage doesn't silently erase it; replay it later with
     // `npm run replay-fallback`.
-    await appendFallback("attempts", record);
+    /**
+     * Guarded, even though appendFallback swallows its own failures. This
+     * function's contract is that it never fails a learner's request, and
+     * relying on another module to keep that promise makes it true by
+     * coincidence rather than by construction — one bug over there and a
+     * rejection escapes from here. Caught by a test that broke appendFallback
+     * on purpose.
+     */
+    await appendFallback("attempts", record).catch(() => undefined);
   }
 }
 

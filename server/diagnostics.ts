@@ -36,7 +36,15 @@ export async function recordDiagnostic(record: DiagnosticRecord): Promise<void> 
     await db.collection<DiagnosticDocument>("diagnostics").insertOne(doc);
   } catch (err) {
     logger.error({ err }, "[diagnostics] failed to persist record");
-    await appendFallback("diagnostics", record);
+    /**
+     * Guarded, even though appendFallback swallows its own failures. This
+     * function's contract is that it never fails a learner's request, and
+     * relying on another module to keep that promise makes it true by
+     * coincidence rather than by construction — one bug over there and a
+     * rejection escapes from here. Caught by a test that broke appendFallback
+     * on purpose.
+     */
+    await appendFallback("diagnostics", record).catch(() => undefined);
   }
 }
 
