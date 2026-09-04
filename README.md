@@ -79,6 +79,13 @@ Decision confirmed with Harshan on 15 Aug 2026.
 The microphone is held open between takes so the next Start records instantly;
 it auto-releases after 45 s idle.
 
+### Running the fixture (T19)
+
+`files/T19-RUNBOOK.md` is the procedure: what Set A and Set B are, how to reach
+80 recordings across two platforms, driving `#/fixture`, exporting, running the
+analysis, and reading the result against T19's four outcomes. It also records
+the words-versus-phrases decision and the cost expectation.
+
 ### French Activity Test
 
 Ten activities unlock one at a time, ending in a report covering score, per
