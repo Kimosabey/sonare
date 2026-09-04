@@ -26,20 +26,33 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error("[ErrorBoundary]", error, info.componentStack);
-    // Fire-and-forget, same endpoint every other client error already
-    // reports to (see useCaptureToasts.ts) — so a crash shows up in the
-    // Diagnostics dashboard's error-code breakdown instead of only a
-    // browser console nobody's watching.
-    void fetch("/api/v1/diagnostics", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: "REACT_CRASH",
-        domain: "client",
-        message: error.message,
-        context: { componentStack: info.componentStack, userAgent: navigator.userAgent },
-      }),
-    }).catch(() => undefined);
+    /**
+     * Fire-and-forget, same endpoint every other client error already reports
+     * to (see useCaptureToasts.ts) — so a crash shows up in the Diagnostics
+     * dashboard's error-code breakdown instead of only a browser console
+     * nobody's watching.
+     *
+     * Wrapped, and not only for the rejected promise. A *synchronous* throw in
+     * here is thrown during React's error handling and takes the boundary down
+     * with it — which lands the learner back at the white screen this
+     * component exists to prevent, for the sake of a report. The whole job of
+     * a last resort is to hold when something unexpected is missing, so its
+     * own reporting must not be able to defeat it.
+     */
+    try {
+      void fetch("/api/v1/diagnostics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: "REACT_CRASH",
+          domain: "client",
+          message: error.message,
+          context: { componentStack: info.componentStack, userAgent: navigator.userAgent },
+        }),
+      }).catch(() => undefined);
+    } catch {
+      // Nothing left to do — the fallback UI is what matters from here.
+    }
   }
 
   override render(): ReactNode {
