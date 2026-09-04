@@ -34,6 +34,7 @@ import { useOnlineStatus } from "../ui/useOnlineStatus.js";
 import { useLearnerName } from "../ui/useLearnerName.js";
 import { useSyllablePlayback } from "../ui/useSyllablePlayback.js";
 import { useModelSpeech } from "../ui/useModelSpeech.js";
+import { useMicrophonePermission } from "../ui/useMicrophonePermission.js";
 import { newSessionId } from "../ui/sessionId.js";
 import { useProgressPersistence } from "../ui/useProgressPersistence.js";
 import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
@@ -197,6 +198,14 @@ export function ActivityTest() {
   // Same fallback the recorder uses: this runs before the "language not
   // found" guard below, and nothing in that branch renders the control.
   const model = useModelSpeech(activeLanguage?.code ?? "en-US");
+
+  /**
+   * Advisory only — "unknown" is the normal answer on Safari, and getUserMedia
+   * stays the authority. This exists so a learner whose microphone is already
+   * blocked reads that before committing to an attempt, rather than tapping
+   * Start and being refused.
+   */
+  const micPermission = useMicrophonePermission();
 
   /**
    * Silence the model the instant the microphone opens.
@@ -424,7 +433,18 @@ export function ActivityTest() {
             ? `Continuing Activity ${index + 1} of ${activities.length} — ${passedSoFar} passed so far.`
             : `Ten short activities, ${activeLanguage.label} pronunciation scored phoneme by phoneme.`}
         </p>
-        <p className="hint enter-2">Tapping Start also turns on your microphone.</p>
+        {micPermission === "denied" ? (
+          <p className="verdict v-fail enter-2" role="status">
+            <span className="tag">BLOCKED</span>
+            <span>
+              This site is blocked from using your microphone. Open the padlock or camera icon in
+              the address bar, allow the microphone, then reload — recording can&rsquo;t start until
+              you do.
+            </span>
+          </p>
+        ) : (
+          <p className="hint enter-2">Tapping Start also turns on your microphone.</p>
+        )}
         <p className="hint enter-2">
           In a noisy room? Headphones with a built-in mic score better than the
           room's speaker and mic picking up everything around you.
