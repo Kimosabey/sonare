@@ -222,3 +222,76 @@ describe("assertDuration", () => {
     expect(() => assertDuration(inspectWav(quarterSecond), 0.25, 15)).not.toThrow();
   });
 });
+
+/**
+ * The seam between two files written months apart that have to agree byte for
+ * byte, which neither file's own tests can check alone.
+ *
+ * The client encoder (src/speech/capture/wav.ts) writes the header; this
+ * parser reads it, and the route bills and enforces take length from what it
+ * reads. A disagreement about one field is expensive in two directions at
+ * once, and silent in both: the provider reads the audio at whatever rate the
+ * header claims, so a wrong sample rate turns every utterance into a chipmunk
+ * the scorer marks down, with no error raised anywhere.
+ *
+ * Lives on this side of the tree because inspectWav takes a Node Buffer and
+ * src/ is deliberately DOM-only.
+ */
+describe("the client encoder and this parser agree", () => {
+  async function encoded(seconds: number, rate = 16000): Promise<Buffer> {
+    const { encodeWav } = await import("../src/speech/capture/wav.js");
+    const samples = new Float32Array(Math.round(rate * seconds));
+    for (let n = 0; n < samples.length; n++) {
+      samples[n] = 0.4 * Math.sin((2 * Math.PI * 440 * n) / rate);
+    }
+    return Buffer.from(await encodeWav(samples, rate).arrayBuffer());
+  }
+
+  it("round-trips rate, channels and bit depth", async () => {
+    const info = inspectWav(await encoded(1));
+
+    expect(info.sampleRate).toBe(16000);
+    expect(info.channels).toBe(1);
+    expect(info.bitsPerSample).toBe(16);
+    expect(info.audioFormat).toBe(1);
+  });
+
+  it("passes the Azure-format assertion the route applies", async () => {
+    // The check that rejects a take at the route. If the encoder ever drifted
+    // from it, every upload would 4xx — loudly, but only in production.
+    const info = inspectWav(await encoded(1));
+
+    expect(() => assertAzureFormat(info)).not.toThrow();
+  });
+
+  it("reports the duration the encoder was handed, which is what gets billed", async () => {
+    for (const seconds of [0.5, 1, 3.25, 15]) {
+      const info = inspectWav(await encoded(seconds));
+
+      expect(info.seconds, `${seconds}s`).toBeCloseTo(seconds, 3);
+    }
+  });
+
+  it("counts exactly the bytes the encoder wrote", async () => {
+    // dataBytes is what billable seconds is derived from. Off by the 44-byte
+    // header and every invoice is wrong by the same small amount.
+    const info = inspectWav(await encoded(2));
+
+    expect(info.dataBytes).toBe(16000 * 2 * 2);
+  });
+
+  it("lands inside the duration window a real take is checked against", async () => {
+    const info = inspectWav(await encoded(3));
+
+    expect(() => assertDuration(info, 0.3, 15)).not.toThrow();
+  });
+
+  it("is measured as too short when it is too short", async () => {
+    // Proves the round-trip is faithful at the boundary too: a 0.1s take must
+    // read as 0.1s, so the honest "too short" refusal fires instead of the
+    // provider being paid to score a fragment.
+    const info = inspectWav(await encoded(0.1));
+
+    expect(() => assertDuration(info, 0.3, 15)).toThrow();
+  });
+});

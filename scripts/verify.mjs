@@ -53,6 +53,21 @@ function forbid({ rule, what, why, files, pattern, allow = () => false }) {
   if (hits.length) failures.push({ rule, what, why, hits });
 }
 
+/**
+ * Flag every pattern in `patterns` that is *absent* from `file`. The mirror of
+ * forbid, for rules whose violation is a missing line rather than a present
+ * one — those are invisible to a grep-based check and, in the CSS case below,
+ * to the type system and the test suite as well.
+ */
+function require({ rule, what, why, file, patterns }) {
+  const text = readFileSync(join(ROOT, file), "utf8");
+  const hits = [];
+  for (const { pattern, label } of patterns) {
+    if (!pattern.test(text)) hits.push({ file, line: 0, text: `missing: ${label}` });
+  }
+  if (hits.length) failures.push({ rule, what, why, hits });
+}
+
 const srcAndServer = [...walk("src"), ...walk("server")];
 
 // ── R1 — the API we exist to remove ──────────────────────────────────────────
@@ -129,6 +144,38 @@ forbid({
   pattern: /microsoft-cognitiveservices-speech-sdk/,
   allow: (f) => f.startsWith("server/services/"),
 });
+
+// ── T12 — every band the code can return has a style ─────────────────────────
+// A renamed band breaks no type and fails no test: the page still renders,
+// every score just comes out the same colour and the banding silently stops
+// existing. This exact mistake shipped once, with band() returning hi/mid/lo
+// against a stylesheet keyed on pass/warn/fail. Read from the source's own
+// return type, so renaming a band moves the check with it.
+{
+  const bandSource = readFileSync(join(ROOT, "src/speech/components/band.ts"), "utf8");
+  const returnType = /export function band\([^)]*\):\s*([^{]+)\{/.exec(bandSource)?.[1] ?? "";
+  const bands = [...returnType.matchAll(/"([a-z]+)"/g)].map((m) => m[1]);
+
+  if (bands.length === 0) {
+    failures.push({
+      rule: "T12",
+      what: "band()'s return type could not be read",
+      why: "The CSS check below is only as good as this parse; a silent empty list would pass vacuously.",
+      hits: [{ file: "src/speech/components/band.ts", line: 0, text: "no string-literal union found" }],
+    });
+  }
+
+  require({
+    rule: "T12",
+    what: "a band with no rule in the stylesheet",
+    why: "Scores would render unstyled — no type error, no test failure, no visible error.",
+    file: "src/styles.css",
+    patterns: bands.flatMap((b) => [
+      { pattern: new RegExp(`\\.word\\.${b}\\b`), label: `.word.${b}` },
+      { pattern: new RegExp(`\\.trajectory-step\\.${b}\\b`), label: `.trajectory-step.${b}` },
+    ]),
+  });
+}
 
 // ── report ───────────────────────────────────────────────────────────────────
 if (failures.length === 0) {
