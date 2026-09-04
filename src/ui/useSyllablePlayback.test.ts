@@ -403,7 +403,14 @@ describe("decoding, and never keeping the audio", () => {
      * localStorage, no sessionStorage, no object URL that outlives the
      * component.
      */
-    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    // Storage is installed explicitly rather than spied on Storage.prototype:
+    // jsdom here exposes localStorage as a bare object, so a prototype spy
+    // would never be on the path and the assertion would pass vacuously.
+    const setItem = vi.fn();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: { getItem: () => null, setItem, removeItem: () => undefined, clear: () => undefined },
+    });
     const createObjectURL = vi.fn();
     vi.stubGlobal("URL", { ...URL, createObjectURL });
 
@@ -413,7 +420,6 @@ describe("decoding, and never keeping the audio", () => {
 
     expect(setItem).not.toHaveBeenCalled();
     expect(createObjectURL).not.toHaveBeenCalled();
-    setItem.mockRestore();
   });
 });
 

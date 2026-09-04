@@ -7,6 +7,7 @@ import { AppError } from "../errors.js";
 import { logger } from "../logger.js";
 import { AzureSpeechProvider } from "./azureSpeech.js";
 import type { PronunciationResult, ScoringProvider } from "./types.js";
+import { numberFromEnv } from "../env.js";
 
 let cached: ScoringProvider | null = null;
 
@@ -29,7 +30,9 @@ export function getScoringProvider(): ScoringProvider {
   }
 }
 
-const MAX_DAILY_SCORING_CALLS = Number(process.env.MAX_DAILY_SCORING_CALLS ?? 2000);
+// The cap this file exists to enforce, so it must not be readable as NaN:
+// `count >= NaN` is false and the ceiling disappears entirely. See env.ts.
+const MAX_DAILY_SCORING_CALLS = numberFromEnv("MAX_DAILY_SCORING_CALLS", 2000, { integer: true });
 
 /**
  * A ceiling independent of and beneath the per-IP rate limit

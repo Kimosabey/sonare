@@ -4,6 +4,7 @@ import { diagnosticsRouter } from "./routes/diagnostics.js";
 import { getDb } from "./db.js";
 import { logger } from "./logger.js";
 import { getScoringProvider } from "./services/index.js";
+import { numberFromEnv } from "./env.js";
 
 const app = express();
 
@@ -21,7 +22,7 @@ app.set("trust proxy", 1);
 app.use(express.json());
 
 // Deliberately off the common defaults (3000/8080) to avoid collisions.
-const PORT = Number(process.env.PORT ?? 5181);
+const PORT = numberFromEnv("PORT", 5181, { integer: true, min: 1, max: 65535 });
 
 app.get("/api/v1/health", (_req, res) => {
   // Reports whether scoring is configured — never what the configuration is

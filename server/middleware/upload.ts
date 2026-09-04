@@ -5,8 +5,12 @@
  */
 
 import multer from "multer";
+import { numberFromEnv } from "../env.js";
 
-const MAX_AUDIO_SECONDS = Number(process.env.MAX_AUDIO_SECONDS ?? 15);
+// Fails closed on a malformed value: fileSize NaN is no ceiling at all, and
+// storage here is memoryStorage, so that is an OOM kill rather than a slow
+// request. See server/env.ts.
+const MAX_AUDIO_SECONDS = numberFromEnv("MAX_AUDIO_SECONDS", 15, { max: 600 });
 
 // 16 kHz × 2 bytes/sample × seconds, plus generous headroom for the header and
 // any client that overshoots slightly. Duration itself is enforced from the

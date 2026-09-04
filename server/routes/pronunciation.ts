@@ -19,9 +19,13 @@ import { recordAttempt } from "../attempts.js";
 import { recordDiagnostic } from "../diagnostics.js";
 import { scoringLimiter } from "../rateLimit.js";
 import type { PronunciationResult } from "../services/types.js";
+import { numberFromEnv } from "../env.js";
 
-const MIN_AUDIO_SECONDS = Number(process.env.MIN_AUDIO_SECONDS ?? 0.25);
-const MAX_AUDIO_SECONDS = Number(process.env.MAX_AUDIO_SECONDS ?? 15);
+// numberFromEnv rather than Number(): a NaN bound makes every comparison in
+// assertDuration false, which removes the gate and bills the provider for
+// audio of any length. See server/env.ts.
+const MIN_AUDIO_SECONDS = numberFromEnv("MIN_AUDIO_SECONDS", 0.25, { max: 60 });
+const MAX_AUDIO_SECONDS = numberFromEnv("MAX_AUDIO_SECONDS", 15, { max: 600 });
 
 /**
  * Every field multer hands back from a multipart form is a string (or

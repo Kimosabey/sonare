@@ -6,6 +6,7 @@
 import { MongoClient } from "mongodb";
 import type { Db } from "mongodb";
 import { logger } from "./logger.js";
+import { numberFromEnv } from "./env.js";
 
 const MONGO_URL = process.env.MONGO_URL ?? "mongodb://localhost:27017";
 const MONGO_DB_NAME = process.env.MONGO_DB ?? "sonare";
@@ -33,7 +34,9 @@ export function getDb(): Promise<Db> {
   return dbPromise;
 }
 
-const RETENTION_DAYS = Number(process.env.RETENTION_DAYS ?? 90);
+// A NaN retention window is a TTL index of NaN seconds — learner voice
+// metadata kept indefinitely, which is a privacy posture nobody chose.
+const RETENTION_DAYS = numberFromEnv("RETENTION_DAYS", 90, { integer: true, max: 3650 });
 const RETENTION_SECONDS = RETENTION_DAYS * 24 * 60 * 60;
 
 /**

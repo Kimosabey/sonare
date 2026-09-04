@@ -15,6 +15,7 @@
  */
 
 import { getDb } from "./db.js";
+import { numberFromEnv, optionalNumberFromEnv } from "./env.js";
 
 /**
  * Price per audio-hour for the active region and tier.
@@ -36,13 +37,14 @@ import { getDb } from "./db.js";
  * raising this to 1.30. And a commitment tier replaces per-hour pricing
  * entirely.
  */
-const RATE_PER_AUDIO_HOUR = process.env.AZURE_SPEECH_RATE_PER_AUDIO_HOUR
-  ? Number(process.env.AZURE_SPEECH_RATE_PER_AUDIO_HOUR)
-  : null;
+// Unusable reads as unset, deliberately: this file's own principle is that a
+// wrong rate shown as money is worse than no money, because nobody re-checks
+// a number that looks authoritative.
+const RATE_PER_AUDIO_HOUR = optionalNumberFromEnv("AZURE_SPEECH_RATE_PER_AUDIO_HOUR");
 
 const RATE_CURRENCY = process.env.AZURE_SPEECH_RATE_CURRENCY ?? "USD";
 
-const DAILY_CALL_CAP = Number(process.env.MAX_DAILY_SCORING_CALLS ?? 2000);
+const DAILY_CALL_CAP = numberFromEnv("MAX_DAILY_SCORING_CALLS", 2000, { integer: true });
 
 export interface SpendWindow {
   calls: number;
