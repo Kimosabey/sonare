@@ -113,4 +113,22 @@ describe("recordAttempt", () => {
 
     await expect(recordAttempt(RECORD)).resolves.toBeUndefined();
   });
+
+  it("survives a fallback that throws synchronously, not only one that rejects", async () => {
+    /**
+     * The same lesson one step further down. `.catch()` handles a rejected
+     * promise; a *synchronous* throw never reaches it, because the promise it
+     * would attach to does not exist yet. That appendFallback cannot throw
+     * synchronously today is a fact about it being declared `async` — which is
+     * exactly the kind of dependence on another file this module's own comment
+     * objects to. Now a try/catch, so the guarantee holds by construction.
+     */
+    dbBehaviour = () => Promise.reject(new Error("down"));
+    appendFallback.mockImplementation(() => {
+      throw new Error("synchronous");
+    });
+    const { recordAttempt } = await import("./attempts.js");
+
+    await expect(recordAttempt(RECORD)).resolves.toBeUndefined();
+  });
 });

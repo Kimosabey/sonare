@@ -67,8 +67,21 @@ export async function recordAttempt(record: AttemptRecord): Promise<void> {
      * coincidence rather than by construction — one bug over there and a
      * rejection escapes from here. Caught by a test that broke appendFallback
      * on purpose.
+     *
+     * try/catch rather than `.catch()`, for the same reason one step further
+     * down: `.catch()` handles a rejected promise, and a *synchronous* throw
+     * never gets that far — the promise it would attach to does not exist
+     * yet. That the call cannot throw synchronously today is a fact about
+     * appendFallback being declared `async`, which is exactly the kind of
+     * dependence on another file this comment already objects to. Caught by a
+     * test that made appendFallback throw synchronously on purpose.
      */
-    await appendFallback("attempts", record).catch(() => undefined);
+    try {
+      await appendFallback("attempts", record);
+    } catch {
+      // Nothing left that can be done, and nothing worth failing the request
+      // for. The record is lost; the learner keeps their score.
+    }
   }
 }
 
