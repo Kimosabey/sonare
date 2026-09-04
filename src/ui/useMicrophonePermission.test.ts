@@ -66,11 +66,17 @@ describe("useMicrophonePermission", () => {
   it("follows a change made in browser settings without a reload", async () => {
     // The warning has to disappear when the learner unblocks it, or it becomes
     // advice that is wrong and cannot be dismissed.
-    let fire: (() => void) | null = null;
+    /**
+     * Held on an object rather than in a `let`. TypeScript's control-flow
+     * analysis cannot see that addEventListener ran, so a `let fire = null`
+     * stays narrowed to `null` — and `fire?.()` then fails to compile as a
+     * call on `never`. A property is not narrowed that way.
+     */
+    const handler: { change?: () => void } = {};
     const status = {
       state: "denied",
       addEventListener: (_e: string, cb: () => void) => {
-        fire = cb;
+        handler.change = cb;
       },
       removeEventListener: vi.fn(),
     };
@@ -80,7 +86,7 @@ describe("useMicrophonePermission", () => {
     await waitFor(() => expect(result.current).toBe("denied"));
 
     status.state = "granted";
-    fire?.();
+    handler.change?.();
 
     await waitFor(() => expect(result.current).toBe("granted"));
   });
