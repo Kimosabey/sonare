@@ -27,8 +27,14 @@ interface AttemptRecord {
   learnerName?: string;
   referenceText: string;
   language: string;
-  audio: { seconds: number };
-  timings: { totalMs: number; providerMs: number };
+  /**
+   * Optional in the type because they are optional in the data. Records
+   * written before a field existed, or replayed from the fallback log, do not
+   * carry it — and declaring it required only moves the failure from a type
+   * error to a render crash.
+   */
+  audio?: { seconds: number };
+  timings?: { totalMs: number; providerMs: number };
   deviceContext: unknown;
   result: PronunciationResult;
 }
@@ -142,13 +148,21 @@ function computeAggregates(attempts: AttemptRecord[], diagnostics: DiagnosticRec
   let failCount = 0;
   let azureMsSum = 0;
   let totalMsSum = 0;
+  let timedAttempts = 0;
 
   const languageStats = new Map<string, { count: number; scoreSum: number; scoreCount: number }>();
   const platformCounts = new Map<string, number>();
 
   for (const a of attempts) {
-    azureMsSum += a.timings.providerMs;
-    totalMsSum += a.timings.totalMs;
+    // Same reason as the table below: a record without timings is a record
+    // this screen did not write. Skipping it keeps the mean honest — adding
+    // zero would drag the average toward zero in proportion to how many
+    // records were malformed, which is not a latency measurement.
+    if (a.timings) {
+      azureMsSum += a.timings.providerMs;
+      totalMsSum += a.timings.totalMs;
+      timedAttempts += 1;
+    }
 
     const lang = languageStats.get(a.language) ?? { count: 0, scoreSum: 0, scoreCount: 0 };
     lang.count += 1;
@@ -203,8 +217,11 @@ function computeAggregates(attempts: AttemptRecord[], diagnostics: DiagnosticRec
     passCount,
     warnCount,
     failCount,
-    meanAzureSeconds: attempts.length ? azureMsSum / attempts.length / 1000 : null,
-    meanTotalSeconds: attempts.length ? totalMsSum / attempts.length / 1000 : null,
+    // Divided by the records that actually carried timings, not by every
+    // record — otherwise one malformed row understates the latency of all of
+    // them.
+    meanAzureSeconds: timedAttempts ? azureMsSum / timedAttempts / 1000 : null,
+    meanTotalSeconds: timedAttempts ? totalMsSum / timedAttempts / 1000 : null,
     meanUploadSeconds: timingPings ? uploadMsSum / timingPings / 1000 : null,
     retryRate: timingPings ? retriedPings / timingPings : null,
     byLanguage: Array.from(languageStats.entries())
@@ -243,6 +260,15 @@ function RankedBars({ rows }: { rows: RankedRow[] }) {
  * more than one day, rows from different days would show identical-looking
  * times with nothing to tell them apart. Always show the date too.
  */
+/**
+ * A duration in seconds, or a dash when the record does not carry one. A dash
+ * rather than 0.00, which would claim a measurement of zero where there was no
+ * measurement at all — the same distinction R8 draws about scores.
+ */
+function secondsOrDash(value: number | undefined, divisor = 1): string {
+  return typeof value === "number" && Number.isFinite(value) ? (value / divisor).toFixed(2) : "—";
+}
+
 function formatAt(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     month: "short",
@@ -566,9 +592,20 @@ export function Diagnostics() {
                       <td>{cap.granted}</td>
                       <td className="num">{cap.snrDb}</td>
                       <td>{cap.autoStopped}</td>
-                      <td className="num">{a.audio.seconds.toFixed(2)}</td>
-                      <td className="num">{(a.timings.providerMs / 1000).toFixed(2)}</td>
-                      <td className="num">{(a.timings.totalMs / 1000).toFixed(2)}</td>
+                      {/*
+                        Guarded, even though the types above declare these
+                        required. They are a claim about documents this screen
+                        did not write: records replayed from the fallback log,
+                        or written before a field existed. `ScoredWord.
+                        syllables` taught this lesson once already — a type
+                        cannot make a promise about JSON that predates it, and
+                        one malformed record here throws during render and
+                        blanks the whole dashboard, which is the screen someone
+                        opened *because* something was wrong.
+                      */}
+                      <td className="num">{secondsOrDash(a.audio?.seconds)}</td>
+                      <td className="num">{secondsOrDash(a.timings?.providerMs, 1000)}</td>
+                      <td className="num">{secondsOrDash(a.timings?.totalMs, 1000)}</td>
                     </tr>
                   );
                 })}
