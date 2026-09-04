@@ -18,25 +18,31 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 
-/** Throws on render, which is the only kind of error a boundary catches. */
-function Boom({ message = "word.syllables is not iterable" }: { message?: string }) {
+/**
+ * Throws on render, which is the only kind of error a boundary catches.
+ *
+ * Annotated `never` rather than left to inference: a function whose body only
+ * throws infers `void`, which is not a valid component return type.
+ */
+function Boom({ message = "word.syllables is not iterable" }: { message?: string }): never {
   throw new Error(message);
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
-let consoleError: ReturnType<typeof vi.spyOn>;
+/** Records what React and the boundary logged, without letting it print. */
+const logged: unknown[][] = [];
 
 beforeEach(() => {
   fetchMock = vi.fn(() => Promise.resolve({ ok: true } as Response));
   vi.stubGlobal("fetch", fetchMock);
   // React logs the caught error itself; silencing keeps the output readable
   // without hiding a real failure, since the assertions are on the DOM.
-  consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  logged.length = 0;
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => void logged.push(args));
 });
 
 afterEach(() => {
   cleanup();
-  consoleError.mockRestore();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -188,7 +194,7 @@ describe("reaching the diagnostics trail", () => {
       </ErrorBoundary>,
     );
 
-    expect(consoleError.mock.calls.some((c) => c[0] === "[ErrorBoundary]")).toBe(true);
+    expect(logged.map((call) => call[0])).toContain("[ErrorBoundary]");
   });
 });
 
@@ -212,24 +218,13 @@ describe("when the reporting is what is broken", () => {
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
   });
 
-  it("does not leave an unhandled rejection behind", async () => {
-    // `.catch(() => undefined)` rather than a bare `void fetch(...)`. An
-    // unhandled rejection is a second error report for the same incident, and
-    // in some hosts a hard failure.
-    const unhandled = vi.fn();
-    process.on("unhandledRejection", unhandled);
-    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
-
-    render(
-      <ErrorBoundary>
-        <Boom />
-      </ErrorBoundary>,
-    );
-    await new Promise((r) => setTimeout(r, 10));
-
-    expect(unhandled).not.toHaveBeenCalled();
-    process.off("unhandledRejection", unhandled);
-  });
+  // A test for "no unhandled rejection is left behind" was written here and
+  // removed. `process.on("unhandledRejection")` is not available under this
+  // tree's deliberately DOM-only tsconfig, and jsdom's `unhandledrejection`
+  // event does not reliably fire — so the assertion would have passed whether
+  // or not the `.catch()` were there. The property it was reaching for is
+  // already covered by the case above, which renders the fallback with fetch
+  // rejecting.
 
   it("shows the fallback on a platform with no fetch at all", () => {
     // Defensive, but this is the component whose whole job is to work when
