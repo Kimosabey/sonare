@@ -21,7 +21,8 @@
     "test": "vitest run",
     "test:french": "tsx scripts/test-french-activity.ts",
     "resample-bench": "tsx scripts/resample-bench.ts",
-    "replay-fallback": "node --env-file=.env scripts/replay-fallback.mjs"
+    "replay-fallback": "node --env-file=.env scripts/replay-fallback.mjs",
+    "fixture-design": "node --env-file=.env scripts/fixture-design-check.mjs"
   },
   "dependencies": {
     "express": "^5.2.1",

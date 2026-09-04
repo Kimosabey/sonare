@@ -219,12 +219,31 @@ scripts/                smoke, verify, dev, test:french, resample-bench,
   target words", which is in direct tension with a 0.4 s minimum — short words
   simply are not that long. Either the fixture uses short phrases or the floor
   drops to about 0.25 s.
-- **Single words separate poorly.** Across 8 word pairs, median Set A − Set B
-  gap was **0.5** (only `world`, at 22, separated strongly; `very` and `clothes`
-  did not separate at all). The same scorer separated a French sentence set by
-  **37.6**. This suggests the phrase-level fixture is far more discriminating
-  than a word-level one — see `RESULTS.md` guidance in TASKS.md T19 before
-  committing 80 human recordings to single words.
+- **Phrases separate 3.2x better than single words.** PRD §8 specifies "40
+  target words"; the evidence says phrases. Measured in one run on the same
+  vocabulary with the same method (`npm run fixture-design`, 4 Sep 2026): a
+  native French voice as Set A against an English voice reading the same French
+  as Set B.
+
+  | Design | Set A p25 | Set B p75 | Separation |
+  |---|---|---|---|
+  | 40 single words | 95.8 | 90.0 | **5.8** |
+  | 10 phrases | 97.0 | 78.5 | **18.5** |
+
+  Words do separate — positively, so a word fixture would not produce a null
+  result — but thinly: a quarter of the *badly* pronounced words still scored
+  90 or above. A single word gives the scorer less to be wrong about. Phrases
+  leave far more room, with Set B's median at 62 against the words' 70.5.
+
+  This supersedes two earlier figures (0.5 for words, 37.6 for phrases) that
+  came from separate runs on different material and were never directly
+  comparable. Zero indeterminate results in any of the four cells, so the
+  older `AUDIO_TOO_SHORT` concern is also resolved — the floor moved to 0.25s
+  and the word clips averaged 0.74s.
+
+  Caveat: Set B is a TTS accent proxy, not the fluent speaker deliberately
+  mispronouncing that PRD §8 asks for. It compares the two designs fairly; it
+  does not predict absolute human scores.
 
 ## Verification evidence
 
