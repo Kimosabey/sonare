@@ -308,7 +308,15 @@ h2 {
   margin: 0 0 12px;
 }
 
-label {
+/*
+ * `.field-label` shares the label styling for text that heads a *group* of
+ * controls rather than one control. A <label htmlFor> cannot do that job: it
+ * associates the text with a single element and renames it, which silently
+ * cost the middle sensitivity button its own accessible name. Grouped
+ * headings are plain elements wired up with aria-labelledby instead.
+ */
+label,
+.field-label {
   display: block;
   font-family: var(--mono);
   font-size: 10.5px;

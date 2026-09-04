@@ -102,8 +102,19 @@ function CaptureSettingsBase({ value, onChange, hangoverMs, disabled }: CaptureS
 
         {value.autoStop && (
           <>
-            <label htmlFor="sens-normal">Pause before it stops</label>
-            <div className="modes" role="group" aria-label="Pause sensitivity">
+            {/*
+              A plain element, not a <label htmlFor>. This text is the heading
+              for all three buttons, but `for` associates it with exactly one
+              of them and *renames* it: the middle option was announced as
+              "Pause before it stops" and the word "Normal" was never spoken,
+              while Quick and Patient read correctly. Pointing the group at it
+              with aria-labelledby says what was meant — the text labels the
+              choice, and each button keeps its own name.
+            */}
+            <span className="field-label" id="sens-heading">
+              Pause before it stops
+            </span>
+            <div className="modes" role="group" aria-labelledby="sens-heading">
               {(Object.keys(SENSITIVITY_LABELS) as SilenceSensitivity[]).map((key) => (
                 <button
                   key={key}
