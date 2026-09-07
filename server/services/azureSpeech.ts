@@ -11,6 +11,7 @@ import sdk from "microsoft-cognitiveservices-speech-sdk";
 import { z } from "zod";
 import { AppError } from "../errors.js";
 import { logger } from "../logger.js";
+import { increment } from "../infra/metrics.js";
 import type { PronunciationResult, ScoredWord, ScoringProvider } from "./types.js";
 
 /**
@@ -105,6 +106,71 @@ const RECOGNITION_TIMEOUT_MS = 8_000;
 const CIRCUIT_FAILURE_THRESHOLD = 3;
 const CIRCUIT_COOLDOWN_MS = 30_000;
 
+/**
+ * Attempts per scoring call, including the first. Two means one retry.
+ *
+ * The number is decided by arithmetic, not taste — and the arithmetic needs
+ * stating carefully, because the naive version is misleading.
+ *
+ * The client abandons the whole exchange after UPLOAD_TIMEOUT_MS (25s,
+ * src/speech/scoring/client.ts) and one attempt costs up to
+ * RECOGNITION_TIMEOUT_MS. Two attempts plus the backoff is 16.4s. *Three* is
+ * 24.8s, which looks like it fits — and does not, because that 25s has to
+ * cover uploading the WAV, parsing it, and sending the response as well.
+ * Three attempts would leave 200ms for all of that, so the client would
+ * abandon a request the server was still working on: the learner waits the
+ * full 25 seconds and is *then* told it failed, which is strictly worse than
+ * failing at 8.
+ *
+ * T15 in scripts/verify.mjs checks the arithmetic across the two files with an
+ * explicit margin for that overhead. Written without the margin first, and it
+ * passed at three attempts — which is exactly the change it exists to stop.
+ */
+export const MAX_PROVIDER_ATTEMPTS = 2;
+
+/**
+ * Pause before the retry.
+ *
+ * Short on purpose: a learner is watching a spinner, and the failures worth
+ * retrying are a dropped connection or a single throttled request rather than
+ * a queue that needs draining. Anything longer trades a real chance of
+ * succeeding for a wait the learner can feel.
+ */
+export const RETRY_BACKOFF_MS = 400;
+
+/** Exported so the budget check has something to read. */
+export const PROVIDER_TIMEOUT_MS = RECOGNITION_TIMEOUT_MS;
+
+/**
+ * Whether a failure is worth trying again.
+ *
+ * `PROVIDER_TIMEOUT` and `PROVIDER_REJECTED` are the transport failures: the
+ * SDK rejects for a dropped connection, a throttle, or a service error. Bad
+ * audio does *not* arrive here — Azure returns that as a successful result
+ * with no match, which becomes an indeterminate score, so it never reaches a
+ * catch and can never be retried.
+ *
+ * `MISCONFIGURED` is never retried: a wrong key or region will be just as
+ * wrong 400ms later. `PROVIDER_UNAVAILABLE` is the breaker's own signal, and
+ * retrying past it would defeat the thing that exists to stop us calling a
+ * provider that is down.
+ *
+ * One honest imprecision: the SDK collapses an auth failure into the same
+ * rejection as a dropped connection, so a bad key costs one wasted retry per
+ * call. Bounded by the breaker — three failed calls and it stops trying — and
+ * not worth sniffing SDK message strings to avoid.
+ */
+function isWorthRetrying(err: unknown): boolean {
+  if (!(err instanceof AppError)) return false;
+  return err.code === "PROVIDER_TIMEOUT" || err.code === "PROVIDER_REJECTED";
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 export class AzureSpeechProvider implements ScoringProvider {
   readonly name = PROVIDER;
 
@@ -146,17 +212,43 @@ export class AzureSpeechProvider implements ScoringProvider {
       });
     }
 
-    try {
-      const result = await this.recognize(wav, referenceText, language);
-      this.consecutiveFailures = 0;
-      return result;
-    } catch (err) {
-      this.consecutiveFailures += 1;
-      if (this.consecutiveFailures >= CIRCUIT_FAILURE_THRESHOLD) {
-        this.circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= MAX_PROVIDER_ATTEMPTS; attempt += 1) {
+      try {
+        const result = await this.recognize(wav, referenceText, language);
+        this.consecutiveFailures = 0;
+        return result;
+      } catch (err) {
+        lastError = err;
+        if (attempt === MAX_PROVIDER_ATTEMPTS || !isWorthRetrying(err)) break;
+
+        increment("scoring.provider.retried");
+        logger.warn(
+          { attempt, of: MAX_PROVIDER_ATTEMPTS, err },
+          "[azure] transient failure — retrying once",
+        );
+        await delay(RETRY_BACKOFF_MS);
       }
-      throw err;
     }
+
+    /**
+     * One failure per scoring call, not per attempt.
+     *
+     * The breaker's question is "is the provider usable", and a call that
+     * failed after retrying is one unusable outcome. Counting attempts would
+     * trip it after a call and a half, which is twitchy enough to open on a
+     * single bad minute.
+     *
+     * The cost is stated plainly: with a retry, an outage now spends up to six
+     * provider calls before the breaker opens rather than three. Bounded, and
+     * the honest price of retrying at all.
+     */
+    this.consecutiveFailures += 1;
+    if (this.consecutiveFailures >= CIRCUIT_FAILURE_THRESHOLD) {
+      this.circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+    }
+    throw lastError;
   }
 
   private async recognize(wav: Buffer, referenceText: string, language: string): Promise<PronunciationResult> {

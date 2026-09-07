@@ -90,6 +90,8 @@ export type CounterName =
   | "scoring.indeterminate"
   | "scoring.miscue"
   | "scoring.errors"
+  /** Transient provider failures that were retried. A rise means Azure is flaky. */
+  | "scoring.provider.retried"
   | "scoring.refused.cap"
   | "upload.rejected"
   | "sync.push"

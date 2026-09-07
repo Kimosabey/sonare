@@ -365,6 +365,69 @@ forbid({
   }
 }
 
+// ── T15 — the provider's worst case fits inside the client's deadline ───────
+// The client abandons the whole exchange after UPLOAD_TIMEOUT_MS. If the
+// server's worst case is longer, a learner waits the full deadline and is then
+// told it failed — strictly worse than failing at the first timeout, because
+// they waited three times as long for the same answer.
+//
+// The two numbers live in different files (src/speech/scoring/client.ts and
+// server/services/azureSpeech.ts) and nothing connects them. Adding a second
+// retry, or lengthening the recognition timeout, breaks this with no type
+// error and no failing test — the symptom would be a slow failure in
+// production that looks like a network problem.
+{
+  const read = (file, name) => {
+    const text = readFileSync(join(ROOT, file), "utf8");
+    const match = new RegExp(`${name}\\s*=\\s*([0-9_]+)`).exec(text);
+    return match?.[1] === undefined ? null : Number(match[1].replace(/_/g, ""));
+  };
+
+  const uploadMs = read("src/speech/scoring/client.ts", "UPLOAD_TIMEOUT_MS");
+  const recogniseMs = read("server/services/azureSpeech.ts", "RECOGNITION_TIMEOUT_MS");
+  const attempts = read("server/services/azureSpeech.ts", "MAX_PROVIDER_ATTEMPTS");
+  const backoffMs = read("server/services/azureSpeech.ts", "RETRY_BACKOFF_MS");
+
+  if (uploadMs === null || recogniseMs === null || attempts === null || backoffMs === null) {
+    failures.push({
+      rule: "T15",
+      what: "could not read the timeout budget constants",
+      why: "This check is only as good as the parse; a silent miss would pass vacuously.",
+      hits: [
+        { file: "src/speech/scoring/client.ts", line: 0, text: `UPLOAD_TIMEOUT_MS: ${uploadMs}` },
+        { file: "server/services/azureSpeech.ts", line: 0, text: `RECOGNITION_TIMEOUT_MS: ${recogniseMs}, MAX_PROVIDER_ATTEMPTS: ${attempts}, RETRY_BACKOFF_MS: ${backoffMs}` },
+      ],
+    });
+  } else {
+    /**
+     * Headroom the provider budget may not consume.
+     *
+     * The client's deadline covers the whole exchange: uploading the WAV,
+     * parsing and validating it, the provider call, persisting, and the
+     * response. Comparing the provider budget against the raw deadline was
+     * the first version of this rule, and it *passed* at three attempts —
+     * 24.8s against 25s, leaving 200ms for everything else. A rule that
+     * permits the change it exists to prevent is worse than none.
+     */
+    const OVERHEAD_MARGIN_MS = 5_000;
+    const worstCase = attempts * recogniseMs + (attempts - 1) * backoffMs;
+    if (worstCase + OVERHEAD_MARGIN_MS >= uploadMs) {
+      failures.push({
+        rule: "T15",
+        what: "the server can outlast the client's deadline",
+        why: "The learner waits the full client deadline and is then told it failed — worse than failing at the first timeout.",
+        hits: [
+          {
+            file: "server/services/azureSpeech.ts",
+            line: 0,
+            text: `${attempts} attempts x ${recogniseMs}ms + ${attempts - 1} x ${backoffMs}ms backoff = ${worstCase}ms, + ${OVERHEAD_MARGIN_MS}ms upload/response margin >= ${uploadMs}ms client deadline`,
+          },
+        ],
+      });
+    }
+  }
+}
+
 // ── report ───────────────────────────────────────────────────────────────────
 if (failures.length === 0) {
   console.log("verify: all checks passed");
