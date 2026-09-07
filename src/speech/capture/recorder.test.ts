@@ -13,7 +13,7 @@
  */
 
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { Recorder } from "./recorder.js";
+import { Recorder, hangoverForReference } from "./recorder.js";
 import { TARGET_SAMPLE_RATE } from "./resample.js";
 
 // The constructor registers a visibilitychange listener (for the
@@ -220,5 +220,78 @@ describe("Recorder threshold calibration", () => {
     t.calibrateThreshold(-74, 0);
     const threshold = t.calibrateThreshold(-74, 200);
     expect(threshold).toBe(-58);
+  });
+});
+
+/**
+ * How long a learner may pause before the take ends itself.
+ *
+ * A pure function, and the one number that decides whether someone hesitating
+ * mid-phrase gets cut off. Its own comment sets the policy: longer prompts
+ * earn more patience, because more words means more internal pauses and the
+ * cost of waiting is far lower than the cost of truncating. Each rung of the
+ * ladder is a separate `<=` that can drift on its own, and drifting down is
+ * the expensive direction — a truncated take is a wasted attempt, while
+ * waiting an extra 400 ms costs nothing.
+ */
+describe("hangoverForReference", () => {
+  it("gives the shortest window only to the shortest prompts", () => {
+    // Boundaries on the generous side: a two-word prompt is still short, a
+    // three-word one has an internal pause to allow for.
+    expect(hangoverForReference("Bonjour")).toBe(1200);
+    expect(hangoverForReference("Bonne soirée")).toBe(1200);
+    expect(hangoverForReference("Bonjour comment allez-vous")).toBe(1600);
+  });
+
+  it("steps up at five and at nine words", () => {
+    expect(hangoverForReference("un deux trois quatre cinq")).toBe(1600);
+    expect(hangoverForReference("un deux trois quatre cinq six")).toBe(2000);
+    expect(hangoverForReference("un deux trois quatre cinq six sept huit neuf")).toBe(2000);
+    expect(hangoverForReference("un deux trois quatre cinq six sept huit neuf dix")).toBe(2400);
+  });
+
+  it("is monotonic — a longer prompt never earns less patience", () => {
+    let previous = 0;
+    let phrase = "";
+    for (let words = 1; words <= 15; words += 1) {
+      phrase = `${phrase} mot`.trim();
+      const hangover = hangoverForReference(phrase);
+      expect(hangover, `${words} words`).toBeGreaterThanOrEqual(previous);
+      previous = hangover;
+    }
+  });
+
+  it("counts words rather than characters", () => {
+    /**
+     * The policy is about internal pauses, which track word count. A single
+     * very long word has no internal pause to wait for, and a run of short
+     * ones does.
+     */
+    expect(hangoverForReference("anticonstitutionnellement")).toBe(1200);
+    expect(hangoverForReference("a b c d e f g h i j")).toBe(2400);
+  });
+
+  it("is not confused by the whitespace real prompts carry", () => {
+    // Activity targets come from content files: leading and trailing space,
+    // and double spaces after punctuation, are all realistic.
+    expect(hangoverForReference("  Bonjour,  comment   allez-vous  ")).toBe(1600);
+  });
+
+  it("still returns a usable window for an empty prompt", () => {
+    /**
+     * Reachable: ActivityTest passes `activity?.target ?? ""` and the fixture
+     * runner starts with an empty custom phrase. A zero or NaN window would
+     * either end every take instantly or never end one at all.
+     */
+    for (const empty of ["", "   ", "\t\n"]) {
+      const hangover = hangoverForReference(empty);
+      expect(hangover, JSON.stringify(empty)).toBe(1200);
+    }
+  });
+
+  it("stays inside the take ceiling at its most patient", () => {
+    // MAX_AUDIO_SECONDS is 15. A hangover approaching that would let silence
+    // consume the whole allowance before the learner finished speaking.
+    expect(hangoverForReference("a b c d e f g h i j k l m n o p")).toBeLessThan(3000);
   });
 });
