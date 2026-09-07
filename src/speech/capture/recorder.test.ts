@@ -221,6 +221,99 @@ describe("Recorder threshold calibration", () => {
     const threshold = t.calibrateThreshold(-74, 200);
     expect(threshold).toBe(-58);
   });
+
+  it("ignores a loud startup transient, which is the bug that shipped", () => {
+    /**
+     * The regression this file's header claims to guard, actually reproduced.
+     *
+     * The test above feeds a *quiet* frame during the grace period and a loud
+     * one after it — the opposite order to a startup transient — so the later
+     * frame overwrites the earlier one either way and the grace period is
+     * never what makes the assertion pass. A mutation sweep showed that:
+     * flattening the guard to `||`, which bypasses the grace period entirely,
+     * left every calibration test green.
+     *
+     * The real shape is a worklet/AudioContext startup pop that is *louder*
+     * than the speech which follows. `peakSpeechDb` only ever rises, so one
+     * such frame pins the threshold above the learner's actual voice for the
+     * rest of the take: speech never registers as speech, the endpointer never
+     * releases, and the take runs to MAX_SECONDS. Every observed TOO_LONG
+     * failure landed within a few hundred ms of MAX_SECONDS, on the first take
+     * of a session, across several browsers.
+     *
+     * With the guard the peak comes from the speech (-40), so the floor side
+     * wins at -58 and speech at -40 sits above it. Without it the peak comes
+     * from the pop (-2), the threshold is pinned at the -30 ceiling, and
+     * speech at -40 is below it — inaudible to the endpointer.
+     */
+    const { t } = makeRecorder();
+
+    t.calibrateThreshold(-70, 0); // room tone, establishing a quiet floor
+    t.calibrateThreshold(-2, 50); // the pop, inside the grace period
+    const threshold = t.calibrateThreshold(-40, 300); // real speech, quieter
+
+    expect(threshold).toBe(-58);
+    expect(threshold).toBeLessThan(-40);
+  });
+
+  it("starts trusting the peak exactly at the end of the grace period", () => {
+    // The boundary itself: a frame at 150 ms is past the grace, not inside it.
+    // Inclusive on purpose — the window is for startup artefacts, and holding
+    // it open one frame longer would discard real speech from a fast starter.
+    const { t } = makeRecorder();
+    t.calibrateThreshold(-70, 0);
+
+    const atBoundary = t.calibrateThreshold(-20, 150);
+
+    // fromFloor = -70 + 12 = -58; fromPeak = -20 - 28 = -48; the peak wins,
+    // which it only can if the frame counted.
+    expect(atBoundary).toBe(-48);
+  });
+
+  it("anchors to the loudest frame heard, not the most recent one", () => {
+    /**
+     * The property that makes the endpointer work in a noisy room, and the one
+     * my first attempt at the test above failed to pin.
+     *
+     * calibrateThreshold's own comment is explicit: an absolute threshold
+     * cannot separate a loud room from a soft voice, so the threshold is
+     * anchored to the loudest frame actually heard. `peakSpeechDb` therefore
+     * only ever rises. If it tracked the *latest* frame instead, the threshold
+     * would sag as a learner trailed off at the end of a phrase — and a
+     * sagging threshold means the trailing quiet reads as speech, the
+     * endpointer never releases, and the take runs to the ceiling.
+     *
+     * Both frames here are past the grace period and they descend, which is
+     * what separates "max" from "last": the peak must stay with the -20.
+     */
+    const { t } = makeRecorder();
+
+    t.calibrateThreshold(-70, 0); // room tone
+    t.calibrateThreshold(-20, 200); // the loudest speech of the take
+    const threshold = t.calibrateThreshold(-50, 400); // trailing off
+
+    // fromPeak = -20 - 28 = -48 beats fromFloor = -70 + 12 = -58. Had the peak
+    // followed the last frame it would be -50 - 28 = -78 and the floor would
+    // win at -58.
+    expect(threshold).toBe(-48);
+  });
+
+  it("keeps the floor from a quiet frame while ignoring it for the peak", () => {
+    /**
+     * The two halves of calibrateThreshold read the same frames for opposite
+     * purposes, and only the peak side has a grace period. A grace frame must
+     * still lower the noise floor — discarding it there would leave the floor
+     * unmeasured through the quietest part of every take, which is exactly
+     * where room tone is legible.
+     */
+    const { t } = makeRecorder();
+
+    t.calibrateThreshold(-70, 0); // grace: informs the floor, not the peak
+    const threshold = t.calibrateThreshold(-45, 300);
+
+    // The floor came from the grace frame: -70 + 12 = -58 beats -45 - 28 = -73.
+    expect(threshold).toBe(-58);
+  });
 });
 
 /**
