@@ -238,6 +238,49 @@ describe("scoreRecording — the upload deadline", () => {
 
     expect(scoringCalls(fetchMock)).toHaveLength(1);
   });
+
+  it("applies the deadline to the response body, not only to the request", async () => {
+    /**
+     * `fetch()` resolves as soon as the *headers* arrive — the body is
+     * streamed afterwards. So a deadline that ends when fetch resolves does
+     * not cover the half of the exchange most likely to stall: a response that
+     * starts and then stops, which is the ordinary shape of a connection
+     * dropping on a train or in a lift.
+     *
+     * That is precisely the failure UPLOAD_TIMEOUT exists to prevent — the
+     * promise never settles, the recorder stays in "processing", and the
+     * learner watches "Scoring…" forever with no way back but a reload. It
+     * has to hold for the whole exchange or it does not hold at all.
+     */
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url).includes("/diagnostics")) return Promise.resolve(json({}));
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        // Headers are in; the body never arrives.
+        json: () =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+          }),
+      } as unknown as Response);
+    });
+
+    const promise = scoreRecording(request());
+    const assertion = expect(promise).rejects.toMatchObject({ code: "UPLOAD_TIMEOUT" });
+    await vi.advanceTimersByTimeAsync(25_000);
+    await assertion;
+  });
+
+  it("does not fire the deadline once the body has been read", async () => {
+    // The other half: holding the timer open longer must not turn a normal,
+    // slightly slow success into a timeout.
+    fetchMock.mockResolvedValue(json(SCORED));
+
+    const promise = scoreRecording(request());
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    await expect(promise).resolves.toMatchObject({ indeterminate: false });
+  });
 });
 
 describe("scoreRecording — timing diagnostics", () => {

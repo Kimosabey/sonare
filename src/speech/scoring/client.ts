@@ -150,53 +150,75 @@ export async function scoreRecording(req: ScoreRequest): Promise<PronunciationRe
 }
 
 async function post(form: FormData): Promise<PronunciationResult> {
-  let response: Response;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+
+  /** Excluded from the retry loop above on cost grounds — see the comment there. */
+  const timedOut = (): ScoringError =>
+    new ScoringError(
+      "UPLOAD_TIMEOUT",
+      "network",
+      `upload exceeded ${UPLOAD_TIMEOUT_MS} ms`,
+      "That took too long to send — the connection looks slow. Tap to try again.",
+    );
+
+  /**
+   * The deadline covers the *whole* exchange, request and response both.
+   *
+   * `fetch()` resolves as soon as the response headers arrive; the body is
+   * streamed after that. Clearing the timer when fetch resolved therefore left
+   * the body read with no deadline at all — and a response that starts and
+   * then stops is the ordinary shape of a connection dropping on a train or in
+   * a lift. That is exactly the failure this timeout exists to prevent: the
+   * promise never settles, the recorder stays in "processing", and the learner
+   * watches "Scoring…" until they reload. A ceiling that covers half the
+   * exchange is not a ceiling.
+   */
   try {
-    response = await fetch(ENDPOINT, { method: "POST", body: form, signal: controller.signal });
-  } catch (err) {
-    // Excluded from the retry loop above on cost grounds — see the comment there.
-    if (controller.signal.aborted) {
+    let response: Response;
+    try {
+      response = await fetch(ENDPOINT, { method: "POST", body: form, signal: controller.signal });
+    } catch (err) {
+      if (controller.signal.aborted) throw timedOut();
       throw new ScoringError(
-        "UPLOAD_TIMEOUT",
+        "NETWORK_FAILED",
         "network",
-        `upload exceeded ${UPLOAD_TIMEOUT_MS} ms`,
-        "That took too long to send — the connection looks slow. Tap to try again.",
+        `fetch failed: ${String(err)}`,
+        "Couldn't reach the server. Check your connection and try again.",
       );
     }
-    throw new ScoringError(
-      "NETWORK_FAILED",
-      "network",
-      `fetch failed: ${String(err)}`,
-      "Couldn't reach the server. Check your connection and try again.",
-    );
+
+    if (!response.ok) {
+      // A stalled error body aborts on the same deadline and reads as absent,
+      // which still produces an honest HTTP_ERROR rather than hanging.
+      const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+      if (body?.error) {
+        throw new ScoringError(body.error.code, body.error.domain, body.error.message, body.error.userMessage);
+      }
+      throw new ScoringError(
+        "HTTP_ERROR",
+        response.status >= 500 ? "server" : "client",
+        `HTTP ${response.status}`,
+        "Scoring failed. Please try again.",
+      );
+    }
+
+    try {
+      return (await response.json()) as PronunciationResult;
+    } catch (err) {
+      // An abort mid-body is a deadline, not a malformed payload. Calling it
+      // BAD_RESPONSE would blame the server for the connection and send
+      // whoever reads the trail looking in the wrong place.
+      if (controller.signal.aborted) throw timedOut();
+      throw new ScoringError(
+        "BAD_RESPONSE",
+        "server",
+        `unparseable response: ${String(err)}`,
+        "Scoring returned something unexpected. Please try again.",
+      );
+    }
   } finally {
     clearTimeout(timer);
-  }
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-    if (body?.error) {
-      throw new ScoringError(body.error.code, body.error.domain, body.error.message, body.error.userMessage);
-    }
-    throw new ScoringError(
-      "HTTP_ERROR",
-      response.status >= 500 ? "server" : "client",
-      `HTTP ${response.status}`,
-      "Scoring failed. Please try again.",
-    );
-  }
-
-  try {
-    return (await response.json()) as PronunciationResult;
-  } catch (err) {
-    throw new ScoringError(
-      "BAD_RESPONSE",
-      "server",
-      `unparseable response: ${String(err)}`,
-      "Scoring returned something unexpected. Please try again.",
-    );
   }
 }
 
