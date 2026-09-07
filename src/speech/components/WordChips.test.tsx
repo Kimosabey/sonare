@@ -118,3 +118,128 @@ describe("WordChips", () => {
     expect(document.querySelectorAll(".phonemes")).toHaveLength(1);
   });
 });
+
+/**
+ * "You didn't say it" against "you said it badly".
+ *
+ * Azure's miscue detection returns an omitted word as `Omission` with accuracy
+ * 0 — arithmetically identical to a word said very badly, and until this change
+ * rendered identically: a red chip reading "0". They call for opposite
+ * actions, and a learner shown 0 on a word they skipped reasonably concludes
+ * their pronunciation of it was terrible.
+ *
+ * 57 of the 401 words in the stored trail are omissions, which makes this the
+ * commonest fault in the data rather than an edge case.
+ */
+describe("what a word's mark actually claims", () => {
+  function chipFor(word: string): HTMLElement {
+    const found = [...document.querySelectorAll(".word")].find((n) =>
+      (n.querySelector("span[lang]")?.textContent ?? "") === word,
+    );
+    if (!found) throw new Error(`no chip for "${word}"`);
+    return found as HTMLElement;
+  }
+
+  function mark(word: string): string {
+    return chipFor(word).querySelector("small")?.textContent ?? "";
+  }
+
+  const phrase: ScoredWord[] = [
+    { word: "Bonjour", accuracy: 95, errorType: "None", phonemes: [], syllables: [] },
+    { word: "comment", accuracy: 41, errorType: "Mispronunciation", phonemes: [], syllables: [] },
+    { word: "allez", accuracy: 0, errorType: "Omission", phonemes: [], syllables: [] },
+    { word: "beaucoup", accuracy: 30, errorType: "Insertion", phonemes: [], syllables: [] },
+  ];
+
+  it("shows no score for a word that was never said", () => {
+    /**
+     * A dash, not a zero. Zero out of a hundred is a claim about pronunciation,
+     * and nothing measured this word's pronunciation — there was no audio of
+     * it to measure. R8's reasoning at the level of one chip.
+     */
+    render(<WordChips words={phrase} lang="fr-FR" />);
+
+    expect(mark("allez")).toBe("—");
+    expect(mark("allez")).not.toContain("0");
+  });
+
+  it("still shows the score for a word that was said badly", () => {
+    // The distinction is the point: 41 is real information about "comment",
+    // and hiding it would remove the reason the learner should retry.
+    render(<WordChips words={phrase} lang="fr-FR" />);
+
+    expect(mark("comment")).toBe("41");
+    expect(mark("Bonjour")).toBe("95");
+  });
+
+  it("marks a word that was said but not asked for", () => {
+    // Scoring an inserted word against a phrase it is not in would be scoring
+    // the wrong thing.
+    render(<WordChips words={phrase} lang="fr-FR" />);
+
+    expect(mark("beaucoup")).toBe("+");
+  });
+
+  it("tells a screen reader what the mark means", () => {
+    /**
+     * The dash carries the meaning visually and carries nothing at all to a
+     * reader. "Not said" is the entire content of that chip for anyone who
+     * cannot see that the number is missing.
+     */
+    render(<WordChips words={phrase} lang="fr-FR" />);
+
+    expect(chipFor("allez").textContent).toContain("not said");
+    expect(chipFor("beaucoup").textContent).toContain("extra");
+    // And says nothing extra where the score speaks for itself.
+    expect(chipFor("Bonjour").textContent).not.toContain("not said");
+  });
+
+  it("bands an omission as a fault regardless of its score", () => {
+    // Banding by an accuracy of 0 would happen to look right; banding by the
+    // error type is right for the reason, and survives a provider that
+    // reports an omission with some other number.
+    render(
+      <WordChips
+        words={[{ word: "allez", accuracy: 88, errorType: "Omission", phonemes: [], syllables: [] }]}
+        lang="fr-FR"
+      />,
+    );
+
+    expect(chipFor("allez").className).toContain("lo");
+  });
+
+  it("does not band an insertion as a failure", () => {
+    /**
+     * An extra word is not a badly pronounced one. Colouring it as a failure
+     * would tell a learner they said "beaucoup" wrong, when the only issue is
+     * that "beaucoup" is not in this phrase.
+     */
+    render(<WordChips words={phrase} lang="fr-FR" />);
+
+    expect(chipFor("beaucoup").className).toContain("mid");
+    expect(chipFor("beaucoup").className).not.toContain("lo");
+  });
+
+  it("falls back to the score for an error type this build has not seen", () => {
+    // The contract types `errorType` as a union plus `string`, deliberately —
+    // a provider can add one, and an unknown type must not blank the score.
+    render(
+      <WordChips
+        words={[{ word: "mot", accuracy: 72, errorType: "SomethingNew", phonemes: [], syllables: [] }]}
+        lang="fr-FR"
+      />,
+    );
+
+    expect(mark("mot")).toBe("72");
+  });
+
+  it("still opens the detail panel for an omitted word", () => {
+    // Tapping it is how a learner hears the model pronunciation of a word they
+    // skipped, which is the most useful thing they can do about it.
+    render(<WordChips words={phrase} lang="fr-FR" />);
+
+    fireEvent.click(chipFor("allez"));
+
+    expect(document.querySelectorAll(".phonemes")).toHaveLength(1);
+  });
+});

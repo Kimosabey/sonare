@@ -1,4 +1,19 @@
-/** T12/FR-22 — per-word chips, coloured by accuracy. Tapping opens FR-23. */
+/**
+ * T12/FR-22 — per-word chips. Tapping opens FR-23.
+ *
+ * Coloured by accuracy, but *labelled* by error type, because the two answer
+ * different questions and only one of them tells a learner what to do next.
+ *
+ * A word the learner never said comes back from Azure's miscue detection as
+ * `Omission` with accuracy 0 — arithmetically the same as a word they said
+ * very badly, and until now rendered the same: a red chip reading "0". Those
+ * call for opposite actions. "Say this word" is a different instruction from
+ * "say this word better", and a learner shown 0 on a word they skipped
+ * reasonably concludes their pronunciation of it was terrible.
+ *
+ * 57 of the 401 words in the stored trail are omissions, so this is the
+ * commonest fault in the data by a wide margin — not an edge case.
+ */
 
 import { memo, useState } from "react";
 import type { ScoredSyllable, ScoredWord } from "../scoring/types.js";
@@ -29,6 +44,28 @@ interface WordChipsProps {
 
 const DETAIL_ID = "phoneme-detail";
 
+/**
+ * What to show on the chip instead of a score, where a score would mislead.
+ *
+ * `Omission` and `Insertion` are facts about *whether* a word was said, and a
+ * number cannot express either. Everything else — `None`, `Mispronunciation`,
+ * or a type this build has not seen — is a judgement about *how well*, and
+ * there the score is the whole point.
+ */
+function chipMark(word: ScoredWord): { text: string; note: string | null } {
+  if (word.errorType === "Omission") {
+    // No score. Azure reports 0, and 0 out of 100 is a claim about
+    // pronunciation that nothing measured.
+    return { text: "—", note: "not said" };
+  }
+  if (word.errorType === "Insertion") {
+    // Said, but not asked for. Scoring it against a phrase it is not in
+    // would be scoring the wrong thing.
+    return { text: "+", note: "extra" };
+  }
+  return { text: String(Math.round(word.accuracy)), note: null };
+}
+
 function WordChipsBase({ words, lang, onSelectSyllable, playingOffsetTicks }: WordChipsProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const open = openIndex === null ? null : words[openIndex];
@@ -36,11 +73,20 @@ function WordChipsBase({ words, lang, onSelectSyllable, playingOffsetTicks }: Wo
   return (
     <>
       <div className="words">
-        {words.map((w, i) => (
+        {words.map((w, i) => {
+          const mark = chipMark(w);
+          return (
           <button
             key={`${w.word}-${i}`}
             type="button"
-            className={`word ${band(w.accuracy)}`}
+            /*
+              An omitted word is banded `lo` regardless of its score, and an
+              inserted one `mid`. Banding an omission by accuracy is banding a
+              number that means nothing; banding an insertion as a failure
+              would read as "you said this badly" about a word that is simply
+              not in the phrase.
+            */
+            className={`word ${w.errorType === "Omission" ? "lo" : w.errorType === "Insertion" ? "mid" : band(w.accuracy)}`}
             aria-expanded={openIndex === i}
             // Only ever one PhonemeDetail rendered at a time (below), so this
             // is only meaningful — and only set — for whichever chip is open.
@@ -51,9 +97,16 @@ function WordChipsBase({ words, lang, onSelectSyllable, playingOffsetTicks }: Wo
             onClick={() => setOpenIndex(openIndex === i ? null : i)}
           >
             <span lang={lang}>{w.word}</span>
-            <small>{Math.round(w.accuracy)}</small>
+            <small>{mark.text}</small>
+            {/*
+              Read to a screen reader but not shown: the chip is small and the
+              mark already carries it visually, while "not said" is the whole
+              meaning for anyone who cannot see that the number is a dash.
+            */}
+            {mark.note && <span className="sr-only">{mark.note}</span>}
           </button>
-        ))}
+          );
+        })}
       </div>
       {/* key forces a fresh mount (and re-plays the reveal) on every switch
           between words, not just the first open. */}
