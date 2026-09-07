@@ -67,8 +67,18 @@ export function buildReport(
     if (!bestAttempt || bestAttempt.result.indeterminate) continue;
 
     const result = bestAttempt.result;
-    fluencies.push(result.fluency);
-    completenesses.push(result.completeness);
+    /**
+     * Guarded for the same reason `word.syllables ?? []` is guarded below, and
+     * this loop had the guard in one place and not the other.
+     *
+     * A restored result that predates a field yields `undefined` here, which
+     * sums to NaN — and `mean()` divides one NaN across the whole session, so a
+     * single stale attempt renders "NaN" where the learner's fluency and
+     * completeness should be, for every activity. Skipping the contribution
+     * costs that one attempt's data; including it costs the number.
+     */
+    if (Number.isFinite(result.fluency)) fluencies.push(result.fluency);
+    if (Number.isFinite(result.completeness)) completenesses.push(result.completeness);
 
     for (const word of result.words) {
       if (word.errorType && word.errorType !== "None") {

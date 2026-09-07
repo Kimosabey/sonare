@@ -350,6 +350,107 @@ describe("buildReport tolerates results that predate a field", () => {
     expect(report.overallScore).toBe(90);
   });
 
+  it("does not report NaN when a restored result has no fluency or completeness", () => {
+    /**
+     * The same class one level up, and this loop guarded the word and not the
+     * result. `undefined` sums to NaN, and `mean()` then divides that NaN
+     * across the whole session — so one stale attempt out of ten renders "NaN"
+     * where the learner's fluency and completeness should be, on every
+     * activity in the report.
+     *
+     * The remaining attempts still count. Skipping a contribution costs one
+     * attempt's data; including it costs the number.
+     */
+    const activities: Activity[] = [
+      {
+        id: 1,
+        title: "Greetings",
+        kind: "repeat",
+        prompt: "Say hello",
+        gloss: "Hello",
+        target: "Bonjour",
+        focus: "nasal vowels",
+      },
+      {
+        id: 2,
+        title: "Introductions",
+        kind: "repeat",
+        prompt: "Introduce yourself",
+        gloss: "My name is",
+        target: "Je m'appelle Marie",
+        focus: "elision",
+      },
+    ];
+
+    const attempt = (activityId: number, result: unknown): ActivityProgress =>
+      ({
+        activityId,
+        best: 90,
+        passed: true,
+        skipped: false,
+        attempts: [{ activityId, accuracy: 90, at: new Date().toISOString(), result }],
+      }) as unknown as ActivityProgress;
+
+    const complete = {
+      indeterminate: false,
+      provider: "azure",
+      recognized: "Bonjour",
+      overall: 90,
+      accuracy: 90,
+      fluency: 80,
+      completeness: 100,
+      words: [],
+    };
+    // A v1-shaped entry: scored, but written before these two fields existed.
+    const stale = { indeterminate: false, provider: "azure", recognized: "x", overall: 90, accuracy: 90, words: [] };
+
+    const report = buildReport(activities, [attempt(1, complete), attempt(2, stale)], 1000);
+
+    expect(Number.isNaN(report.meanFluency)).toBe(false);
+    expect(Number.isNaN(report.meanCompleteness)).toBe(false);
+    // The good attempt still counts, at its own value rather than halved.
+    expect(report.meanFluency).toBe(80);
+    expect(report.meanCompleteness).toBe(100);
+  });
+
+  it("reports no mean at all when every restored result lacks the field", () => {
+    // Null, not zero. Nothing was measured, so there is no average — the same
+    // distinction R8 draws about scores.
+    const activities: Activity[] = [
+      {
+        id: 1,
+        title: "Greetings",
+        kind: "repeat",
+        prompt: "Say hello",
+        gloss: "Hello",
+        target: "Bonjour",
+        focus: "nasal vowels",
+      },
+    ];
+    const progress = [
+      {
+        activityId: 1,
+        best: 90,
+        passed: true,
+        skipped: false,
+        attempts: [
+          {
+            activityId: 1,
+            accuracy: 90,
+            at: new Date().toISOString(),
+            result: { indeterminate: false, provider: "azure", recognized: "x", overall: 90, accuracy: 90, words: [] },
+          },
+        ],
+      },
+    ] as unknown as ActivityProgress[];
+
+    const report = buildReport(activities, progress, 1000);
+
+    expect(report.meanFluency).toBeNull();
+    expect(report.meanCompleteness).toBeNull();
+    expect(report.overallScore).toBe(90);
+  });
+
   it("does not throw when a restored word has no phonemes array either", () => {
     const legacyWord = { word: "Bonjour", accuracy: 90, errorType: "None" } as unknown as ScoredWord;
 
