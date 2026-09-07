@@ -19,6 +19,7 @@ import { recordAttempt } from "../attempts.js";
 import { recordCallOutcome } from "../counters.js";
 import { learnerIdFrom, optionalLearner } from "../middleware/identity.js";
 import { rollupSkills } from "../domain/rollup.js";
+import { increment, observeScoringLatency } from "../infra/metrics.js";
 import { mergeAndSaveSkills } from "../data/skills.js";
 import { alignSpoken } from "../alignment.js";
 import { compareVerdicts } from "../verdicts.js";
@@ -185,6 +186,17 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
       }
     }
     const totalMs = msSince(startedAt);
+
+    /**
+     * Both timings were already recorded per attempt and never summed, so a
+     * provider slowdown was only ever visible by reading individual records.
+     * Observed together so the difference between them — our own overhead —
+     * is readable rather than inferred.
+     */
+    observeScoringLatency(providerMs, totalMs);
+    increment("scoring.calls");
+    if (result.indeterminate) increment("scoring.indeterminate");
+    else if (result.words.some((word) => word.errorType !== "None")) increment("scoring.miscue");
 
     res.json(result);
 

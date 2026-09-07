@@ -71,7 +71,12 @@ function tokensMatch(provided: string, required: string): boolean {
   return timingSafeEqual(a, b);
 }
 
-function requireDiagnosticsToken(req: Request, res: Response, next: NextFunction): void {
+/**
+ * Exported so the metrics endpoint shares this guard rather than copying it.
+ * A second implementation is a second place for the "unset means open"
+ * mistake this one exists to prevent.
+ */
+export function requireDiagnosticsToken(req: Request, res: Response, next: NextFunction): void {
   const required = process.env.DIAGNOSTICS_TOKEN;
   const provided = req.headers["x-diagnostics-token"];
   // Fail closed, not open, when it's unset — see the comment above.

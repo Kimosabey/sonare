@@ -13,6 +13,7 @@ import type { Request, Response, NextFunction } from "express";
 import { bearerFrom, identityConfigured, verifyToken } from "../identity.js";
 import { touchLearner } from "../data/learners.js";
 import { logger } from "../logger.js";
+import { increment } from "../infra/metrics.js";
 
 /** The learner this request proved it is, or null. */
 export function learnerIdFrom(res: Response): string | null {
@@ -59,6 +60,7 @@ export function requireLearner(req: Request, res: Response, next: NextFunction):
 
   const result = verifyToken(token);
   if (!result.ok) {
+    increment("identity.rejected");
     logger.warn({ reason: result.reason }, "[identity] rejected a token");
     reject(res, "invalid bearer token");
     return;

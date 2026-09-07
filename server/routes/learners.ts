@@ -19,6 +19,7 @@ import { learnerIdFrom, requireLearner } from "../middleware/identity.js";
 import { diagnosticsLimiter } from "../rateLimit.js";
 import { isAppError } from "../errors.js";
 import { logger } from "../logger.js";
+import { increment } from "../infra/metrics.js";
 
 export const learnersRouter = Router();
 
@@ -54,6 +55,7 @@ learnersRouter.post("/learners", diagnosticsLimiter, (req, res) => {
     // authentication problem — and so the ordering of the two failures stays
     // obvious in the log.
     const token = issueToken(learnerId);
+    increment("identity.registered");
 
     void registerLearner(learnerId, body.displayName, body.locale).catch((err: unknown) => {
       // The token is already valid, and the learner can practise. The record

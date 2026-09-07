@@ -4,6 +4,7 @@ import { diagnosticsRouter } from "./routes/diagnostics.js";
 import { learnersRouter } from "./routes/learners.js";
 import { syncRouter } from "./routes/sync.js";
 import { nextRouter } from "./routes/next.js";
+import { healthRouter } from "./routes/health.js";
 import { warnIfIdentityDisabled } from "./identity.js";
 import { getDb } from "./db.js";
 import { logger } from "./logger.js";
@@ -53,6 +54,9 @@ app.use("/api/v1", diagnosticsRouter);
 app.use("/api/v1", learnersRouter);
 app.use("/api/v1", syncRouter);
 app.use("/api/v1", nextRouter);
+// Unprefixed, because a liveness probe is infrastructure rather than API: an
+// orchestrator should not have to know the app's versioning scheme.
+app.use(healthRouter);
 
 app.listen(PORT, () => {
   logger.info({ port: PORT }, "pronunciation API listening");

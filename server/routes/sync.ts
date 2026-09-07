@@ -21,6 +21,7 @@ import { Router } from "express";
 import { requireLearner, learnerIdFrom } from "../middleware/identity.js";
 import { diagnosticsLimiter } from "../rateLimit.js";
 import { logger } from "../logger.js";
+import { increment } from "../infra/metrics.js";
 import { readProgressState, readSkillState, readStreakState } from "../domain/merge.js";
 import type { ProgressState, SkillState, StreakState } from "../domain/merge.js";
 import { mergeAndSaveProgress, readAllProgress } from "../data/progress.js";
@@ -70,9 +71,11 @@ syncRouter.get("/sync", diagnosticsLimiter, requireLearner, (_req, res) => {
   const learnerId = learnerIdFrom(res);
   if (learnerId === null) return;
 
+  increment("sync.pull");
   snapshot(learnerId)
     .then((state) => void res.json(state))
     .catch((err: unknown) => {
+      increment("sync.pull.failed");
       logger.error({ err }, "[sync] pull failed");
       res.status(503).json({
         error: {
@@ -96,6 +99,7 @@ syncRouter.post("/sync", diagnosticsLimiter, requireLearner, (req, res) => {
   const learnerId = learnerIdFrom(res);
   if (learnerId === null) return;
 
+  increment("sync.push");
   const body = req.body as { progress?: unknown; skills?: unknown; streak?: unknown };
 
   const progress = Array.isArray(body.progress)
@@ -136,6 +140,7 @@ syncRouter.post("/sync", diagnosticsLimiter, requireLearner, (req, res) => {
     .then(async () => snapshot(learnerId))
     .then((state) => void res.json(state))
     .catch((err: unknown) => {
+      increment("sync.push.failed");
       logger.error({ err, learnerId }, "[sync] push failed");
       res.status(503).json({
         error: {

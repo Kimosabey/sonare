@@ -9,6 +9,7 @@ import { AzureSpeechProvider } from "./azureSpeech.js";
 import type { PronunciationResult, ScoringProvider } from "./types.js";
 import { numberFromEnv } from "../env.js";
 import { reserveScoringCall } from "../counters.js";
+import { increment } from "../infra/metrics.js";
 
 let cached: ScoringProvider | null = null;
 
@@ -78,6 +79,7 @@ function withDailyCap(provider: ScoringProvider): ScoringProvider {
   }
 
   function atCap(): AppError {
+    increment("scoring.refused.cap");
     logger.warn({ limit: MAX_DAILY_SCORING_CALLS }, "[services] daily scoring cap reached");
     return new AppError({
       code: "PROVIDER_UNAVAILABLE",
