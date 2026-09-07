@@ -164,3 +164,84 @@ describe("ScoreCard — an unclear attempt is free", () => {
     expect(screen.queryByText(/didn’t count as an attempt/i)).toBeNull();
   });
 });
+
+/**
+ * The order an indeterminate verdict is read in.
+ *
+ * The behaviour has always been right — an indeterminate attempt does not burn
+ * a try — and the screen said so last, under the provider's own words for what
+ * went wrong. A learner reading top to bottom met "couldn't get a clear read"
+ * and a sentence about omitted words before reaching the one line that changes
+ * what they do next. At a measured 9.4% indeterminate rate they see this
+ * screen roughly once every eleven takes.
+ */
+describe("an indeterminate verdict leads with the free retry", () => {
+  const unclear = { indeterminate: true, provider: "azure", reason: "no speech found to assess — every word was omitted" } as never;
+
+  it("puts the reassurance above the advice", () => {
+    render(<ScoreCard result={unclear} lang="fr-FR" />);
+
+    const text = document.querySelector(".verdict")?.textContent ?? "";
+    const reassurance = text.indexOf("didn’t count as an attempt");
+    const advice = text.indexOf("a little louder");
+
+    expect(reassurance).toBeGreaterThan(-1);
+    expect(advice).toBeGreaterThan(-1);
+    expect(reassurance).toBeLessThan(advice);
+  });
+
+  it("gives the reassurance weight, so it does not read as another aside", () => {
+    // It sits among hints. Without weight it looks like the same kind of
+    // footnote as the text it was promoted above.
+    render(<ScoreCard result={unclear} lang="fr-FR" />);
+
+    expect(document.querySelector(".hint-strong")?.textContent).toContain("didn’t count");
+  });
+
+  it("keeps the provider's own words away from the learner", () => {
+    /**
+     * "no speech found to assess — every word was omitted" describes Azure's
+     * response, names nothing the learner can change, and reads as a verdict
+     * on their speech. It is for whoever is running a fixture session.
+     */
+    render(<ScoreCard result={unclear} lang="fr-FR" />);
+
+    expect(document.body.textContent).not.toContain("every word was omitted");
+  });
+
+  it("shows it under ?debug=1, where the rest of the capture detail is", () => {
+    render(<ScoreCard result={unclear} lang="fr-FR" detailed />);
+
+    expect(document.body.textContent).toContain("every word was omitted");
+  });
+
+  it("gives actionable advice for a take that was not heard", () => {
+    // Matches what the toast says, so the two do not contradict each other on
+    // the same take.
+    render(<ScoreCard result={unclear} lang="fr-FR" />);
+
+    expect(document.body.textContent).toContain("a little louder, or somewhere quieter");
+  });
+
+  it("does not tell a clearly-heard learner to speak up", () => {
+    /**
+     * The distinction the recorded evidence exists for: a speaker whose audio
+     * was flawless and whose French simply did not match was told to get a
+     * clear read, and went hunting for a microphone fault — as did the
+     * debugging session that produced the numbers in this file's comment.
+     */
+    render(<ScoreCard result={unclear} heardSpeech lang="fr-FR" />);
+
+    expect(document.body.textContent).toContain("couldn’t match it to this phrase");
+    expect(document.body.textContent).not.toContain("a little louder");
+    // And still leads with the free retry.
+    expect(document.querySelector(".hint-strong")?.textContent).toContain("didn’t count");
+  });
+
+  it("still states no score anywhere", () => {
+    // R8 at the top of the screen: an unmeasured take gets no number.
+    render(<ScoreCard result={unclear} lang="fr-FR" />);
+
+    expect(document.querySelector(".verdict")?.textContent ?? "").not.toMatch(/\d/);
+  });
+});

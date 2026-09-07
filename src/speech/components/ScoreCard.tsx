@@ -64,8 +64,9 @@ interface ScoreCardProps {
  * numbers. The audio was flawless. The message was wrong, and it sent
  * everyone in the wrong direction for hours.
  */
-const NO_SPEECH_COPY = "Couldn't get a clear read — try again.";
-const NO_MATCH_COPY = "We heard you clearly, but couldn't match it to this phrase.";
+const NO_SPEECH_COPY = "Couldn’t get a clear read.";
+const NO_SPEECH_HINT = "Try again a little louder, or somewhere quieter.";
+const NO_MATCH_COPY = "We heard you clearly, but couldn’t match it to this phrase.";
 const NO_MATCH_HINT =
   "That usually means a few sounds are far enough off that the scorer lost the thread. Try it a little slower, one word at a time.";
 
@@ -87,14 +88,30 @@ function ScoreCardBase({
         <div className="tag">{noMatch ? "NO MATCH" : "UNCLEAR"}</div>
         <div>
           {noMatch ? NO_MATCH_COPY : NO_SPEECH_COPY}
-          <div className="hint">{noMatch ? NO_MATCH_HINT : result.reason}</div>
           {/*
-            The code has always known this — "an indeterminate attempt does not
-            burn a try" — and never told the learner. They see UNCLEAR, know
-            they get three tries, and reasonably assume they have spent one.
-            The report says so afterwards; the moment it matters is now.
+            The free retry leads, because it is the only line here that changes
+            what the learner does next.
+
+            The code has always known an indeterminate attempt does not burn a
+            try, and for a long time never said so. It said so last — under the
+            provider's own words for what went wrong — and a learner reading
+            top to bottom hits "couldn't get a clear read" and a sentence about
+            omitted words before reaching the reassurance. At a measured 9.4%
+            indeterminate rate they meet this screen roughly once every eleven
+            takes, so the order is not a detail: someone who believes they have
+            spent a try on nothing plays the remaining two more cautiously,
+            which is the opposite of what this product wants from them.
           */}
-          <div className="hint">This one didn&rsquo;t count as an attempt.</div>
+          <div className="hint hint-strong">This one didn&rsquo;t count as an attempt.</div>
+          <div className="hint">{noMatch ? NO_MATCH_HINT : NO_SPEECH_HINT}</div>
+          {/*
+            The provider's own reason is for whoever is running a fixture
+            session, not for a learner: "no speech found to assess — every word
+            was omitted" describes Azure's response, names nothing the learner
+            can change, and reads as a verdict on their speech. It stays behind
+            ?debug=1, where the debug panel's other capture detail already is.
+          */}
+          {detailed && <div className="hint">{result.reason}</div>}
         </div>
       </div>
     );

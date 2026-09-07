@@ -1081,6 +1081,17 @@ button.sy {
   margin-top: 0;
 }
 
+/*
+ * The one line on an indeterminate verdict that changes what the learner does
+ * next — that the take did not cost them an attempt. It sits among hints, so
+ * without weight it reads as the same aside as the provider's error text it
+ * was promoted above.
+ */
+.hint-strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
 /* ── session-complete hero ────────────────────────────────────────────────── */
 
 .report-hero {
