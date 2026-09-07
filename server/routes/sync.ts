@@ -24,9 +24,9 @@ import { logger } from "../logger.js";
 import { increment } from "../infra/metrics.js";
 import { readProgressState, readSkillState, readStreakState } from "../domain/merge.js";
 import type { ProgressState, SkillState, StreakState } from "../domain/merge.js";
-import { mergeAndSaveProgress, readAllProgress } from "../data/progress.js";
-import { mergeAndSaveSkills, readAllSkills } from "../data/skills.js";
-import { mergeAndSaveStreak, readStreak } from "../data/streaks.js";
+import { mergeAndSaveProgress, readAllProgress } from "../store/progress.js";
+import { mergeAndSaveSkills, readAllSkills } from "../store/skills.js";
+import { mergeAndSaveStreak, readStreak } from "../store/streaks.js";
 
 export const syncRouter = Router();
 

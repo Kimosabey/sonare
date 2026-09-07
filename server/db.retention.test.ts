@@ -61,6 +61,20 @@ describe("the learner's own record never expires", () => {
     }
   });
 
+  it("never expires a daily rollup either", () => {
+    /**
+     * The whole reason the aggregate class exists. `attempts` expires after
+     * ninety days, and "was the indeterminate rate always this high" is a
+     * question about last spring — there is no answer to it once the evidence
+     * has been swept. The rollups hold counts and means with no learner
+     * content, so keeping them indefinitely is a different decision from
+     * keeping the takes.
+     */
+    for (const spec of INDEXES.aggregate) {
+      expect(spec.expireAfterSeconds, `${spec.collection} must not expire`).toBeUndefined();
+    }
+  });
+
   it("covers every collection that holds a learner's record", () => {
     // So the invariant above cannot be satisfied by forgetting a collection.
     const collections = new Set(INDEXES.learnerRecord.map((s) => s.collection));
@@ -132,6 +146,10 @@ describe("creating them", () => {
     await ensureIndexes(db);
 
     expect(created).toHaveLength(all.length);
+    // Guards against the count being trivially satisfied by an empty
+    // declaration list — the aggregate class legitimately has none, so the
+    // total has to be checked as more than nothing.
+    expect(all.length).toBeGreaterThan(10);
   });
 
   it("passes the TTL only where one is declared", async () => {

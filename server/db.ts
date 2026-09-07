@@ -55,6 +55,14 @@ export function getDb(): Promise<Db> {
  * and no learner content, each expiring on its own `expiresAt` rather than the
  * shared privacy window.
  *
+ * `aggregate` is daily rollups — counts and means with **no learner content in
+ * them at all**, kept indefinitely so a trend outlives the takes it came from.
+ * "Was the indeterminate rate always this high" is a question about last
+ * spring, and there is no answer once the evidence has been swept. Keeping
+ * these forever is a different decision from keeping the attempts, which is
+ * exactly why they are a different class and not just telemetry with a longer
+ * window.
+ *
  * Declared as data rather than as a list of calls so the classes are legible
  * and so a test can assert the invariant that matters: nothing in
  * learnerRecord has an expiry.
@@ -65,7 +73,7 @@ export function getDb(): Promise<Db> {
 const RETENTION_DAYS = numberFromEnv("RETENTION_DAYS", 90, { integer: true, max: 3650 });
 const RETENTION_SECONDS = RETENTION_DAYS * 24 * 60 * 60;
 
-export type RetentionClass = "telemetry" | "learnerRecord" | "operational";
+export type RetentionClass = "telemetry" | "learnerRecord" | "operational" | "aggregate";
 
 export interface IndexSpec {
   collection: string;
@@ -146,6 +154,16 @@ export const INDEXES: Record<RetentionClass, IndexSpec[]> = {
       why: "Only the deletion sweep — `_id` is the bare learner id, so reads need nothing.",
     },
   ],
+
+  /**
+   * Empty, and correctly so. `stats` is keyed on the day, and Mongo's own
+   * `_id` index serves both a lookup and a descending sort — a `{ _id: -1 }`
+   * index would be redundant at best and rejected as a duplicate at worst.
+   *
+   * The class still exists because it records the retention decision, which is
+   * the part that matters: nothing here ever gets a TTL.
+   */
+  aggregate: [],
 
   operational: [
     {

@@ -8,6 +8,7 @@
  */
 
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join, relative, sep } from "node:path";
 
 const ROOT = process.cwd();
@@ -310,6 +311,56 @@ forbid({
       what: "the reduced-motion kill-switch is not a blanket rule",
       why: `Every animation must be covered without opting in. ${keyframes} @keyframes rely on it.`,
       hits: problems.map((text) => ({ file: "src/styles/motion.css", line: 0, text })),
+    });
+  }
+}
+
+// ── T14 — no source file is invisible to git ────────────────────────────────
+// Found the hard way: `.gitignore` carries an unanchored `data/` so the
+// fallback log's real learner records can never be committed from any working
+// directory. That rule also silently swallowed `server/data/*.ts` — nine
+// repository modules that existed on disk, passed every gate, and were never
+// committed. The build was green and the repository was broken for anyone who
+// cloned it, because every gate runs against the working tree rather than
+// against what is tracked.
+//
+// This is the check that would have caught it on the first commit.
+{
+  const sources = [...walk("src"), ...walk("server"), ...walk("scripts")].filter((f) =>
+    /\.(m?[jt]sx?|c[jt]s)$/.test(f),
+  );
+
+  let ignored = [];
+  try {
+    // --stdin so one process handles every path; check-ignore exits 1 when
+    // nothing matches, which is the healthy case rather than an error.
+    const output = execFileSync("git", ["check-ignore", "--stdin"], {
+      cwd: ROOT,
+      input: sources.join("\n"),
+      encoding: "utf8",
+    });
+    ignored = output.split("\n").map((line) => line.trim()).filter(Boolean);
+  } catch (err) {
+    // Exit 1 means no path was ignored. Anything else — no git, not a
+    // repository — leaves this check unable to vouch for anything, and it says
+    // so rather than passing quietly.
+    if (err.status !== 1) {
+      failures.push({
+        rule: "T14",
+        what: "could not ask git which files are ignored",
+        why: "A source file excluded by .gitignore passes every other gate and is missing for everyone who clones.",
+        hits: [{ file: ".gitignore", line: 0, text: String(err.message).slice(0, 120) }],
+      });
+      ignored = [];
+    }
+  }
+
+  if (ignored.length > 0) {
+    failures.push({
+      rule: "T14",
+      what: "a source file is excluded by .gitignore",
+      why: "It passes every gate locally and is absent for anyone who clones — the build is green and the repository is broken.",
+      hits: ignored.map((file) => ({ file, line: 0, text: "ignored by .gitignore" })),
     });
   }
 }

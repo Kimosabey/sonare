@@ -9,10 +9,10 @@
 
 import { Router } from "express";
 import { issueToken, isLearnerId } from "../identity.js";
-import { registerLearner, deleteLearner } from "../data/learners.js";
-import { deleteProgress } from "../data/progress.js";
-import { deleteSkills } from "../data/skills.js";
-import { deleteStreak } from "../data/streaks.js";
+import { registerLearner, deleteLearner } from "../store/learners.js";
+import { deleteProgress } from "../store/progress.js";
+import { deleteSkills } from "../store/skills.js";
+import { deleteStreak } from "../store/streaks.js";
 import { deleteAttemptsFor } from "../attempts.js";
 import { deleteDiagnosticsFor } from "../diagnostics.js";
 import { learnerIdFrom, requireLearner } from "../middleware/identity.js";

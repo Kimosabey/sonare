@@ -20,7 +20,7 @@ import { recordCallOutcome } from "../counters.js";
 import { learnerIdFrom, optionalLearner } from "../middleware/identity.js";
 import { rollupSkills } from "../domain/rollup.js";
 import { increment, observeScoringLatency } from "../infra/metrics.js";
-import { mergeAndSaveSkills } from "../data/skills.js";
+import { mergeAndSaveSkills } from "../store/skills.js";
 import { alignSpoken } from "../alignment.js";
 import { compareVerdicts } from "../verdicts.js";
 import { recordDiagnostic } from "../diagnostics.js";

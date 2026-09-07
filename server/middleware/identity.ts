@@ -11,7 +11,7 @@
 
 import type { Request, Response, NextFunction } from "express";
 import { bearerFrom, identityConfigured, verifyToken } from "../identity.js";
-import { touchLearner } from "../data/learners.js";
+import { touchLearner } from "../store/learners.js";
 import { logger } from "../logger.js";
 import { increment } from "../infra/metrics.js";
 

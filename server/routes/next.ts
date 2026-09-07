@@ -26,7 +26,7 @@ import { diagnosticsLimiter } from "../rateLimit.js";
 import { logger } from "../logger.js";
 import { isSlug } from "../domain/merge.js";
 import { dueSounds, scheduleFor, type SkillSchedule } from "../domain/scheduler.js";
-import { readSkills } from "../data/skills.js";
+import { readSkills } from "../store/skills.js";
 
 export const nextRouter = Router();
 
