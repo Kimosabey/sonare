@@ -2,6 +2,7 @@ import express from "express";
 import { pronunciationRouter } from "./routes/pronunciation.js";
 import { diagnosticsRouter } from "./routes/diagnostics.js";
 import { learnersRouter } from "./routes/learners.js";
+import { syncRouter } from "./routes/sync.js";
 import { warnIfIdentityDisabled } from "./identity.js";
 import { getDb } from "./db.js";
 import { logger } from "./logger.js";
@@ -49,6 +50,7 @@ app.get("/api/v1/health", (_req, res) => {
 app.use("/api/v1", pronunciationRouter);
 app.use("/api/v1", diagnosticsRouter);
 app.use("/api/v1", learnersRouter);
+app.use("/api/v1", syncRouter);
 
 app.listen(PORT, () => {
   logger.info({ port: PORT }, "pronunciation API listening");
