@@ -133,3 +133,68 @@ describe("adviceFor", () => {
     expect(advice).not.toContain("ment");
   });
 });
+
+/**
+ * Two boundaries a mutation sweep found unpinned.
+ *
+ * Both decide *which* syllable a learner is told to work on, and both are
+ * silent when wrong — the advice still reads as advice, it just points
+ * somewhere else. That is the worst shape for this feature: the whole value of
+ * naming one syllable is that it is the right one.
+ */
+describe("which syllable gets named", () => {
+  it("says nothing about a syllable exactly at the ceiling", () => {
+    /**
+     * WEAK_CEILING is 80, deliberately the same boundary as the word chips'
+     * pass band rather than a third threshold. A syllable shown in the passing
+     * colour must not be the one the advice singles out, or the page
+     * contradicts itself: green chip, "weakest sound".
+     */
+    const result = scored([word("comment", [syllable("com", 95), syllable("ment", 80)])]);
+
+    expect(weakestSyllable(result)).toBeNull();
+    expect(adviceFor(result)).toBeNull();
+  });
+
+  it("speaks up for a syllable one point below it", () => {
+    // The other side of the same boundary — a warn-coloured chip does get
+    // advice, which is what makes the two consistent.
+    const result = scored([word("comment", [syllable("com", 95), syllable("ment", 79)])]);
+
+    expect(weakestSyllable(result)?.syllable.grapheme).toBe("ment");
+  });
+
+  it("keeps the first of two equally weak syllables", () => {
+    /**
+     * A tie has to resolve somewhere, and it must resolve *stably*: the
+     * comparison is `<=` so an equal score does not displace the incumbent.
+     * With `<`, the last tie would win instead — so re-reading the same
+     * result could name a different syllable than the score card highlighted,
+     * and the two would disagree about the same take.
+     */
+    const result = scored(
+      [word("bonjour", [syllable("bon", 55), syllable("jour", 55)])],
+    );
+
+    expect(weakestSyllable(result)?.syllable.grapheme).toBe("bon");
+  });
+
+  it("keeps the first across words as well as within one", () => {
+    // The tie-break has to hold over the outer loop too, not just the inner.
+    const result = scored(
+      [word("je", [syllable("je", 40)]), word("voudrais", [syllable("vou", 40), syllable("drais", 90)])],
+    );
+
+    expect(weakestSyllable(result)?.word).toBe("je");
+  });
+
+  it("still prefers a strictly worse syllable found later", () => {
+    // Stability must not become "first weak syllable wins" — the point is the
+    // weakest, and it can be anywhere in the phrase.
+    const result = scored(
+      [word("je", [syllable("je", 70)]), word("voudrais", [syllable("vou", 41), syllable("drais", 90)])],
+    );
+
+    expect(weakestSyllable(result)?.syllable.grapheme).toBe("vou");
+  });
+});
