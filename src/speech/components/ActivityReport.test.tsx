@@ -144,3 +144,102 @@ describe("ActivityReport trajectory", () => {
     expect(screen.queryByText(/improved/i)).toBeNull();
   });
 });
+
+/**
+ * Three outcomes that are not the same thing.
+ *
+ * "Not reached" is an activity the session ended before. "Not attempted" is
+ * one the learner deliberately stepped past without recording — the no-audio
+ * exit. "Skipped" is one they tried and did not pass. Collapsing the middle
+ * into the last tells someone they failed an activity they never spoke into,
+ * in the document they read at the end of a session.
+ */
+describe("what the result column claims", () => {
+  /** Two activities, so "not reached" has somewhere to be. */
+  const PAIR: Activity[] = [
+    ACTIVITIES[0] as Activity,
+    { id: 2, title: "Introductions", kind: "repeat", prompt: "p", gloss: "g", target: "Je m'appelle", focus: "f" },
+  ];
+
+  function renderWith(progress: ActivityProgress[]) {
+    return render(
+      <ActivityReport
+        report={buildReport(PAIR, progress, 60_000)}
+        activities={PAIR}
+        progress={progress}
+        onRestart={() => undefined}
+        onExport={() => undefined}
+      />,
+    );
+  }
+
+  /** The Result cell for one activity row: #, Activity, Best, Tries, Progress, Result. */
+  function resultFor(container: HTMLElement, activityId: number): string {
+    const row = [...container.querySelectorAll("tbody tr")].find(
+      (tr) => (tr.querySelector("td")?.textContent ?? "") === String(activityId),
+    );
+    return (row?.querySelectorAll("td")[5]?.textContent ?? "").trim();
+  }
+
+  it("separates a deliberate step-past from a genuine failure", () => {
+    const { container } = renderWith([
+      // Stepped past without recording: zero attempts, skipped.
+      { activityId: 1, attempts: [], best: null, passed: false, skipped: true },
+      // Tried three times and did not pass.
+      {
+        activityId: 2,
+        attempts: [
+          attempt(20, "2026-09-07T10:00:00Z"),
+          attempt(24, "2026-09-07T10:01:00Z"),
+          attempt(31, "2026-09-07T10:02:00Z"),
+        ],
+        best: 31,
+        passed: false,
+        skipped: true,
+      },
+    ]);
+
+    expect(resultFor(container, 1)).toBe("not attempted");
+    expect(resultFor(container, 2)).toBe("skipped");
+  });
+
+  it("still calls a passed activity passed", () => {
+    const { container } = renderWith([
+      {
+        activityId: 1,
+        attempts: [attempt(88, "2026-09-07T10:00:00Z")],
+        best: 88,
+        passed: true,
+        skipped: false,
+      },
+    ]);
+
+    expect(resultFor(container, 1)).toBe("passed");
+  });
+
+  it("says not reached for an activity the session never got to", () => {
+    // Distinct from both: the learner made no decision about it at all.
+    const { container } = renderWith([
+      {
+        activityId: 1,
+        attempts: [attempt(88, "2026-09-07T10:00:00Z")],
+        best: 88,
+        passed: true,
+        skipped: false,
+      },
+    ]);
+
+    expect(resultFor(container, 2)).toBe("not reached");
+  });
+
+  it("shows no tries against an activity that was stepped past", () => {
+    // The tries column and the result column have to agree — "skipped" beside
+    // a try count of 0 is what made the two indistinguishable before.
+    const { container } = renderWith([
+      { activityId: 1, attempts: [], best: null, passed: false, skipped: true },
+    ]);
+
+    const row = [...container.querySelectorAll("tbody tr")][0];
+    expect(row?.querySelectorAll("td")[3]?.textContent).toBe("0");
+  });
+});

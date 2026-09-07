@@ -140,7 +140,25 @@ function ActivityReportBase({ report, activities, progress, onRestart, onExport 
                 <td>
                   <Trajectory attempts={p?.attempts ?? []} />
                 </td>
-                <td>{!p ? "not reached" : p.passed ? "passed" : p.skipped ? "skipped" : "—"}</td>
+                {/*
+                  Three different things, and only one of them is a failure.
+                  "Not reached" is an activity the session ended before; "not
+                  attempted" is one the learner deliberately stepped past
+                  without recording; "skipped" is one they tried and did not
+                  pass. Collapsing the middle into the last would tell someone
+                  they failed an activity they never spoke into.
+                */}
+                <td>
+                  {!p
+                    ? "not reached"
+                    : p.passed
+                      ? "passed"
+                      : p.skipped && p.attempts.length === 0
+                        ? "not attempted"
+                        : p.skipped
+                          ? "skipped"
+                          : "—"}
+                </td>
               </tr>
             );
           })}

@@ -580,3 +580,112 @@ describe("mid-session progress", () => {
     expect(segments()[1]).toBe("current");
   });
 });
+
+/**
+ * Letting a learner past an activity they cannot speak into.
+ *
+ * The only ways past were to pass or to spend three tries failing, so someone
+ * on a bus had to record in a place they should not — which is also where the
+ * 9.4% indeterminate rate comes from — or abandon the session. Neither is a
+ * failure of pronunciation and neither should be recorded as one.
+ */
+describe("the no-audio exit", () => {
+  const exitButton = () => screen.queryByRole("button", { name: /Can’t speak right now/i });
+
+  it("is offered before anything has been recorded", async () => {
+    await open();
+
+    expect(exitButton()).not.toBeNull();
+  });
+
+  it("moves to the next activity without recording a take", async () => {
+    await open();
+
+    fireEvent.click(exitButton()!);
+
+    await waitFor(() => expect(attemptLine()).toMatch(/Attempt 1 of/));
+    expect(document.body.textContent).toContain(`${LANGUAGE.activities[1]?.title ?? ""}`);
+  });
+
+  it("records it as attempted-nothing rather than as a failure", async () => {
+    /**
+     * Zero attempts plus `skipped` — a shape the persisted type already
+     * expresses unambiguously, so no schema bump was needed. Widening
+     * ActivityProgress would have orphaned every session in progress for a
+     * distinction it could already carry.
+     */
+    const data = installStorage({ "sonare.learnerName": "Marie" });
+    await open();
+
+    fireEvent.click(exitButton()!);
+
+    await waitFor(() => expect(persistedProgress(data).progress.length).toBeGreaterThan(0));
+    const entry = persistedProgress(data).progress[0];
+    expect(entry?.attempts).toHaveLength(0);
+    expect(entry?.skipped).toBe(true);
+    expect(entry?.passed).toBe(false);
+  });
+
+  it("marks the segment as skipped, not as still upcoming", async () => {
+    // The bar has to agree with the report about what happened.
+    await open();
+
+    fireEvent.click(exitButton()!);
+
+    await waitFor(() =>
+      expect([...document.querySelectorAll(".step")][0]?.className).toContain("skipped"),
+    );
+  });
+
+  it("disappears once there is a real result to act on", async () => {
+    /**
+     * After a take, "Next activity" is the honest way on. A second escape
+     * beside it would let a learner discard a score they had just earned by
+     * mis-tapping.
+     */
+    await open();
+
+    take(88);
+
+    await waitFor(() => expect(nextButton()).not.toBeNull());
+    expect(exitButton()).toBeNull();
+  });
+
+  it("is not offered on an indeterminate take either", async () => {
+    // An indeterminate attempt does not burn a try, so the learner still has
+    // all three — but they have now recorded something, and the retry is the
+    // thing to offer.
+    await open();
+
+    take(null);
+
+    await waitFor(() => expect(attemptLine()).toMatch(/Attempt 1 of/));
+    expect(exitButton()).toBeNull();
+  });
+
+  it("finishes the session when used on the last activity", async () => {
+    // The exit must not become a way to get stuck on the final activity.
+    await open();
+    for (let i = 0; i < LANGUAGE.activities.length - 1; i++) {
+      take(88);
+      await waitFor(() => expect(nextButton()).not.toBeNull());
+      fireEvent.click(nextButton()!);
+    }
+
+    fireEvent.click(exitButton()!);
+
+    await waitFor(() => expect(screen.getByText(/By activity/i)).toBeInTheDocument());
+  });
+
+  it("does not double-record if tapped twice", async () => {
+    // Guarded on the activity already having an entry, so a fast second tap
+    // cannot add a duplicate row to the report.
+    const data = installStorage({ "sonare.learnerName": "Marie" });
+    await open();
+
+    fireEvent.click(exitButton()!);
+    await waitFor(() => expect(persistedProgress(data).progress.length).toBe(1));
+
+    expect(persistedProgress(data).progress).toHaveLength(1);
+  });
+});

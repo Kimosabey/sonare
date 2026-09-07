@@ -347,6 +347,30 @@ export function ActivityTest() {
     }
   }, [isLast, recorder, toast, index]);
 
+  /**
+   * Let a learner past an activity without recording.
+   *
+   * A learner on a bus is not a learner who has failed, and the only ways past
+   * an activity were to pass it or to spend three tries failing it — so
+   * someone who cannot speak had to either record in a place they should not,
+   * or abandon the session. Recording in a bad place is also where the 9.4%
+   * indeterminate rate comes from, so this should show up in that figure.
+   *
+   * Stored as zero attempts plus `skipped`, which the existing shape already
+   * expresses unambiguously: nobody tried. Deliberately not a new field —
+   * `ActivityProgress` is persisted, so widening it means bumping the schema
+   * version, and that orphans every session currently in progress for a
+   * distinction the shape can already carry.
+   */
+  const skipWithoutRecording = useCallback(() => {
+    if (!activity) return;
+    setProgress((prev) => {
+      if (prev.some((p) => p.activityId === activity.id)) return prev;
+      return [...prev, { activityId: activity.id, attempts: [], best: null, passed: false, skipped: true }];
+    });
+    advance();
+  }, [activity, advance]);
+
   const restart = useCallback(() => {
     recorder.reset();
     setProgress([]);
@@ -552,6 +576,18 @@ export function ActivityTest() {
           {canAdvance && (
             <button type="button" onClick={advance}>
               {isLast ? "Finish and see report" : "Next activity"}
+            </button>
+          )}
+          {/*
+            Offered only while this activity has nothing recorded against it.
+            Once there is a take, "Next activity" is the honest way on and a
+            second escape would invite discarding a real result by mistake.
+            Hidden mid-recording for the same reason the settings are disabled
+            there — leaving a take in flight is not what the learner asked for.
+          */}
+          {attemptsUsed === 0 && recorder.state !== "recording" && recorder.state !== "processing" && (
+            <button type="button" className="ghost" onClick={skipWithoutRecording}>
+              Can&rsquo;t speak right now
             </button>
           )}
         </div>
