@@ -106,6 +106,13 @@ async function ensureIndexes(db: Db): Promise<void> {
       // Same shape and same reason as progress: `_id` serves the per-request
       // read, this serves the full pull and the deletion sweep. No TTL.
       db.collection("skills").createIndex({ learnerId: 1 }),
+      /**
+       * streaks is keyed on the bare learner id — a practice day is a fact
+       * about a person, not a language — so `_id` already serves every read.
+       * This one exists only for the deletion sweep, which asks by learnerId
+       * across all six collections uniformly. No TTL.
+       */
+      db.collection("streaks").createIndex({ learnerId: 1 }),
     ]);
   } catch (err) {
     // A missing index costs query speed (or unbounded retention), not

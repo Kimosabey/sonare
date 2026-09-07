@@ -303,3 +303,104 @@ export function readSkillState(raw: unknown): SkillState | null {
   const skills = c.skills.map(readSkill).filter((s): s is Skill => s !== null);
   return mergeSkills({ slug: c.slug, skills: [] }, { slug: c.slug, skills });
 }
+
+/* ── streaks ────────────────────────────────────────────────────────────── */
+
+/**
+ * Practice days, per learner and **not** per language.
+ *
+ * A practice day is a fact about a person, so a learner who does French on
+ * Monday and Hindi on Tuesday has practised two days running rather than
+ * started two streaks.
+ *
+ * Note what is absent: `current`. The current run depends on what day it is
+ * *for the learner*, and the server does not know their timezone — a request
+ * arriving at 23:40 in Auckland and one at 23:40 in Lisbon look identical
+ * here. So the server keeps the days and the record; the client derives the
+ * live streak against its own clock. Computing `current` here would produce a
+ * number that is wrong for most of the world for part of every day.
+ */
+export interface StreakState {
+  /** `YYYY-MM-DD` in the learner's own timezone, sorted, unique. */
+  days: string[];
+  /** The best run ever recorded, which a lapse must not erase. */
+  longest: number;
+}
+
+/** Matches the client's cap: enough for a two-month calendar, bounded. */
+const MAX_DAYS = 60;
+
+/** `YYYY-MM-DD`, and a real date rather than 2026-99-99. */
+function isDay(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return false;
+  // Round-trips only if the date exists — 2026-02-30 parses to 2 March.
+  return parsed.toISOString().slice(0, 10) === value;
+}
+
+function daysBetween(from: string, to: string): number {
+  const a = new Date(`${from}T00:00:00.000Z`).getTime();
+  const b = new Date(`${to}T00:00:00.000Z`).getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
+/** The longest consecutive run in a sorted, unique list of days. */
+export function longestRun(days: string[]): number {
+  let best = 0;
+  let run = 0;
+  for (let i = 0; i < days.length; i += 1) {
+    const current = days[i];
+    const previous = i > 0 ? days[i - 1] : undefined;
+    if (current === undefined) continue;
+    run = previous !== undefined && daysBetween(previous, current) === 1 ? run + 1 : 1;
+    best = Math.max(best, run);
+  }
+  return best;
+}
+
+/**
+ * Combines two devices' practice records.
+ *
+ * A **set union** of days, and this is the one merge rule that must not be got
+ * wrong. Under last-write-wins a phone that synced yesterday would overwrite a
+ * tablet that practised today, deleting a real practice day — the most
+ * damaging thing a streak can do, and completely silent: the learner just
+ * finds their streak shorter than they know it to be, with no way to argue.
+ *
+ * It is also why `days` is a list of dates rather than a count. A count cannot
+ * be merged, only clobbered.
+ *
+ * `longest` is the larger of both sides' records *and* whatever the merged
+ * days actually show, because a run that has since aged out of the capped list
+ * was still real, and neither device may be the one that remembers it.
+ */
+export function mergeStreaks(mine: StreakState, theirs: StreakState): StreakState {
+  const union = [...new Set([...mine.days, ...theirs.days])].sort();
+  // Trimmed after the union, so the cap never decides which device's days
+  // survive — only how far back the record goes.
+  const days = union.slice(-MAX_DAYS);
+
+  return {
+    days,
+    // Computed over the untrimmed union: trimming must not shorten a record.
+    longest: Math.max(mine.longest, theirs.longest, longestRun(union)),
+  };
+}
+
+export function readStreakState(raw: unknown): StreakState | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const c = raw as { days?: unknown; longest?: unknown };
+  if (!Array.isArray(c.days)) return null;
+
+  const days = [...new Set(c.days.filter(isDay))].sort().slice(-MAX_DAYS);
+  const longest =
+    typeof c.longest === "number" && Number.isFinite(c.longest) && c.longest >= 0
+      ? Math.min(100_000, Math.floor(c.longest))
+      : 0;
+
+  // Never trusted above what the days can justify plus what was already
+  // recorded — a client claiming a longest of 900 with three days stored is
+  // either broken or hand-edited.
+  return { days, longest: Math.max(longest, longestRun(days)) };
+}
