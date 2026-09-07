@@ -35,7 +35,8 @@ const Diagnostics = lazy(() =>
 const FixtureRunner = lazy(() =>
   import("./pages/FixtureRunner.js").then((m) => ({ default: m.FixtureRunner })),
 );
-import { getLanguage, LANGUAGES } from "./activities/languages/index.js";
+import { resolveLanguage, resolveLanguages } from "./content/resolve.js";
+import { useContentSync } from "./content/useContentSync.js";
 
 /**
  * React Router does NOT remount a component when only route params change
@@ -76,7 +77,7 @@ function Breadcrumb() {
   // getLanguage would return undefined for "languages" anyway, but checking
   // explicitly keeps the crumb from depending on no language ever being
   // slugged "languages".
-  const language = !isDiagnostics && !isFixture && !isLanguages ? getLanguage(slug) : undefined;
+  const language = !isDiagnostics && !isFixture && !isLanguages ? resolveLanguage(slug) : undefined;
   const onProgress = progressMatch !== null && language !== undefined;
 
   return (
@@ -110,7 +111,7 @@ function Breadcrumb() {
               value={language.slug}
               onChange={(e) => navigate(`/${e.target.value}`)}
             >
-              {LANGUAGES.map((lang) => (
+              {resolveLanguages().map((lang) => (
                 <option key={lang.slug} value={lang.slug}>
                   {lang.label}
                 </option>
@@ -158,7 +159,7 @@ function Header() {
   // no route params of its own to read.
   const progressMatch = /^\/([a-z]+)\/progress$/.exec(location.pathname);
   const slug = progressMatch?.[1] ?? location.pathname.replace(/^\//, "");
-  const language = getLanguage(slug);
+  const language = resolveLanguage(slug);
 
   // Named per screen. "Speech activity" as the heading on the home screen
   // described the thing one tap away rather than the thing being looked at.
@@ -205,6 +206,14 @@ function Shell() {
    * learner navigated, and the Record screen would do it mid-take.
    */
   useSync({ learnerName });
+
+  /**
+   * Fetch published content once, in the background. Nothing waits on it —
+   * the resolver reads the cache synchronously, so a screen renders with what
+   * it already has and a completed fetch only means the next render has newer
+   * words.
+   */
+  useContentSync();
 
   return (
     <div className="wrap">

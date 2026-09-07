@@ -41,7 +41,8 @@ import { recordPractice } from "../stores/streakStore.js";
 import { recordSkills } from "../stores/skillStore.js";
 import { markLanguageDirty, markStreakDirty } from "../sync/dirty.js";
 import { useProgressPersistence } from "../hooks/useProgressPersistence.js";
-import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
+import { MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
+import { resolveLanguage } from "../content/resolve.js";
 import { buildReport } from "../activities/report.js";
 import { adviceFor, weakestSyllable } from "../activities/advice.js";
 import { useCompareToModel } from "../hooks/useCompareToModel.js";
@@ -50,7 +51,7 @@ import type { PronunciationResult } from "../speech/scoring/types.js";
 
 export function ActivityTest() {
   const { slug } = useParams<{ slug: string }>();
-  const activeLanguage = getLanguage(slug);
+  const activeLanguage = resolveLanguage(slug);
   // T15/FR-25's device-grant panel is fixture instrumentation, not a
   // learner-facing feature (see DebugPanel.tsx) — opt in with ?debug=1
   // rather than showing every learner their own raw device diagnostics.

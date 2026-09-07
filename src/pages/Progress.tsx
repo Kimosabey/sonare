@@ -19,7 +19,7 @@
  */
 
 import { Link, useParams } from "react-router-dom";
-import { getLanguage } from "../activities/languages/index.js";
+import { resolveLanguage } from "../content/resolve.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
 import { allProgress } from "../learning/nextUp.js";
 import { readSkills, weakestSkills, type SkillTrend } from "../stores/skillStore.js";
@@ -87,7 +87,7 @@ function TrendRow({ trend }: { trend: SkillTrend }) {
 export function Progress() {
   const { slug } = useParams<{ slug: string }>();
   const [learnerName] = useLearnerName();
-  const language = getLanguage(slug);
+  const language = resolveLanguage(slug);
 
   if (language === undefined) {
     return (

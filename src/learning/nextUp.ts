@@ -18,9 +18,9 @@
  * one and not the other.
  */
 
-import { LANGUAGES } from "../activities/languages/index.js";
+import { resolveLanguages } from "../content/resolve.js";
 import { readProgress } from "../hooks/useProgressPersistence.js";
-import type { Activity, ActivityProgress } from "../activities/types.js";
+import type { Activity, ActivityProgress, LanguageActivitySet } from "../activities/types.js";
 
 export interface NextUp {
   slug: string;
@@ -66,7 +66,7 @@ function firstUnpassed(activities: Activity[], progress: ActivityProgress[]): nu
 
 /** One language's state, or null when it has no activities at all. */
 function summarise(
-  set: (typeof LANGUAGES)[number],
+  set: LanguageActivitySet,
   learnerName: string | null,
 ): NextUp | null {
   const stored = readProgress(set.slug, learnerName);
@@ -104,7 +104,9 @@ function summarise(
  * set as "next up" is offering nothing.
  */
 export function nextUp(learnerName: string | null): NextUp | null {
-  const summaries = LANGUAGES.map((set) => summarise(set, learnerName)).filter(
+  const summaries = resolveLanguages()
+    .map((set) => summarise(set, learnerName))
+    .filter(
     (s): s is NextUp => s !== null,
   );
 
@@ -121,7 +123,8 @@ export function nextUp(learnerName: string | null): NextUp | null {
 
 /** Every language's state, most recently practised first, for a home list. */
 export function allProgress(learnerName: string | null): NextUp[] {
-  return LANGUAGES.map((set) => summarise(set, learnerName))
+  return resolveLanguages()
+    .map((set) => summarise(set, learnerName))
     .filter((s): s is NextUp => s !== null)
     .sort((a, b) => (b.lastPractisedAt ?? "").localeCompare(a.lastPractisedAt ?? ""));
 }

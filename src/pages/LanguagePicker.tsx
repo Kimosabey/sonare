@@ -11,7 +11,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { LANGUAGES } from "../activities/languages/index.js";
+import { resolveLanguages } from "../content/resolve.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
 import { DeviceMetaPanel } from "../components/DeviceMetaPanel.js";
 
@@ -76,7 +76,7 @@ export function LanguagePicker() {
       </p>
 
       <div className="lang-grid">
-        {LANGUAGES.map((lang, i) => (
+        {resolveLanguages().map((lang, i) => (
           <Link
             key={lang.slug}
             to={`/${lang.slug}`}
