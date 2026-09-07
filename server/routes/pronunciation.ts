@@ -148,7 +148,7 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
      * the phrase, and R8's whole point is that an unmeasured take is not a
      * wrong answer.
      */
-    const alignment = result.indeterminate ? null : alignSpoken(referenceText, result.recognized);
+    const alignment = result.indeterminate ? null : alignSpoken(referenceText, result.recognized, language);
     const verdicts = alignment === null ? null : compareVerdicts(result, alignment);
 
     // FR-18. After responding — persistence must never add latency to the learner.

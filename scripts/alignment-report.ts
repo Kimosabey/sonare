@@ -89,10 +89,10 @@ for (const attempt of scored) {
   const result = attempt.result;
   if (result.indeterminate) continue;
 
-  const alignment = alignSpoken(attempt.referenceText, result.recognized);
+  const language = attempt.language ?? "?";
+  const alignment = alignSpoken(attempt.referenceText, result.recognized, language);
   const verdict = compareVerdicts(result, alignment);
 
-  const language = attempt.language ?? "?";
   const bucket = byLanguage.get(language) ?? { n: 0, disagree: 0, cannotExpress: 0 };
   bucket.n += 1;
 

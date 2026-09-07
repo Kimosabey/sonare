@@ -40,6 +40,8 @@
  * call it over stored attempts without standing anything up.
  */
 
+import { collapseNumbers, isCanonicalNumber } from "./numbers.js";
+
 /**
  * What happened to a word the learner was asked to say.
  *
@@ -192,6 +194,9 @@ const NUMERIC = /^[\d\u0966-\u096f][\d\u0966-\u096f.,:hH]*$/u;
  * use them, and a mismatch there is the same non-fault as the Latin case.
  */
 function numericFormDiffers(expected: string, heard: string): boolean {
+  // A canonical number on one side and something else on the other means the
+  // collapse understood one and not the other — still uncheckable.
+  if (isCanonicalNumber(expected) !== isCanonicalNumber(heard)) return true;
   return NUMERIC.test(expected) !== NUMERIC.test(heard);
 }
 
@@ -282,11 +287,20 @@ function align(expected: string[], heard: string[]): Op[] {
  * rather than an error — the caller decides whether that is worth showing,
  * since an indeterminate take should not be described as a wrong answer.
  */
-export function alignSpoken(expectedText: string, heardText: string): Alignment {
-  const expected = tokenise(expectedText);
-  const expectedRaw = tokeniseRaw(expectedText);
-  const heard = tokenise(heardText);
-  const heardRaw = tokeniseRaw(heardText);
+export function alignSpoken(expectedText: string, heardText: string, language = ""): Alignment {
+  /**
+   * Numbers are collapsed to one canonical token per number before aligning,
+   * so "trente-deux" and "32" arrive as the same single word and a learner who
+   * said the number correctly is told so. Without a language the collapse is a
+   * no-op and the `numeric` fallback below still applies — see server/numbers.ts
+   * for why 0–100 only, and why times are excluded.
+   */
+  const expectedFolded = collapseNumbers(tokenise(expectedText), tokeniseRaw(expectedText), language);
+  const heardFolded = collapseNumbers(tokenise(heardText), tokeniseRaw(heardText), language);
+  const expected = expectedFolded.tokens;
+  const expectedRaw = expectedFolded.raw;
+  const heard = heardFolded.tokens;
+  const heardRaw = heardFolded.raw;
 
   const ops = align(expected, heard);
 
