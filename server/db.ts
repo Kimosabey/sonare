@@ -63,6 +63,15 @@ async function ensureIndexes(db: Db): Promise<void> {
       db.collection("diagnostics").createIndex({ at: -1 }),
       db.collection("diagnostics").createIndex({ sessionId: 1 }),
       db.collection("diagnostics").createIndex({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS }),
+      /**
+       * counters expires on its own `expiresAt` rather than the shared
+       * RETENTION_DAYS window, because it is a different class of data: counts
+       * with no learner content in them, kept only long enough to answer a
+       * billing question. `expireAfterSeconds: 0` means "expire at the time in
+       * the field", which is what lets counters.ts set its own horizon per
+       * document instead of inheriting the privacy retention window.
+       */
+      db.collection("counters").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     ]);
   } catch (err) {
     // A missing index costs query speed (or unbounded retention), not
