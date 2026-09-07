@@ -103,6 +103,9 @@ async function ensureIndexes(db: Db): Promise<void> {
        * No TTL: the learner's own record.
        */
       db.collection("progress").createIndex({ learnerId: 1 }),
+      // Same shape and same reason as progress: `_id` serves the per-request
+      // read, this serves the full pull and the deletion sweep. No TTL.
+      db.collection("skills").createIndex({ learnerId: 1 }),
     ]);
   } catch (err) {
     // A missing index costs query speed (or unbounded retention), not

@@ -161,3 +161,145 @@ export function readProgressState(raw: unknown): ProgressState | null {
 
   return { slug: c.slug, entries };
 }
+
+/* ── skills ─────────────────────────────────────────────────────────────── */
+
+export interface SkillSample {
+  /** ISO timestamp. Doubles as the identity of the sample when merging. */
+  at: string;
+  accuracy: number;
+}
+
+export interface Skill {
+  /** The written syllable, e.g. "ment". Never a phonetic symbol. */
+  grapheme: string;
+  samples: SkillSample[];
+}
+
+export interface SkillState {
+  slug: string;
+  skills: Skill[];
+}
+
+/**
+ * Samples kept per syllable, matching the client's own cap.
+ *
+ * Bounded because this grows on every take, forever. Twenty is enough to
+ * separate a recent mean from an older one, which is the only question asked
+ * of it.
+ */
+const MAX_SAMPLES = 20;
+
+/** Graphemes kept, so one push cannot store an unbounded document. */
+const MAX_GRAPHEMES = 400;
+
+/**
+ * Union of two syllables' sample histories.
+ *
+ * A union keyed on the timestamp, **not** last-write-wins. Under LWW the
+ * device that synced second would replace the other's history rather than add
+ * to it, and a learner practising on a phone and a laptop would keep losing
+ * half their evidence — while every screen still showed a plausible-looking
+ * trend, computed from a fraction of the takes.
+ *
+ * Deduplicated on `at` because the same take pushed twice is one take. A retry
+ * after a timeout must not double a sample and quietly weight it.
+ *
+ * Sorted oldest-first and then trimmed from the front, so the cap discards the
+ * least useful samples rather than whichever arrived last.
+ */
+export function mergeSkill(mine: Skill, theirs: Skill): Skill {
+  const byTime = new Map<string, SkillSample>();
+  for (const sample of mine.samples) byTime.set(sample.at, sample);
+  for (const sample of theirs.samples) {
+    // First writer wins on an exact timestamp collision. The values are two
+    // reports of the same take, so either is right, and picking
+    // deterministically is what keeps the merge commutative.
+    if (!byTime.has(sample.at)) byTime.set(sample.at, sample);
+  }
+
+  return {
+    grapheme: mine.grapheme,
+    samples: [...byTime.values()].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)).slice(-MAX_SAMPLES),
+  };
+}
+
+export function mergeSkills(mine: SkillState, theirs: SkillState): SkillState {
+  const byGrapheme = new Map<string, Skill>();
+
+  for (const skill of mine.skills) byGrapheme.set(skill.grapheme, skill);
+  for (const skill of theirs.skills) {
+    const existing = byGrapheme.get(skill.grapheme);
+    byGrapheme.set(skill.grapheme, existing === undefined ? skill : mergeSkill(existing, skill));
+  }
+
+  return {
+    slug: mine.slug,
+    skills: [...byGrapheme.values()]
+      .sort((a, b) => (a.grapheme < b.grapheme ? -1 : a.grapheme > b.grapheme ? 1 : 0))
+      .slice(0, MAX_GRAPHEMES),
+  };
+}
+
+function readSample(raw: unknown): SkillSample | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const c = raw as Partial<SkillSample>;
+  if (typeof c.at !== "string" || c.at.length === 0 || c.at.length > 40) return null;
+  if (typeof c.accuracy !== "number" || !Number.isFinite(c.accuracy)) return null;
+  // Clamped: this is averaged into a figure shown to a learner as how well
+  // they say a sound, and it arrives from a client that can send anything.
+  return { at: c.at, accuracy: Math.min(100, Math.max(0, c.accuracy)) };
+}
+
+/**
+ * Written syllables: letters, combining marks, apostrophes and hyphens.
+ *
+ * Combining marks are kept deliberately — Devanagari matras are marks, and
+ * stripping them as punctuation is a mistake this project has already made
+ * once. The guard rejects structural junk (markup, digits, spaces, paths,
+ * anything over-long), not phonetic symbols: those are Unicode letters too,
+ * excluding them by codepoint block would be fragile, and a grapheme comes
+ * from the reference text's own orthography so one never arrives here.
+ */
+const GRAPHEME = /^[\p{L}\p{M}'\u2019-]{1,24}$/u;
+
+export function readSkill(raw: unknown): Skill | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const c = raw as { grapheme?: unknown; samples?: unknown };
+  if (typeof c.grapheme !== "string") return null;
+
+  /**
+   * Case-folded, so a sentence-initial "Bon" and a mid-phrase "bon" are one
+   * sound rather than two histories of half the length each.
+   */
+  const grapheme = c.grapheme.trim().toLocaleLowerCase();
+
+  /**
+   * An unnamed syllable is dropped, never pooled. Azure returns an empty
+   * grapheme where it could not map one — always for Hindi, and around elision
+   * and hyphenation in French — and every one of those would land in a single
+   * "" bucket that gets presented to the learner as their weakest sound.
+   */
+  if (grapheme.length === 0 || !GRAPHEME.test(grapheme)) return null;
+  if (!Array.isArray(c.samples)) return null;
+
+  const samples = c.samples
+    .map(readSample)
+    .filter((s): s is SkillSample => s !== null)
+    .slice(-MAX_SAMPLES);
+  if (samples.length === 0) return null;
+
+  return { grapheme, samples };
+}
+
+export function readSkillState(raw: unknown): SkillState | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const c = raw as { slug?: unknown; skills?: unknown };
+  if (!isSlug(c.slug)) return null;
+  if (!Array.isArray(c.skills)) return null;
+
+  // Folded through mergeSkills so two entries that case-fold to the same
+  // grapheme combine rather than one silently winning.
+  const skills = c.skills.map(readSkill).filter((s): s is Skill => s !== null);
+  return mergeSkills({ slug: c.slug, skills: [] }, { slug: c.slug, skills });
+}
