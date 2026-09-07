@@ -72,6 +72,13 @@ async function ensureIndexes(db: Db): Promise<void> {
        * document instead of inheriting the privacy retention window.
        */
       db.collection("counters").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+      /**
+       * ratelimits is swept, never read after its window closes — a new window
+       * is a new document id (rateLimitStore.ts), so an expired one is only
+       * ever garbage. Without this the collection grows by one document per
+       * client per minute, forever.
+       */
+      db.collection("ratelimits").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     ]);
   } catch (err) {
     // A missing index costs query speed (or unbounded retention), not
