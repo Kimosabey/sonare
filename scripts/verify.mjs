@@ -54,16 +54,24 @@ function forbid({ rule, what, why, files, pattern, allow = () => false }) {
 }
 
 /**
- * Flag every pattern in `patterns` that is *absent* from `file`. The mirror of
+ * Flag every pattern in `patterns` that is *absent* from `files`. The mirror of
  * forbid, for rules whose violation is a missing line rather than a present
  * one — those are invisible to a grep-based check and, in the CSS case below,
  * to the type system and the test suite as well.
+ *
+ * Takes a list rather than one path because the stylesheet is now a directory.
+ * The files are searched together: the question is whether a rule exists
+ * anywhere in the stylesheet, not which sheet happens to hold it. Widening the
+ * scope this way keeps the rule exactly as strict — a band with no rule in any
+ * sheet is still a failure — where pointing it at one file of ten would have
+ * left it passing on nine tenths of the evidence.
  */
-function require({ rule, what, why, file, patterns }) {
-  const text = readFileSync(join(ROOT, file), "utf8");
+function require({ rule, what, why, files, patterns }) {
+  const text = files.map((f) => readFileSync(join(ROOT, f), "utf8")).join("\n");
+  const where = files.length === 1 ? files[0] : `${files.length} sheets`;
   const hits = [];
   for (const { pattern, label } of patterns) {
-    if (!pattern.test(text)) hits.push({ file, line: 0, text: `missing: ${label}` });
+    if (!pattern.test(text)) hits.push({ file: where, line: 0, text: `missing: ${label}` });
   }
   if (hits.length) failures.push({ rule, what, why, hits });
 }
@@ -165,11 +173,28 @@ forbid({
     });
   }
 
+  /**
+   * The stylesheet is a directory now (src/styles/), so the check reads all of
+   * it. An empty list would make every pattern "missing" and fail loudly
+   * rather than pass vacuously, but it would fail for the wrong reason and
+   * send whoever hit it looking at band.ts — so it is named explicitly.
+   */
+  const sheets = walk("src/styles").filter((f) => f.endsWith(".css"));
+
+  if (sheets.length === 0) {
+    failures.push({
+      rule: "T12",
+      what: "no stylesheets found under src/styles/",
+      why: "The band check has nothing to read, so it cannot vouch for anything.",
+      hits: [{ file: "src/styles/", line: 0, text: "no .css files" }],
+    });
+  }
+
   require({
     rule: "T12",
     what: "a band with no rule in the stylesheet",
     why: "Scores would render unstyled — no type error, no test failure, no visible error.",
-    file: "src/styles.css",
+    files: sheets,
     patterns: bands.flatMap((b) => [
       { pattern: new RegExp(`\\.word\\.${b}\\b`), label: `.word.${b}` },
       { pattern: new RegExp(`\\.trajectory-step\\.${b}\\b`), label: `.trajectory-step.${b}` },
@@ -210,16 +235,33 @@ forbid({
 // misses — and the failure is invisible on a desktop mouse, which is where
 // stylesheets get written. Declared as `--tap` so a rule can say what it means.
 {
-  const css = readFileSync(join(ROOT, "src/styles.css"), "utf8");
+  // Every sheet under src/styles/, since the stylesheet is a directory now.
+  // Reported per file and per line, so a hit still names exactly where it is.
+  const sheets = walk("src/styles").filter((f) => f.endsWith(".css"));
   const hits = [];
-  css.split("\n").forEach((line, i) => {
-    const m = /min-(?:height|width):\s*(\d+)px/.exec(line);
-    // min-width is also used for table overflow, which is not a target — only
-    // flag it under 44 when it is plausibly one, i.e. small.
-    if (m && Number(m[1]) < 44 && Number(m[1]) > 0) {
-      hits.push({ file: "src/styles.css", line: i + 1, text: line.trim().slice(0, 100) });
-    }
-  });
+
+  if (sheets.length === 0) {
+    failures.push({
+      rule: "NFR-03",
+      what: "no stylesheets found under src/styles/",
+      why: "The tap-floor check has nothing to read, so it cannot vouch for anything.",
+      hits: [{ file: "src/styles/", line: 0, text: "no .css files" }],
+    });
+  }
+
+  for (const sheet of sheets) {
+    readFileSync(join(ROOT, sheet), "utf8")
+      .split("\n")
+      .forEach((line, i) => {
+        const m = /min-(?:height|width):\s*(\d+)px/.exec(line);
+        // min-width is also used for table overflow, which is not a target —
+        // only flag it under 44 when it is plausibly one, i.e. small.
+        if (m && Number(m[1]) < 44 && Number(m[1]) > 0) {
+          hits.push({ file: sheet, line: i + 1, text: line.trim().slice(0, 100) });
+        }
+      });
+  }
+
   if (hits.length) {
     failures.push({
       rule: "NFR-03",

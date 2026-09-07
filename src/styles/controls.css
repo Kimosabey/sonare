@@ -1,0 +1,122 @@
+
+/* ── capture settings switches ────────────────────────────────────────────── */
+
+.switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.switch:last-of-type {
+  border-bottom: none;
+}
+
+.switch-track {
+  flex: none;
+  width: 46px;
+  height: 27px;
+  border-radius: 14px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  padding: 2px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.14s;
+}
+
+.switch-track[aria-checked="true"] {
+  background: var(--signal);
+  border-color: var(--signal);
+  justify-content: flex-end;
+}
+
+.switch-track:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.switch-thumb {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(22 32 43 / 30%);
+}
+
+.switch-text {
+  display: block;
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+.switch-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 560;
+  color: var(--ink);
+}
+
+.switch-desc {
+  display: block;
+  font-size: 12.5px;
+  color: var(--dim);
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+/* ── interim feedback ─────────────────────────────────────────────────────── */
+
+.interim {
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--signal);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  background: var(--signal-soft);
+}
+
+.interim-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.interim-time {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+
+.interim-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: #fff;
+  overflow: hidden;
+  margin-top: 10px;
+  border: 1px solid var(--rule);
+}
+
+.interim-bar i {
+  display: block;
+  height: 100%;
+  background: var(--warn);
+  transition: width 0.1s linear;
+}
+
+.interim-note {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 6px;
+}

@@ -1,0 +1,20 @@
+/* The stylesheet, in cascade order.
+ *
+ * Split out of a single 1734-line styles.css. The order of these imports is
+ * load-bearing — it is the original file's order, and the cascade depends on
+ * it, so a new sheet goes where its rules used to sit rather than at the end.
+ *
+ * tokens must stay first: everything else reads its custom properties.
+ * motion is the global prefers-reduced-motion kill-switch and sits where it
+ * sat before, after the animations it switches off. */
+
+@import "./tokens.css";
+@import "./base.css";
+@import "./activity.css";
+@import "./meter.css";
+@import "./report.css";
+@import "./content.css";
+@import "./toasts.css";
+@import "./diagnostics.css";
+@import "./motion.css";
+@import "./controls.css";

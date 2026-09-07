@@ -1,0 +1,363 @@
+html {
+  scrollbar-width: none; /* Firefox */
+}
+html::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+body {
+  margin: 0;
+  /* Three soft radials over the near-white base: violet from the top-left,
+     lilac bloom top-right, a faint lift from below. `fixed` so the wash
+     belongs to the viewport and doesn't slide around under a scrolling
+     report. Paint-only — no layout, no compositing cost per frame. */
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  /* Left and right resolved separately: in landscape the notch is on one side
+     only, so applying the left inset to both (which the `0 X 80px` shorthand
+     did) pads the wrong edge. Bottom clears the home indicator. */
+  padding-top: 0;
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+/**
+ * The tint wash lives on a fixed pseudo-element, not on body's own background.
+ *
+ * `background-attachment: fixed` is the obvious way to write this and the
+ * wrong one for iOS Safari: it forces a full-area repaint on every scroll
+ * frame there, which is exactly the stutter this app can least afford on the
+ * device it is meant to be tested on. A fixed-position layer gets the same
+ * viewport-anchored result, composited once, and scrolls for free.
+ *
+ * z-index -1 keeps it behind content; body sets no z-index of its own, so no
+ * stacking context traps it. pointer-events none so it can never eat a tap.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1100px 780px at 8% -12%, var(--tint-violet), transparent 62%),
+    radial-gradient(880px 680px at 102% -4%, var(--tint-lilac), transparent 58%),
+    radial-gradient(720px 620px at 52% 112%, var(--tint-violet-faint), transparent 62%);
+  background-repeat: no-repeat;
+}
+
+.wrap {
+  /* Fluid, not locked to one fixed column — scales with the viewport rather
+     than a hard 640px on every screen size, capped only so text doesn't run
+     unreadably wide on a large monitor. The Diagnostics screen's wide data
+     tables were the immediate reason (they were being squeezed to 640px and
+     forced into horizontal scroll even on a wide desktop window). Body
+     already handles edge padding/safe-area, so this is just width + cap. */
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+header {
+  position: relative;
+  padding: 24px 0 18px;
+}
+
+/* The brand rule draws in left-to-right rather than just appearing —
+   a border can't animate this way, so the rule lives here instead. */
+header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--signal);
+  transform-origin: left;
+  animation: draw-rule var(--dur-slow) var(--ease) 260ms both;
+}
+
+.logo {
+  height: 28px;
+  display: block;
+  animation: rise-in var(--dur-standard) var(--ease) both;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  animation: rise-in var(--dur-standard) var(--ease) both;
+}
+
+.breadcrumb a {
+  color: var(--dim);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover,
+.breadcrumb a:focus-visible {
+  color: var(--signal);
+  text-decoration: underline;
+}
+
+.breadcrumb span:last-child {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.breadcrumb-lang-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Overrides the global input/select rule (100% width, 16px, bordered card
+   style) — here it must read as breadcrumb text with a dropdown affordance,
+   not a form field. */
+.breadcrumb-lang-wrap select.breadcrumb-lang {
+  appearance: none;
+  -webkit-appearance: none;
+  width: auto;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 15px 2px 3px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.breadcrumb-lang-wrap select.breadcrumb-lang:hover,
+.breadcrumb-lang-wrap select.breadcrumb-lang:focus-visible {
+  background: var(--panel);
+  outline: none;
+}
+
+.breadcrumb-lang-caret {
+  position: absolute;
+  right: 3px;
+  font-size: 9px;
+  color: var(--dim);
+  pointer-events: none;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 10px;
+  animation: rise-in var(--dur-standard) var(--ease) 60ms both;
+}
+
+h1 {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 8px 0 6px;
+  animation: rise-in var(--dur-standard) var(--ease) 120ms both;
+}
+
+/* ── entrance motion ─────────────────────────────────────────────────────── */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rise-in-cta {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes draw-rule {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Staggered entrance for a freshly-mounted screen (the Start screen, and
+   each activity card via its key-forced remount). Stagger stays well under
+   the 400ms budget for a coordinated, not sluggish, reveal. */
+.enter-1 {
+  animation: rise-in var(--dur-standard) var(--ease) both;
+}
+.enter-2 {
+  animation: rise-in var(--dur-standard) var(--ease) 80ms both;
+}
+.enter-cta {
+  animation: rise-in-cta var(--dur-slow) var(--ease) 250ms both;
+}
+
+section {
+  border-bottom: 1px solid var(--rule);
+  padding: 20px 0;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 640;
+  margin: 0 0 4px;
+}
+
+.what {
+  color: var(--dim);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+/*
+ * `.field-label` shares the label styling for text that heads a *group* of
+ * controls rather than one control. A <label htmlFor> cannot do that job: it
+ * associates the text with a single element and renames it, which silently
+ * cost the middle sensitivity button its own accessible name. Grouped
+ * headings are plain elements wired up with aria-labelledby instead.
+ */
+label,
+.field-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 12px 0 5px;
+  font-weight: 600;
+}
+
+input,
+select {
+  width: 100%;
+  font-family: var(--sans);
+  /* 16px keeps iOS Safari from zooming the viewport on focus. */
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.half {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 460px) {
+  .half {
+    grid-template-columns: 1fr;
+  }
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 12px;
+}
+
+button {
+  font-family: var(--sans);
+  font-size: 14.5px;
+  font-weight: 700;
+  padding: 11px 20px;
+  border-radius: 10px;
+  border: 1.5px solid var(--signal);
+  background: var(--signal);
+  color: #fff;
+  cursor: pointer;
+  transition: transform var(--dur-quick) var(--ease);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+button.ghost {
+  background: transparent;
+  color: var(--signal);
+}
+
+button.rec {
+  background: var(--fail);
+  border-color: var(--fail);
+  animation: rec-pulse 1.6s var(--ease) infinite;
+}
+
+/* A slow breathing glow while the mic is live — reinforces "it's actually
+   listening" rather than decorating for its own sake. */
+@keyframes rec-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(192 39 60 / 35%);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgb(192 39 60 / 0%);
+  }
+}
+
+/* Programmatic focus targets (WCAG 2.4.3).
+   `:focus-visible` is a browser heuristic and generally does NOT fire when
+   script moves focus to a heading or region, so these use plain `:focus` —
+   otherwise the focus move is silent for a sighted keyboard user, who then
+   cannot tell where they now are. They are tabIndex -1, so this can only ever
+   appear as a result of the move, never from tabbing. */
+[tabindex="-1"]:focus {
+  outline: 2px solid var(--signal);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.prompt {
+  font-size: 22px;
+  font-weight: 560;
+  padding: 18px 0 6px;
+  letter-spacing: -0.01em;
+}
+
+/* ── step indicator ───────────────────────────────────────────────────────
+   One dot per activity — the recognizable "how far through the lesson am I"
+   pattern from Duolingo/Mondly-style apps. A row of dots rather than a bar
+   because it also shows what's ahead, not just progress so far. */

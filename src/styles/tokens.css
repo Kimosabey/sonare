@@ -1,0 +1,138 @@
+/* Lingotran brand tokens (docs/30-v3/70-experience/brand/lingotran-brand-guidelines.html
+   in the lingotran-platform repo) — this activity ships under the Lingotran
+   brand, so it carries the same palette and type rather than inventing one.
+   pass/warn/fail are the one exception: kept as the original neutral
+   green/amber/red, because Lingotran's own brand-audit.md documents Success
+   green and Coral as fill-only-with-dark-text — they fail WCAG as text on a
+   light background — and Lingotran defines no amber/warning token at all. */
+
+:root {
+  /* Near-white, with a whisper of the brand violet rather than the old warm
+     cream (#faf6f0). The cream was doing real work — it was the only thing
+     separating the ground from the 12 #fff card surfaces layered on it — so
+     going whiter would normally flatten the hierarchy. Two things hold it
+     together instead: every one of those surfaces carries a --rule border,
+     and the tint gradients below give the ground colour variation a flat
+     white cannot. */
+  --paper: #fcfbfe;
+  /* The tint wash. Kept as tokens so the gradient stack below reads as one
+     decision, and so an accent change is one line, not three. */
+  --tint-violet: rgba(65, 0, 154, 0.055);
+  --tint-lilac: rgba(240, 230, 255, 0.85);
+  --tint-violet-faint: rgba(65, 0, 154, 0.035);
+  --panel: #f0e6ff; /* Lilac */
+  --ink: #1a0b2e; /* Ink Deep */
+  --rule: #dddddd; /* Border */
+  --dim: #666666; /* Muted */
+  --signal: #41009a; /* Brand Purple */
+  --signal-soft: #f0e6ff; /* Lilac */
+  --pass: #1b7a5a;
+  /* #b26a00 (the original neutral amber) measured ~3.5:1 on --panel/--warn-soft
+     — below the 4.5:1 AA floor for the small mono text it's used as (verdict
+     tags, phoneme scores, toast icons). Same hue (~36°), darkened until it
+     clears AA with margin (~5.3:1 on --panel, ~5.8:1 on --warn-soft). */
+  --warn: #8a5200;
+  --warn-soft: #fcf3e3;
+  --fail: #c0273c;
+  --fail-soft: #fbe9ec;
+  /**
+   * Nunito covers Latin, Latin-Ext, Cyrillic and Greek — and no Devanagari.
+   * Every Hindi prompt therefore fell past it to whatever system font the
+   * device happened to have, which renders in a different typeface from the
+   * other three languages on a good device and as tofu boxes on one without a
+   * Devanagari face at all. A quarter of the shipped languages had unstyled
+   * text, unnoticed because every machine this was written on has the font.
+   *
+   * Noto Sans Devanagari sits after it, not instead: the browser matches per
+   * character, so Latin still resolves to Nunito and only Devanagari reaches
+   * the second family. Its face is 121 kB, and `unicode-range` means it is
+   * fetched only when Devanagari is actually rendered — a French learner never
+   * pays for it, and a Hindi learner pays it to be able to read their own
+   * language.
+   */
+  --sans: "Nunito", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Motion — one signature curve, three durations. Premium personality:
+     smooth deceleration, no overshoot. The global prefers-reduced-motion
+     rule below strips all of this to an instant, correctly-resolved state. */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-quick: 150ms;
+  --dur-standard: 350ms;
+  --dur-slow: 500ms;
+  /* ══ scale ═══════════════════════════════════════════════════════════════
+   *
+   * Colour above was already tokenised. Space, radius, type and the tap floor
+   * were not, and had drifted: 19 distinct font sizes across ~45 declarations,
+   * with 9/9.5/10/10.5 all doing one job and 14/14.5/15 all doing another. A
+   * half-pixel difference is invisible on screen and expensive in a
+   * stylesheet, because every new rule has to guess which of four values it
+   * belongs with.
+   *
+   * These are the scale. New rules use them; the existing literals are being
+   * migrated deliberately rather than in one sweep, since collapsing forty
+   * declarations at once reflows a working product faster than it can be
+   * looked at.
+   */
+
+  /* Space, on a 4px base. Two half-steps because 2px and 6px both do real
+     work in chip padding, where 4px is visibly loose and 0 is cramped. */
+  --space-0: 2px;
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* Radius. 10px was already the de-facto standard at 11 of 25 uses, so the
+     scale is built around it rather than imposed over it. */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  /* Type. Seven steps, named by role rather than size so a rule says what it
+     is for. Values are the most-used member of each drifted cluster. */
+  --text-2xs: 10.5px;  /* mono labels, chip scores */
+  --text-xs: 11px;     /* eyebrows, hints */
+  --text-sm: 12.5px;   /* secondary body, table cells */
+  --text-base: 15px;   /* body */
+  --text-md: 16.5px;   /* lead paragraphs */
+  --text-lg: 23px;     /* section headings */
+  --text-xl: 30px;     /* page heading */
+
+  /**
+   * The minimum any interactive target may be, in either axis.
+   *
+   * 44px is Apple's floor and the practical one: below it a thumb on a moving
+   * bus misses. This is a token rather than a literal because the syllable
+   * chips were 36px — tappable, and the product's core interaction is tapping
+   * a syllable to hear yourself say it. scripts/verify.mjs now fails the build
+   * on any target declared under it.
+   */
+  --tap: 44px;
+
+  /**
+   * Breakpoints, for reference only — a media query cannot read a custom
+   * property. Both already in use: 460px is phone-to-large-phone, 620px is
+   * where the two-column layouts become possible. Mobile-first throughout, so
+   * these are `min-width` and the base styles are the phone.
+   */
+  --bp-phone: 460px;
+  --bp-tablet: 620px;
+
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Scroll stays functional (wheel, trackpad, keyboard) — only the visible
+   scrollbar chrome is hidden, for a cleaner look on both screens. */

@@ -1,0 +1,147 @@
+/* ── mode toggle ─────────────────────────────────────────────────────────── */
+
+.modes {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.modes button {
+  border: none;
+  border-radius: 0;
+  background: #fff;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 9px 14px;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+.modes button + button {
+  border-left: 1px solid var(--rule);
+}
+
+.modes button[aria-pressed="true"] {
+  background: var(--signal);
+  color: #fff;
+}
+
+.listening {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.listening i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fail);
+  animation: pulse 1.1s ease-in-out infinite;
+}
+
+.listening.heard i {
+  background: var(--pass);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ── diagnostics score-band bar ───────────────────────────────────────────
+   Reuses the app's existing fixed pass/warn/fail status colors (see the
+   brand-tokens comment at the top of this file) rather than a generic
+   sequential ramp — a score band is a status judgement, not a plain
+   magnitude, and this is the one triad the brand already reserves for it. */
+
+.band-bar {
+  display: flex;
+  height: 26px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  margin: 10px 0 8px;
+}
+
+.band-bar-seg {
+  display: block;
+  height: 100%;
+  transition: width var(--dur-standard) var(--ease);
+}
+
+.band-bar-seg.pass {
+  background: var(--pass);
+}
+.band-bar-seg.warn {
+  background: var(--warn);
+}
+.band-bar-seg.fail {
+  background: var(--fail);
+}
+
+.band-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+  margin-bottom: 16px;
+}
+
+.band-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+.band-legend i.pass {
+  background: var(--pass);
+}
+.band-legend i.warn {
+  background: var(--warn);
+}
+.band-legend i.fail {
+  background: var(--fail);
+}
+
+/* ── diagnostics live indicator ──────────────────────────────────────────── */
+
+.poll-flash {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pass);
+  flex: none;
+  animation: poll-flash 900ms var(--ease) both;
+}
+
+@keyframes poll-flash {
+  0% {
+    transform: scale(1.8);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

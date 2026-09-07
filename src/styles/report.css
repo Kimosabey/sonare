@@ -1,0 +1,530 @@
+.overall {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 16px 0;
+}
+
+@media (max-width: 460px) {
+  .overall {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.overall div {
+  background: #fff;
+  padding: 13px 10px;
+  text-align: center;
+  animation: rise-in var(--dur-standard) var(--ease) both;
+}
+
+.overall div:nth-child(2) {
+  animation-delay: 70ms;
+}
+.overall div:nth-child(3) {
+  animation-delay: 140ms;
+}
+.overall div:nth-child(4) {
+  animation-delay: 210ms;
+}
+
+.overall .n {
+  font-family: var(--mono);
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+/* ── scoring skeleton ─────────────────────────────────────────────────────
+   Holds the score card's shape for the ~1.4s the provider takes, so the real
+   numbers replace it in place rather than shoving the page down when they
+   land. See ScoreCardSkeleton.tsx for why this is a skeleton and not a
+   spinner. */
+.overall-pending div {
+  /* The cells must not re-run rise-in when the real card swaps in — that
+     would animate the same four boxes twice for one attempt. */
+  animation: none;
+}
+.sk-bar,
+.sk-chip {
+  position: relative;
+  overflow: hidden;
+  background: var(--rule);
+  border-radius: 4px;
+}
+.sk-bar {
+  /* Matches .overall .n's line box (23px x 1.1) so nothing shifts on swap. */
+  height: 25px;
+  width: 60%;
+  margin: 0 auto;
+}
+.sk-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.sk-chip {
+  height: 34px;
+  width: 78px;
+}
+.sk-chip:nth-child(2) { width: 104px; }
+.sk-chip:nth-child(3) { width: 62px; }
+
+/* Transform-only sweep: a moving pseudo-element, never background-position,
+   which would repaint the element every frame for the whole wait. The global
+   prefers-reduced-motion rule removes this entirely and the status text below
+   carries the message alone. */
+.sk-bar::after,
+.sk-chip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--signal-soft) 45%,
+    var(--signal-soft) 55%,
+    transparent 100%
+  );
+  animation: sk-sweep 1.25s var(--ease) infinite;
+}
+.sk-chip:nth-child(2)::after { animation-delay: 120ms; }
+.sk-chip:nth-child(3)::after { animation-delay: 240ms; }
+
+@keyframes sk-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* The improvement, beside the number rather than instead of it. Small and
+   in the pass green: it is good news, and it should not compete with the
+   score it qualifies. */
+/* The syllable currently sounding. A ring rather than a fill: the band colour
+   on the chip is the score and must keep saying that, so "playing" has to be
+   a different channel entirely. Transform/opacity only, like everything else,
+   and the global prefers-reduced-motion rule leaves the static ring behind —
+   which is the part that carries the meaning. */
+/* Sits above the chip row, so it reads as an instruction for the group
+   rather than a note attached to whichever chip happens to be first. */
+/* The attempt sequence in the report table. Mono and tabular so the numbers
+   line up down the column, and each step banded like the score it is — the
+   shape of the climb should be readable without reading the digits. */
+.trajectory {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.trajectory-step {
+  font-weight: 600;
+}
+/* hi/mid/lo, which is what band() returns — not pass/warn/fail. Those are
+   the .band-bar segment names, and using them here silently matched nothing. */
+.trajectory-step.hi { color: var(--pass); }
+.trajectory-step.mid { color: var(--warn); }
+.trajectory-step.lo { color: var(--fail); }
+.trajectory-step.dim { color: var(--faint, var(--dim)); font-weight: 400; }
+.trajectory-arrow {
+  color: var(--rule-strong, var(--dim));
+  margin: 0 3px;
+}
+
+/* Secondary to the record button, which is the primary action on this screen
+   — listening is preparation, not the task. Outlined rather than filled so it
+   never competes with Start. */
+.listen {
+  background: transparent;
+  color: var(--signal);
+  border: 1.5px solid var(--signal);
+  margin-top: 4px;
+  min-height: 44px;
+}
+.listen:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The one thing to change next time. Given the lilac panel rather than the
+   fail red: it is guidance, not a verdict — the score above already delivered
+   the verdict, and repeating that tone here would read as being told off
+   twice for one attempt. */
+.advice {
+  background: var(--panel);
+  border-left: 3px solid var(--signal);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 0 0 12px;
+  font-size: 14.5px;
+}
+
+.sy-hint {
+  flex-basis: 100%;
+  margin: 0 0 2px;
+}
+
+.sy-playing {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+.sy-playing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 rgb(65 0 154 / 22%);
+  animation: sy-sound 700ms var(--ease) infinite;
+  pointer-events: none;
+}
+@keyframes sy-sound {
+  to {
+    box-shadow: 0 0 0 8px rgb(65 0 154 / 0%);
+  }
+}
+
+.overall .gain {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pass);
+  margin-left: 4px;
+  vertical-align: super;
+}
+
+.overall .l {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 5px;
+}
+
+.words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 14px 0;
+}
+
+.word {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 11px 12px;
+  min-height: 44px;
+  cursor: pointer;
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 400;
+  border-bottom-width: 3px;
+  display: inline-flex;
+  align-items: center;
+  /* Delay is set per-chip inline (WordChips.tsx) — word count varies, so a
+     fixed nth-child table can't cover it. */
+  animation: rise-in var(--dur-quick) var(--ease) both;
+}
+
+.word.hi {
+  border-bottom-color: var(--pass);
+}
+.word.mid {
+  border-bottom-color: var(--warn);
+}
+.word.lo {
+  border-bottom-color: var(--fail);
+}
+
+.word small {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  margin-left: 6px;
+}
+
+.word[aria-expanded="true"] {
+  background: var(--signal-soft);
+  border-color: var(--signal);
+}
+
+.phonemes {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 10px 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  animation: rise-in var(--dur-quick) var(--ease) both;
+}
+
+.phonemes .p {
+  display: inline-block;
+  margin: 3px 9px 3px 0;
+}
+
+.phonemes .p.hi b {
+  color: var(--pass);
+}
+.phonemes .p.mid b {
+  color: var(--warn);
+}
+.phonemes .p.lo b {
+  color: var(--fail);
+}
+
+/* ── syllable chips ────────────────────────────────────────────────────────
+   Deliberately the same chip vocabulary as .word above — white ground, 3px
+   banded bottom rule, 80/60 thresholds via band() — rather than a new one.
+   These sit directly under a word chip; a second visual language at that
+   distance would read as a different kind of object rather than a zoom into
+   the same one. */
+
+/* First visually-hidden utility in this file. Not display:none, which would
+   also remove it from the accessibility tree — staying in that tree while
+   out of the layout is the entire point. The syllable chips use it to trade
+   a terse visible label ("2nd 70") for one sentence read aloud. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.syllables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+/* One rule for both variants: with onSelect these are <button>s, without it
+   <span>s. Every property the global button rule sets (purple fill, white
+   text, bold, wide padding) is therefore restated here, so the two render as
+   the same object. */
+.sy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* Was 36px. These are buttons when there is a take to play back — the
+     product's core interaction is tapping a syllable to hear yourself say
+     it — so they sit at the tap floor like every other target. */
+  min-height: var(--tap);
+  padding: 6px 10px;
+  border: 1px solid var(--rule);
+  border-bottom-width: 3px;
+  border-radius: var(--radius-lg);
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 400;
+  /* Per-chip delay is set inline (SyllableChips.tsx) — syllable count varies,
+     so an nth-child table can't cover it. */
+  animation: rise-in var(--dur-quick) var(--ease) both;
+}
+
+/* A control earns the 44px target the rest of the app uses; a static readout
+   of the same data does not need it. Type and padding are unchanged, so the
+   interactive version reads as the same chip, just tappable. Focus ring comes
+   from the global button:focus-visible rule — duplicating it here would be
+   one more place for the two to drift apart. */
+button.sy {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.sy.hi {
+  border-bottom-color: var(--pass);
+}
+.sy.mid {
+  border-bottom-color: var(--warn);
+}
+.sy.lo {
+  border-bottom-color: var(--fail);
+}
+
+.sy-grapheme {
+  font-weight: 560;
+}
+
+/* A position is data, not a spelling: mono with tabular figures so a row of
+   them lines up — but at the same size and ink as a grapheme, never dimmed.
+   hi-IN returns 0 graphemes out of 108 across its ten targets, so this is the
+   only syllable label a Hindi learner will ever see; styled as a degraded
+   grapheme it would make the feature look broken in that language rather than
+   deliberate. */
+.sy-pos {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* Same numeral-plus-colour pairing as .phonemes .p: the digits carry the
+   score for anyone who can't separate the border tints. */
+.sy-score {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sy.hi .sy-score {
+  color: var(--pass);
+}
+.sy.mid .sy-score {
+  color: var(--warn);
+}
+.sy.lo .sy-score {
+  color: var(--fail);
+}
+
+/* Its own line inside the wrapping row, not a fourth chip. */
+.sy-note {
+  flex: 0 0 100%;
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.verdict {
+  display: flex;
+  gap: 9px;
+  margin-top: 14px;
+  font-size: 14px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1px solid;
+}
+
+.verdict .tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  flex: none;
+  padding-top: 2px;
+}
+
+.v-warn {
+  border-color: #ead2a4;
+  background: var(--warn-soft);
+}
+.v-warn .tag {
+  color: var(--warn);
+}
+
+.v-fail {
+  border-color: #eec0c7;
+  background: var(--fail-soft);
+}
+.v-fail .tag {
+  color: var(--fail);
+}
+
+/* A lighter-weight <details> than the global one (which is a full bordered
+   card) — this sits inside an already-bordered verdict banner, so it only
+   needs to be a small, unobtrusive disclosure, not another box. */
+.error-details {
+  margin-top: 6px;
+}
+.error-details summary {
+  padding: 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.error-details[open] summary {
+  border-bottom: none;
+  margin-bottom: 4px;
+}
+.error-details .hint {
+  margin-top: 0;
+}
+
+/*
+ * The one line on an indeterminate verdict that changes what the learner does
+ * next — that the take did not cost them an attempt. It sits among hints, so
+ * without weight it reads as the same aside as the provider's error text it
+ * was promoted above.
+ */
+.hint-strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* ── session-complete hero ────────────────────────────────────────────────── */
+
+.report-hero {
+  text-align: center;
+  padding: 6px 0 14px;
+}
+
+.report-hero-badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pass);
+  background: #e7f3ee;
+  border: 1px solid #b4dbcb;
+  border-radius: 999px;
+  padding: 5px 14px;
+  animation: rise-in-cta var(--dur-standard) var(--ease) both;
+}
+
+.report-hero-count {
+  margin: 10px 0 4px;
+  font-size: 30px;
+  animation: rise-in var(--dur-standard) var(--ease) 80ms both;
+}
+
+.pass-banner {
+  animation: rise-in-cta var(--dur-standard) var(--ease) both;
+}
+
+/* A little extra pop for "first try" / "new best" — a plain pass is still
+   rise-in-cta only; this is reserved for the moments actually worth it, so
+   it doesn't wear out from appearing on every single pass. */
+@keyframes celebrate-pop {
+  0% {
+    transform: scale(0.92);
+  }
+  55% {
+    transform: scale(1.035);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pass-banner-celebrate {
+  animation:
+    rise-in-cta var(--dur-standard) var(--ease) both,
+    celebrate-pop 420ms var(--ease) both;
+}
+
+/* Wide content scrolls inside its own box. The page body must never scroll
+   sideways — on a phone that makes the whole layout feel broken. */
