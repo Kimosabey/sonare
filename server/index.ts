@@ -5,6 +5,7 @@ import { learnersRouter } from "./routes/learners.js";
 import { syncRouter } from "./routes/sync.js";
 import { nextRouter } from "./routes/next.js";
 import { healthRouter } from "./routes/health.js";
+import { contentRouter } from "./routes/content.js";
 import { warnIfIdentityDisabled } from "./identity.js";
 import { countPending, replayPending } from "./fallbackLog.js";
 import { getDb } from "./db.js";
@@ -55,6 +56,7 @@ app.use("/api/v1", diagnosticsRouter);
 app.use("/api/v1", learnersRouter);
 app.use("/api/v1", syncRouter);
 app.use("/api/v1", nextRouter);
+app.use("/api/v1", contentRouter);
 // Unprefixed, because a liveness probe is infrastructure rather than API: an
 // orchestrator should not have to know the app's versioning scheme.
 app.use(healthRouter);

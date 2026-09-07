@@ -163,7 +163,22 @@ export const INDEXES: Record<RetentionClass, IndexSpec[]> = {
    * The class still exists because it records the retention decision, which is
    * the part that matters: nothing here ever gets a TTL.
    */
-  aggregate: [],
+  aggregate: [
+    /**
+     * content holds published activity sets — phrases and instructions, with
+     * nothing about any learner in them. Never expires: an old version is how
+     * a rollback works, and a TTL would delete the set a learner mid-session
+     * is still being scored against.
+     *
+     * `{ slug: 1, version: -1 }` is the only query — the newest version of one
+     * language — and without it that is a collection scan on every fetch.
+     */
+    {
+      collection: "content",
+      keys: { slug: 1, version: -1 },
+      why: "Fetching the newest published version of one language, which is the only read.",
+    },
+  ],
 
   operational: [
     {

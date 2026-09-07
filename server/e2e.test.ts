@@ -221,6 +221,7 @@ async function boot(): Promise<Express> {
   const { learnersRouter } = await import("./routes/learners.js");
   const { syncRouter } = await import("./routes/sync.js");
   const { nextRouter } = await import("./routes/next.js");
+  const { contentRouter } = await import("./routes/content.js");
 
   const app = express();
   // Exactly as index.ts sets it (NFR-04).
@@ -231,6 +232,7 @@ async function boot(): Promise<Express> {
   app.use("/api/v1", learnersRouter);
   app.use("/api/v1", syncRouter);
   app.use("/api/v1", nextRouter);
+  app.use("/api/v1", contentRouter);
   return app;
 }
 
@@ -558,6 +560,62 @@ describe("what to practise next, from what was scored", () => {
   });
 });
 
+describe("serving content", () => {
+  it("tells the client to use its bundled set when nothing is published", async () => {
+    /**
+     * A 404 is the normal answer, not an error. The client falls back to the
+     * activities it shipped with, which is what keeps the app working with no
+     * network at all — content that only exists in a database is content a
+     * learner on a train cannot practise.
+     */
+    const res = await fetch(`${base}/api/v1/content/fr`, { headers: client() });
+    const body = (await res.json()) as { error: { userMessage: string } };
+
+    expect(res.status).toBe(404);
+    expect(body.error.userMessage).toMatch(/built into the app/i);
+  });
+
+  it("serves a published set without needing a learner token", async () => {
+    /**
+     * Content is not personal, and the client needs the words before a
+     * learner has registered. Requiring identity here would make the
+     * offline-first story worse for nothing.
+     */
+    store.set("content/fr:1", {
+      _id: "fr:1",
+      slug: "fr",
+      code: "fr-FR",
+      label: "French",
+      version: 1,
+      activities: [
+        {
+          id: 1,
+          title: "Greeting",
+          kind: "repeat",
+          prompt: "Say hello",
+          gloss: "hello",
+          target: "Bonjour",
+          focus: "the French r",
+        },
+      ],
+      publishedAt: new Date(),
+    } as never);
+
+    const res = await fetch(`${base}/api/v1/content/fr`, { headers: client() });
+    const body = (await res.json()) as { version: number; activities: Array<{ target: string }> };
+
+    expect(res.status).toBe(200);
+    expect(body.version).toBe(1);
+    expect(body.activities[0]?.target).toBe("Bonjour");
+  });
+
+  it("refuses a slug that is not a slug", async () => {
+    const res = await fetch(`${base}/api/v1/content/..%2Fetc`, { headers: client() });
+
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("erasing everything, on request", () => {
   /** Fills every collection that can hold something about this learner. */
   async function fillEverything(token: string): Promise<void> {
@@ -720,5 +778,19 @@ describe("the routes are mounted where the client expects", () => {
     });
 
     expect(res.status).not.toBe(404);
+  });
+
+  it("answers GET /api/v1/content/:slug, distinguished by its body", async () => {
+    /**
+     * The "not 404" heuristic above cannot cover this route, because 404 is a
+     * *legitimate* answer here — nothing published means "use the bundled
+     * set". So mounting is confirmed by shape instead: a mounted route
+     * returns the typed error envelope, while an unmounted one returns
+     * Express's own HTML 404 with no JSON at all.
+     */
+    const res = await fetch(`${base}/api/v1/content/fr`, { headers: client() });
+    const body = (await res.json()) as { error?: { code?: string; userMessage?: string } };
+
+    expect(body.error?.userMessage).toBeDefined();
   });
 });

@@ -23,6 +23,7 @@
     "resample-bench": "tsx scripts/resample-bench.ts",
     "migrate": "tsx --env-file=.env scripts/migrate.ts",
     "rollup-stats": "tsx --env-file=.env scripts/rollup-stats.ts",
+    "seed-content": "tsx --env-file=.env scripts/seed-content.ts",
     "replay-fallback": "tsx --env-file=.env scripts/replay-fallback.ts",
     "fixture-design": "node --env-file=.env scripts/fixture-design-check.mjs",
     "alignment-report": "tsx scripts/alignment-report.ts"
