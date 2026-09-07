@@ -9,6 +9,8 @@ import { getDb } from "./db.js";
 import { appendFallback } from "./fallbackLog.js";
 import { logger } from "./logger.js";
 import type { PronunciationResult } from "./services/types.js";
+import type { Alignment } from "./alignment.js";
+import type { VerdictComparison } from "./verdicts.js";
 
 export interface AttemptRecord {
   at: string;
@@ -35,6 +37,22 @@ export interface AttemptRecord {
     totalMs: number;
   };
   result: PronunciationResult;
+  /**
+   * Our own expected-versus-heard verdict, alongside the provider's.
+   *
+   * Deliberately *not* folded into `result`. That type is the §6 provider
+   * contract — R12 says nothing outside server/services/ may know which
+   * vendor produced it, and a field only Sonare can fill would make every
+   * future provider responsible for something it cannot compute. This is a
+   * sibling for the same reason the timings are.
+   *
+   * Optional because a record written before it existed does not have one,
+   * and because the route can legitimately skip it — see the comment there
+   * on an indeterminate take.
+   */
+  alignment?: Alignment;
+  /** Where the two verdicts differ, summarised so it is queryable. */
+  verdicts?: VerdictComparison;
 }
 
 /**

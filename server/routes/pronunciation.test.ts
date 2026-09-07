@@ -35,7 +35,14 @@ vi.mock("../services/index.js", () => ({
 }));
 
 // Both swallow their own failures in production; here they must not touch Mongo.
-vi.mock("../attempts.js", () => ({ recordAttempt: vi.fn(() => Promise.resolve()) }));
+/** Records handed to recordAttempt, so what reaches the trail is assertable. */
+const recorded: Record<string, unknown>[] = [];
+vi.mock("../attempts.js", () => ({
+  recordAttempt: (record: Record<string, unknown>) => {
+    recorded.push(record);
+    return Promise.resolve();
+  },
+}));
 vi.mock("../diagnostics.js", () => ({ recordDiagnostic: vi.fn(() => Promise.resolve()) }));
 
 // The real limiter allows 30/min, which this file would exhaust and then start
@@ -120,6 +127,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   scoreSpy.mockClear();
+  recorded.length = 0;
   providerBehaviour = () => Promise.resolve(SCORED_RESULT);
 });
 
@@ -315,5 +323,96 @@ describe("POST /api/v1/pronunciation — the provider's answer, passed through",
     expect(res.status).toBe(500);
     expect(body.error.code).toBe("PROVIDER_UNAVAILABLE");
     expect(JSON.stringify(body)).not.toMatch(/kaboom|Users/);
+  });
+});
+
+/**
+ * Both word verdicts reaching the trail.
+ *
+ * The wiring is where this feature can silently do nothing: the alignment and
+ * the comparison are computed *after* the response is sent, so a mistake there
+ * costs no learner anything visible and leaves the fixture analysis with one
+ * opinion instead of two — which is the same as not having built it.
+ */
+describe("recording both word verdicts", () => {
+  it("stores our alignment alongside the provider's result", async () => {
+    await post({ referenceText: "Bonjour, comment allez-vous" });
+
+    await vi.waitFor(() => expect(recorded).toHaveLength(1));
+    const record = recorded[0] as { alignment?: { tokens: unknown[] }; result: unknown };
+    expect(record.alignment?.tokens).toHaveLength(4); // the hyphen is a boundary
+    expect(record.result).toBeDefined();
+  });
+
+  it("stores the comparison, so disagreement is queryable", async () => {
+    /**
+     * The stub transcript matches the reference exactly, so the two verdicts
+     * agree — and that is worth storing as plainly as a conflict. A trail
+     * where only disagreements carry the field cannot be filtered on it.
+     */
+    await post({ referenceText: "Bonjour, comment allez-vous" });
+
+    await vi.waitFor(() => expect(recorded).toHaveLength(1));
+    const record = recorded[0] as { verdicts?: { disagrees: boolean; expectedWords: number } };
+    expect(record.verdicts).toBeDefined();
+    expect(record.verdicts?.disagrees).toBe(false);
+    expect(record.verdicts?.expectedWords).toBe(4);
+  });
+
+  it("aligns against the reference the learner was actually shown", async () => {
+    // Not the provider's transcript, and not a default. Scoring one phrase
+    // and aligning another would make the comparison meaningless.
+    await post({ referenceText: "Je voudrais un café et un croissant" });
+
+    await vi.waitFor(() => expect(recorded).toHaveLength(1));
+    const record = recorded[0] as { alignment?: { tokens: { expected: string }[] } };
+    expect(record.alignment?.tokens.map((t) => t.expected)).toEqual([
+      "Je",
+      "voudrais",
+      "un",
+      "café",
+      "et",
+      "un",
+      "croissant",
+    ]);
+  });
+
+  it("skips both for an indeterminate take", async () => {
+    /**
+     * There is no transcript to align against, so the alignment would report
+     * every word missing — true, and indistinguishable in the trail from a
+     * learner who said none of the phrase. R8's point is that an unmeasured
+     * take is not a wrong answer, and the record has to keep saying so.
+     */
+    providerBehaviour = () =>
+      Promise.resolve({
+        indeterminate: true,
+        provider: "stub",
+        reason: "no speech found to assess — every word was omitted",
+      } as PronunciationResult);
+
+    await post();
+
+    await vi.waitFor(() => expect(recorded).toHaveLength(1));
+    const record = recorded[0] as Record<string, unknown>;
+    expect(record.alignment).toBeUndefined();
+    expect(record.verdicts).toBeUndefined();
+    // The attempt is still recorded — the indeterminate rate is the finding.
+    expect(record.result).toBeDefined();
+  });
+
+  it("does not put the alignment in the learner's response", async () => {
+    /**
+     * The response body is the §6 provider contract, and R12 keeps it
+     * vendor-agnostic — a field only Sonare can compute would make every
+     * future provider responsible for something it cannot produce. The
+     * alignment is a sibling on the record, like the timings. Surfacing it to
+     * the learner is Q3's job and needs the contract question settled first.
+     */
+    const response = await post();
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(body).toEqual(SCORED_RESULT);
+    expect(body.alignment).toBeUndefined();
   });
 });

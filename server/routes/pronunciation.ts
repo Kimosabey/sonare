@@ -16,6 +16,8 @@ import { AppError, isAppError } from "../errors.js";
 import { logger } from "../logger.js";
 import { assertAzureFormat, assertDuration, inspectWav } from "../wav.js";
 import { recordAttempt } from "../attempts.js";
+import { alignSpoken } from "../alignment.js";
+import { compareVerdicts } from "../verdicts.js";
 import { recordDiagnostic } from "../diagnostics.js";
 import { scoringLimiter } from "../rateLimit.js";
 import type { PronunciationResult } from "../services/types.js";
@@ -135,6 +137,20 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
 
     res.json(result);
 
+    /**
+     * Both word verdicts, computed after the response for the same reason the
+     * write is: nothing here may add latency to a learner who is already
+     * waiting on a score.
+     *
+     * Skipped entirely for an indeterminate take. There is no transcript to
+     * align against, so the alignment would report every word missing — true,
+     * but indistinguishable in the trail from a learner who said nothing of
+     * the phrase, and R8's whole point is that an unmeasured take is not a
+     * wrong answer.
+     */
+    const alignment = result.indeterminate ? null : alignSpoken(referenceText, result.recognized);
+    const verdicts = alignment === null ? null : compareVerdicts(result, alignment);
+
     // FR-18. After responding — persistence must never add latency to the learner.
     await recordAttempt({
       at: new Date().toISOString(),
@@ -155,6 +171,8 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
       },
       timings: { providerMs, totalMs },
       result,
+      ...(alignment === null ? {} : { alignment }),
+      ...(verdicts === null ? {} : { verdicts }),
     });
   } catch (err) {
     respondWithError(req, res, err);
