@@ -79,6 +79,22 @@ async function ensureIndexes(db: Db): Promise<void> {
        * client per minute, forever.
        */
       db.collection("ratelimits").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+      /**
+       * learners is keyed on the client-minted id, so `_id` already serves the
+       * only lookup that happens per request. lastSeenAt is for counting who
+       * is active, which is a scan otherwise.
+       *
+       * No TTL here, deliberately: this is the learner's own record, and
+       * expiring it on a timer would orphan their progress. That split —
+       * telemetry expires, the learner's record does not — is the point of
+       * keeping them in different collections.
+       */
+      db.collection("learners").createIndex({ lastSeenAt: -1 }),
+      /**
+       * The index that makes "show me my history" a lookup rather than a full
+       * collection scan. Nothing asked that question before learners had ids.
+       */
+      db.collection("attempts").createIndex({ learnerId: 1, at: -1 }),
     ]);
   } catch (err) {
     // A missing index costs query speed (or unbounded retention), not

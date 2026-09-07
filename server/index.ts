@@ -1,6 +1,8 @@
 import express from "express";
 import { pronunciationRouter } from "./routes/pronunciation.js";
 import { diagnosticsRouter } from "./routes/diagnostics.js";
+import { learnersRouter } from "./routes/learners.js";
+import { warnIfIdentityDisabled } from "./identity.js";
 import { getDb } from "./db.js";
 import { logger } from "./logger.js";
 import { getScoringProvider } from "./services/index.js";
@@ -46,12 +48,17 @@ app.get("/api/v1/health", (_req, res) => {
 
 app.use("/api/v1", pronunciationRouter);
 app.use("/api/v1", diagnosticsRouter);
+app.use("/api/v1", learnersRouter);
 
 app.listen(PORT, () => {
   logger.info({ port: PORT }, "pronunciation API listening");
   if (!process.env.AZURE_SPEECH_KEY) {
     logger.warn("AZURE_SPEECH_KEY is not set — scoring requests will fail until it is set");
   }
+  // Said out loud at startup rather than discovered when a learner's progress
+  // fails to sync. Identity is off by default, which is the safe direction —
+  // there is no built-in secret to fall back to.
+  warnIfIdentityDisabled();
 });
 
 // Connect at startup rather than waiting for the first attempt/diagnostic —

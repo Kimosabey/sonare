@@ -19,6 +19,17 @@ export interface AttemptRecord {
   activityId?: number;
   /** Self-reported on the language picker — identifies a person, not just a session. */
   learnerName?: string;
+  /**
+   * The signed, anonymous learner id (identity.ts), when the request carried a
+   * valid token.
+   *
+   * Kept alongside `learnerName` rather than replacing it: the name is what a
+   * learner typed and is what a human reading the trail recognises, while this
+   * is the only field that actually identifies anyone reliably. Optional
+   * because scoring deliberately works without a token — a learner who has not
+   * registered must still be able to practise.
+   */
+  learnerId?: string;
   referenceText: string;
   language: string;
   provider: string;

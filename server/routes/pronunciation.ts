@@ -17,6 +17,7 @@ import { logger } from "../logger.js";
 import { assertAzureFormat, assertDuration, inspectWav } from "../wav.js";
 import { recordAttempt } from "../attempts.js";
 import { recordCallOutcome } from "../counters.js";
+import { learnerIdFrom, optionalLearner } from "../middleware/identity.js";
 import { alignSpoken } from "../alignment.js";
 import { compareVerdicts } from "../verdicts.js";
 import { recordDiagnostic } from "../diagnostics.js";
@@ -47,7 +48,14 @@ const PronunciationBodySchema = z.object({
 
 export const pronunciationRouter = Router();
 
-pronunciationRouter.post("/pronunciation", scoringLimiter, (req: Request, res: Response) => {
+/**
+ * `optionalLearner`, not `requireLearner`. Scoring must work without a token:
+ * a learner who has never registered still has to be able to practise, and
+ * attributing the attempt is a bonus rather than a precondition. An invalid
+ * token is ignored here for the same reason — it is logged and the take
+ * proceeds unattributed.
+ */
+pronunciationRouter.post("/pronunciation", scoringLimiter, optionalLearner, (req: Request, res: Response) => {
   uploadAudio(req, res, (uploadErr: unknown) => {
     if (uploadErr) {
       const tooBig =
@@ -170,6 +178,7 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
       ...(sessionId ? { sessionId } : {}),
       ...(activityId !== undefined && !Number.isNaN(activityId) ? { activityId } : {}),
       ...(learnerName ? { learnerName } : {}),
+      ...(learnerIdFrom(res) !== null ? { learnerId: learnerIdFrom(res) as string } : {}),
       referenceText,
       language,
       provider: result.provider,
