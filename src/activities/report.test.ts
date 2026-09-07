@@ -20,7 +20,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { buildReport } from "./report.js";
+import { buildReport, verdictFor } from "./report.js";
 import type { Activity, ActivityProgress } from "./types.js";
 import type { PronunciationResult, ScoredPhoneme, ScoredSyllable, ScoredWord } from "../speech/scoring/types.js";
 
@@ -484,5 +484,258 @@ describe("buildReport tolerates results that predate a field", () => {
     ];
 
     expect(() => buildReport(activities, progress, 1000)).not.toThrow();
+  });
+});
+
+/**
+ * Four claims a mutation sweep found unpinned. Each one is silent when wrong —
+ * the report still renders, still looks like a report, and misstates what the
+ * learner did.
+ */
+describe("what the report claims", () => {
+  it("lists only actual mistakes, not every word", () => {
+    /**
+     * The `errorType && errorType !== "None"` guard. Azure sends "None" for a
+     * word the learner got right, so flattening that condition puts every
+     * correct word in the mistakes table — and the table is sorted worst-first
+     * and presented as what to work on. A learner who scored 95 would be shown
+     * a list of everything they said.
+     */
+    const report = reportFor([
+      progressOf(1, [
+        {
+          accuracy: 90,
+          words: [
+            { word: "bonjour", accuracy: 95, errorType: "None", phonemes: [], syllables: [] },
+            { word: "comment", accuracy: 92, errorType: "None", phonemes: [], syllables: [] },
+            { word: "allez", accuracy: 41, errorType: "Mispronunciation", phonemes: [], syllables: [] },
+          ],
+        },
+      ]),
+    ]);
+
+    expect(report.mistakes).toHaveLength(1);
+    expect(report.mistakes[0]?.word).toBe("allez");
+  });
+
+  it("treats a missing errorType as no mistake rather than as one", () => {
+    // Restored progress again: a word written before the field existed has no
+    // errorType, and an absent value is not evidence of an error.
+    const stale = { word: "bonjour", accuracy: 95, phonemes: [], syllables: [] } as unknown as ScoredWord;
+
+    const report = reportFor([progressOf(1, [{ accuracy: 95, words: [stale] }])]);
+
+    expect(report.mistakes).toEqual([]);
+  });
+
+  it("needs a sound to recur before calling it a weakness", () => {
+    /**
+     * MIN_OCCURRENCES is 2 so that one bad take does not become a finding —
+     * a learner who fluffed "ment" once has not got a problem with "ment".
+     * Both halves of the filter matter: dropping the count check promotes
+     * noise, and dropping the ceiling check reports strong sounds as weak.
+     */
+    const once = reportFor([
+      progressOf(1, [{ accuracy: 70, words: [word("comment", [syllable("ment", 40)])] }]),
+    ]);
+
+    expect(once.weakSyllables).toEqual([]);
+  });
+
+  it("calls it a weakness once it recurs", () => {
+    const twice = reportFor([
+      progressOf(1, [
+        { accuracy: 70, words: [word("comment", [syllable("ment", 40), syllable("ment", 44)])] },
+      ]),
+    ]);
+
+    expect(twice.weakSyllables.map((s) => s.grapheme)).toEqual(["ment"]);
+  });
+
+  it("does not report a strong sound as weak however often it recurs", () => {
+    // The ceiling half. A syllable at 95 heard ten times is the learner's
+    // best sound, and listing it under "work on these" is worse than listing
+    // nothing.
+    const report = reportFor([
+      progressOf(1, [
+        {
+          accuracy: 95,
+          words: [word("bonjour", [syllable("bon", 95), syllable("bon", 96), syllable("bon", 94)])],
+        },
+      ]),
+    ]);
+
+    expect(report.weakSyllables).toEqual([]);
+  });
+
+  it("does not name one activity as both the strongest and the weakest", () => {
+    /**
+     * `ranked.length > 1`. With one scored activity, top and bottom are the
+     * same row — and a report that calls a single activity both the learner's
+     * best and their worst is nonsense they will notice immediately.
+     */
+    const report = reportFor([progressOf(1, [{ accuracy: 88, words: [] }])]);
+
+    expect(report.strongestActivity?.id).toBe(1);
+    expect(report.weakestActivity).toBeNull();
+  });
+
+  it("survives progress that references an activity no longer in the set", () => {
+    /**
+     * The stale-data class once more. Progress is restored from storage while
+     * the activity list ships with the code, so a content change can leave a
+     * saved session pointing at an id that no longer exists. Every lookup here
+     * is optional-chained for that reason, and unchaining any of them throws
+     * while building the report — taking the whole end-of-session screen with
+     * it, at the one moment the learner has nothing left to retry.
+     */
+    const orphan = progressOf(99, [
+      { accuracy: 62, words: [{ word: "x", accuracy: 41, errorType: "Mispronunciation", phonemes: [], syllables: [] }] },
+    ]);
+
+    expect(() => reportFor([orphan])).not.toThrow();
+    const report = reportFor([orphan]);
+    // Named by id rather than left blank, so the row is still identifiable.
+    expect(report.mistakes[0]?.activityTitle).toBe("Activity 99");
+    expect(report.strongestActivity?.title).toBe("");
+  });
+});
+
+/**
+ * The three claims the previous pass left unpinned, each for a different
+ * reason worth recording.
+ */
+describe("the phoneme weakness filter", () => {
+  /**
+   * Phonemes come back *unlabelled* for all four shipped locales, so this
+   * filter is dead on the learner path — which is exactly why it went
+   * untested. It is not dead everywhere: en-US returns fully labelled
+   * phonemes (21 of 21 measured) and the fixture runner can select en-US, so
+   * an en-US fixture session is scored through this code.
+   */
+  function withPhonemes(phonemes: { phoneme: string; accuracy: number }[]) {
+    return reportFor([
+      progressOf(1, [
+        {
+          accuracy: 70,
+          words: [{ word: "drink", accuracy: 70, errorType: "None", phonemes, syllables: [] }],
+        },
+      ]),
+    ]);
+  }
+
+  it("needs a phoneme to recur before calling it a weakness", () => {
+    // One bad instance is not a pattern, and MIN_OCCURRENCES is what stops
+    // the report presenting it as one.
+    expect(withPhonemes([{ phoneme: "ɹ", accuracy: 40 }]).weakPhonemes).toEqual([]);
+  });
+
+  it("names it once it recurs", () => {
+    const report = withPhonemes([
+      { phoneme: "ɹ", accuracy: 40 },
+      { phoneme: "ɹ", accuracy: 44 },
+    ]);
+
+    expect(report.weakPhonemes.map((p) => p.phoneme)).toEqual(["ɹ"]);
+    expect(report.weakPhonemes[0]?.occurrences).toBe(2);
+  });
+
+  it("does not report a strong phoneme as weak however often it recurs", () => {
+    const report = withPhonemes([
+      { phoneme: "d", accuracy: 95 },
+      { phoneme: "d", accuracy: 97 },
+      { phoneme: "d", accuracy: 93 },
+    ]);
+
+    expect(report.weakPhonemes).toEqual([]);
+  });
+});
+
+describe("verdictFor", () => {
+  it("says nothing was scored when nothing was", () => {
+    /**
+     * The null guard, and the reason it is a guard rather than a formatting
+     * detail: without it `Math.round(null)` is 0, which falls through to
+     * "Needs work. Focus on the sounds listed below" — telling a learner whose
+     * every take was unscoreable that their pronunciation needs work, and
+     * pointing them at a list of sounds that is empty. R8 with a sentence
+     * around it.
+     */
+    const report = reportFor([]);
+
+    expect(report.overallScore).toBeNull();
+    expect(verdictFor(report)).toBe("No activities were scored.");
+  });
+
+  it("grades a scored session on its own score", () => {
+    // The other side: a real score must not be reported as unscored.
+    expect(verdictFor(reportFor([progressOf(1, [{ accuracy: 92, words: [] }])]))).toMatch(/^Strong/);
+    expect(verdictFor(reportFor([progressOf(1, [{ accuracy: 75, words: [] }])]))).toMatch(/^Solid/);
+    expect(verdictFor(reportFor([progressOf(1, [{ accuracy: 60, words: [] }])]))).toMatch(/^Developing/);
+    expect(verdictFor(reportFor([progressOf(1, [{ accuracy: 30, words: [] }])]))).toMatch(/^Needs work/);
+  });
+
+  it("puts each band boundary on the generous side", () => {
+    /**
+     * A learner who scores exactly 85 is told "Strong", not "Solid". Every one
+     * of these is a sentence about the person reading it, so the boundary
+     * belongs on the side that credits the score they achieved rather than the
+     * one below it — and each is a separate `>=` that could drift alone.
+     */
+    const verdict = (accuracy: number) =>
+      verdictFor(reportFor([progressOf(1, [{ accuracy, words: [] }])]));
+
+    expect(verdict(85)).toMatch(/^Strong/);
+    expect(verdict(84)).toMatch(/^Solid/);
+    expect(verdict(70)).toMatch(/^Solid/);
+    expect(verdict(69)).toMatch(/^Developing/);
+    expect(verdict(55)).toMatch(/^Developing/);
+    expect(verdict(54)).toMatch(/^Needs work/);
+  });
+});
+
+describe("an attempt that scored exactly zero", () => {
+  it("is treated as a score, not as the absence of one", () => {
+    /**
+     * `attempt.accuracy ?? -1`, and the distinction `??` draws that `||` does
+     * not: a genuine 0 is falsy, so `0 || -1` is -1 and the attempt would sort
+     * as worse than "no score at all". It has to count as the score it is —
+     * R8 draws the same line, and this is the arithmetic end of it.
+     *
+     * Rare but reachable: a partially recognised utterance can score 0 without
+     * tripping the all-omitted guard that turns a take indeterminate.
+     */
+    const report = reportFor([
+      progressOf(1, [
+        { accuracy: 0, words: [] },
+        { accuracy: 62, words: [] },
+      ]),
+    ]);
+
+    // The better attempt still wins, and the zero did not become a sentinel.
+    expect(report.overallScore).toBe(62);
+    expect(report.indeterminateCount).toBe(0);
+    expect(report.totalAttempts).toBe(2);
+  });
+});
+
+describe("a weakest activity that no longer exists", () => {
+  it("survives, where the previous orphan test could not reach", () => {
+    /**
+     * `weakestActivity` is only computed when more than one activity scored,
+     * so a single-activity orphan test never evaluates its title lookup —
+     * which is how that optional chain stayed unpinned. Two orphans reach it.
+     */
+    const progress = [
+      progressOf(98, [{ accuracy: 88, words: [] }]),
+      progressOf(99, [{ accuracy: 41, words: [] }]),
+    ];
+
+    expect(() => reportFor(progress)).not.toThrow();
+    const report = reportFor(progress);
+
+    expect(report.strongestActivity?.id).toBe(98);
+    expect(report.weakestActivity?.id).toBe(99);
+    expect(report.weakestActivity?.title).toBe("");
   });
 });

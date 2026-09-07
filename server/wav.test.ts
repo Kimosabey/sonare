@@ -122,6 +122,51 @@ describe("inspectWav", () => {
     expect(info.seconds).toBeCloseTo(0.5, 5);
   });
 
+  it("reads a header-only file as zero seconds, not as unreadable", () => {
+    /**
+     * The exact boundary of the chunk walk: in a 44-byte WAV the data chunk's
+     * own header ends at the last byte, so `offset + 8 <= buf.length` is an
+     * equality. Off by one there and the data chunk is never reached at all —
+     * the file reports "no data chunk" and a cancelled take comes back to the
+     * learner as "that recording could not be read" instead of the honest
+     * "too short".
+     *
+     * A reachable input, not a contrived one: the client encoder deliberately
+     * produces a valid 44-byte file for a take cancelled before the first
+     * audio frame arrives.
+     */
+    const headerOnly = wav({ dataBytes: 0 });
+    expect(headerOnly).toHaveLength(44);
+
+    const info = inspectWav(headerOnly);
+
+    expect(info.dataBytes).toBe(0);
+    expect(info.seconds).toBe(0);
+    expect(info.sampleRate).toBe(16000);
+  });
+
+  it("gives a header-only file the honest 'too short', not a format error", () => {
+    // The consequence, asserted where the learner meets it: the duration gate
+    // is what should refuse an empty take, and it can only do that if the
+    // parser got far enough to report a duration.
+    const info = inspectWav(wav({ dataBytes: 0 }));
+
+    expect(() => assertDuration(info, 0.25, 15)).toThrowError(
+      expect.objectContaining({ code: "AUDIO_TOO_SHORT" }) as Error,
+    );
+  });
+
+  it("reads a fmt chunk that ends exactly at the end of the buffer", () => {
+    // The other equality in the walk, `body + 16 <= buf.length`. A truncated
+    // upload that stops right after fmt must be reported as missing its data
+    // chunk — which is true — rather than as missing fmt, which is not.
+    const truncated = wav({ dataBytes: 0 }).subarray(0, 36);
+
+    expect(() => inspectWav(truncated)).toThrowError(
+      expect.objectContaining({ message: expect.stringContaining("data") as unknown as string }) as Error,
+    );
+  });
+
   it("rejects a buffer too short to be a WAV at all", () => {
     expect(() => inspectWav(Buffer.alloc(4))).toThrow();
     try {
