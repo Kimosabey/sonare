@@ -17,6 +17,15 @@ export interface DiagnosticRecord {
   activityId?: number;
   /** Self-reported on the language picker — identifies a person, not just a session. */
   learnerName?: string;
+  /**
+   * The signed learner id, when the report carried a valid token.
+   *
+   * Added so a deletion request can actually reach these records. Without it
+   * "delete my data" would leave a trail of device fingerprints and failure
+   * details behind, expiring only on the 90-day TTL — which is a promise
+   * quietly not kept rather than a limitation anyone chose.
+   */
+  learnerId?: string;
   code: string;
   domain: string;
   message: string;
@@ -65,4 +74,11 @@ export async function recordDiagnostic(record: DiagnosticRecord): Promise<void> 
 export async function listDiagnostics(limit: number): Promise<DiagnosticRecord[]> {
   const db = await getDb();
   return db.collection<DiagnosticRecord>("diagnostics").find({}).sort({ at: -1 }).limit(limit).toArray();
+}
+
+/** Erases one learner's diagnostic reports. Part of a deletion request. */
+export async function deleteDiagnosticsFor(learnerId: string): Promise<number> {
+  const db = await getDb();
+  const result = await db.collection("diagnostics").deleteMany({ learnerId });
+  return result.deletedCount;
 }

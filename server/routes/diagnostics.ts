@@ -20,6 +20,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { recordDiagnostic, listDiagnostics } from "../diagnostics.js";
+import { learnerIdFrom, optionalLearner } from "../middleware/identity.js";
 import { listAttempts } from "../attempts.js";
 import { getSpendReport } from "../spend.js";
 import { diagnosticsLimiter } from "../rateLimit.js";
@@ -85,7 +86,13 @@ function requireDiagnosticsToken(req: Request, res: Response, next: NextFunction
   });
 }
 
-diagnosticsRouter.post("/diagnostics", (req: Request, res: Response) => {
+/**
+ * `optionalLearner`, so a report from an unregistered learner still lands —
+ * a capture failure is most useful precisely when something is wrong, which
+ * includes identity. The id is attached when it is there so a deletion
+ * request can later reach these records.
+ */
+diagnosticsRouter.post("/diagnostics", optionalLearner, (req: Request, res: Response) => {
   const parsed = DiagnosticBodySchema.safeParse(req.body);
   const body = parsed.success ? parsed.data : {};
 
@@ -99,6 +106,7 @@ diagnosticsRouter.post("/diagnostics", (req: Request, res: Response) => {
     ...(body.sessionId ? { sessionId: body.sessionId } : {}),
     ...(body.activityId !== undefined ? { activityId: body.activityId } : {}),
     ...(body.learnerName ? { learnerName: body.learnerName } : {}),
+    ...(learnerIdFrom(res) !== null ? { learnerId: learnerIdFrom(res) as string } : {}),
     context: {
       userAgent: req.headers["user-agent"] ?? "not reported",
       ...(typeof body.context === "object" && body.context !== null ? body.context : {}),

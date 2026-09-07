@@ -89,8 +89,17 @@ vi.mock("./db.js", () => ({
           return Promise.resolve(next);
         },
         deleteMany: (f: { learnerId: string }) => {
-          for (const [k, v] of store) if (k.startsWith(`${name}/`) && v.learnerId === f.learnerId) store.delete(k);
-          return Promise.resolve({ acknowledged: true });
+          // Returns deletedCount, as the driver does. Without it the route's
+          // reported counts are undefined and vanish from the JSON — which is
+          // exactly how the assertion below caught this mock being wrong.
+          let deletedCount = 0;
+          for (const [k, v] of store) {
+            if (k.startsWith(`${name}/`) && v.learnerId === f.learnerId) {
+              store.delete(k);
+              deletedCount += 1;
+            }
+          }
+          return Promise.resolve({ acknowledged: true, deletedCount });
         },
         deleteOne: (f: { _id: string }) => {
           store.delete(`${name}/${f._id}`);
@@ -490,6 +499,129 @@ describe("a second device", () => {
   });
 });
 
+describe("erasing everything, on request", () => {
+  /** Fills every collection that can hold something about this learner. */
+  async function fillEverything(token: string): Promise<void> {
+    await score(token);
+    await fetch(`${base}/api/v1/diagnostics`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...client(token) },
+      body: JSON.stringify({ code: "MIC_BLOCKED", domain: "client", message: "no permission" }),
+    });
+    await pushSync(
+      {
+        progress: [{ slug: "fr", entries: [{ activityId: 1, passed: true, bestAccuracy: 88, attemptsUsed: 2, skipped: false, at: "2026-09-07T10:00:00.000Z" }] }],
+        skills: [{ slug: "fr", skills: [{ grapheme: "ment", samples: [{ at: "2026-09-07T10:00:00.000Z", accuracy: 61 }] }] }],
+        streak: { days: ["2026-09-07"], longest: 1 },
+      },
+      token,
+    );
+    // The scoring and diagnostics writes are fire-and-forget.
+    await new Promise((r) => setTimeout(r, 30));
+  }
+
+  /** Every stored document mentioning this learner, by collection. */
+  function traceOf(learnerId: string): string[] {
+    return [...store.entries()]
+      .filter(([, v]) => JSON.stringify(v).includes(learnerId))
+      .map(([k]) => k.split("/")[0] ?? k)
+      .filter((c, i, all) => all.indexOf(c) === i)
+      .sort();
+  }
+
+  it("leaves nothing behind in any collection", async () => {
+    /**
+     * The test the privacy posture rests on. It seeds every collection through
+     * the real endpoints — so a collection added later gets swept up by this
+     * assertion rather than being quietly missed — and then requires that no
+     * stored document mentions the learner at all.
+     */
+    const token = await register(LEARNER, "Marie");
+    await fillEverything(token);
+
+    // Guard against the test passing because nothing was ever written.
+    expect(traceOf(LEARNER)).toEqual(
+      expect.arrayContaining(["attempts", "diagnostics", "learners", "progress", "skills", "streaks"]),
+    );
+
+    const res = await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
+
+    expect(res.status).toBe(200);
+    expect(traceOf(LEARNER)).toEqual([]);
+  });
+
+  it("reports what it removed, so the deletion can be checked", async () => {
+    // A silent 204 is indistinguishable from a deletion that missed a
+    // collection somebody added later.
+    const token = await register(LEARNER);
+    await fillEverything(token);
+
+    const res = await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
+
+    expect((await res.json()) as { deleted: boolean; attempts: number; diagnostics: number }).toEqual({
+      deleted: true,
+      attempts: 1,
+      diagnostics: 1,
+    });
+  });
+
+  it("erases nobody else", async () => {
+    const mine = await register(LEARNER);
+    const theirs = await register(SECOND_LEARNER);
+    await fillEverything(mine);
+    await fillEverything(theirs);
+
+    await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(mine) });
+
+    expect(traceOf(LEARNER)).toEqual([]);
+    expect(traceOf(SECOND_LEARNER)).toEqual(
+      expect.arrayContaining(["attempts", "learners", "progress", "skills", "streaks"]),
+    );
+  });
+
+  it("refuses to erase without a valid token", async () => {
+    // Otherwise anyone could erase anyone by sending their id.
+    const token = await register(LEARNER);
+    await fillEverything(token);
+
+    const bare = await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(LEARNER) });
+    const none = await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client() });
+
+    expect(bare.status).toBe(401);
+    expect(none.status).toBe(401);
+    expect(traceOf(LEARNER).length).toBeGreaterThan(0);
+  });
+
+  it("is safe to repeat", async () => {
+    // Deletion is idempotent, which is what makes retrying a part-way failure
+    // the right response rather than a risk.
+    const token = await register(LEARNER);
+    await fillEverything(token);
+
+    await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
+    const second = await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
+
+    expect(second.status).toBe(200);
+    expect(traceOf(LEARNER)).toEqual([]);
+  });
+
+  it("lets the learner start again afterwards", async () => {
+    /**
+     * The token is not revoked — there is no server-side token state to revoke
+     * it from — so a learner who deletes and keeps the same browser simply
+     * begins a new record under the same id. Stated here because it is the
+     * behaviour, not an oversight.
+     */
+    const token = await register(LEARNER);
+    await fillEverything(token);
+    await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
+
+    const after = await pullSync(token);
+
+    expect(after).toEqual({ progress: [], skills: [], streak: { days: [], longest: 0 } });
+  });
+});
+
 describe("rotating a token mid-journey", () => {
   it("keeps the learner and their record", async () => {
     const original = await register(LEARNER);
@@ -514,6 +646,7 @@ describe("the routes are mounted where the client expects", () => {
     ["GET", "/api/v1/sync"],
     ["POST", "/api/v1/sync"],
     ["POST", "/api/v1/pronunciation"],
+    ["DELETE", "/api/v1/learners/me"],
   ])("answers %s %s rather than 404", async (method, path) => {
     /**
      * A router mounted at the wrong prefix is invisible to every unit test —

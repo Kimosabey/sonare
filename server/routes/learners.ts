@@ -9,7 +9,12 @@
 
 import { Router } from "express";
 import { issueToken, isLearnerId } from "../identity.js";
-import { registerLearner } from "../data/learners.js";
+import { registerLearner, deleteLearner } from "../data/learners.js";
+import { deleteProgress } from "../data/progress.js";
+import { deleteSkills } from "../data/skills.js";
+import { deleteStreak } from "../data/streaks.js";
+import { deleteAttemptsFor } from "../attempts.js";
+import { deleteDiagnosticsFor } from "../diagnostics.js";
 import { learnerIdFrom, requireLearner } from "../middleware/identity.js";
 import { diagnosticsLimiter } from "../rateLimit.js";
 import { isAppError } from "../errors.js";
@@ -92,4 +97,71 @@ learnersRouter.post("/learners/rotate", diagnosticsLimiter, requireLearner, (_re
   }
 
   res.json({ token: issueToken(learnerId) });
+});
+
+/**
+ * Erases everything this server holds about the learner.
+ *
+ * The technical half of a deletion request, and it had no implementation in
+ * any form — which meant the privacy posture was a document describing
+ * something that could not be done.
+ *
+ * All six collections, and the count from each is returned. That is
+ * deliberate: a deletion that reports what it removed can be verified, and a
+ * silent 204 is indistinguishable from a deletion that quietly missed a
+ * collection somebody added later.
+ *
+ * Sequential rather than parallel. If one collection fails, the ones before it
+ * are already gone and the client can retry — deletion is idempotent, so a
+ * retry costs nothing. Run in parallel, a partial failure would leave an
+ * arbitrary subset removed with no way to know which.
+ *
+ * Two honest limits, both consequences of letting people practise without
+ * registering. An anonymous attempt carries no learner id, so nobody can find
+ * it — not us, and not the learner asking; those expire on the TTL. And the
+ * token is not revoked, because there is no server-side token state to revoke
+ * it from: a learner who deletes and keeps using the same browser will simply
+ * start accumulating a new record under the same id.
+ */
+learnersRouter.delete("/learners/me", diagnosticsLimiter, requireLearner, (_req, res) => {
+  const learnerId = learnerIdFrom(res);
+  if (learnerId === null) {
+    res.status(401).json({
+      error: {
+        code: "UNAUTHENTICATED",
+        domain: "client",
+        message: "no learner on the request",
+        userMessage: "Please reload the page and try again.",
+      },
+    });
+    return;
+  }
+
+  void (async (): Promise<void> => {
+    try {
+      const attempts = await deleteAttemptsFor(learnerId);
+      const diagnostics = await deleteDiagnosticsFor(learnerId);
+      await deleteProgress(learnerId);
+      await deleteSkills(learnerId);
+      await deleteStreak(learnerId);
+      // Last, so a failure earlier leaves the learner record present and the
+      // retry can still find everything by the same id.
+      await deleteLearner(learnerId);
+
+      logger.warn({ learnerId, attempts, diagnostics }, "[learners] erased a learner on request");
+      res.json({ deleted: true, attempts, diagnostics });
+    } catch (err) {
+      logger.error({ err, learnerId }, "[learners] deletion failed part-way");
+      res.status(503).json({
+        error: {
+          code: "PROVIDER_UNAVAILABLE",
+          domain: "server",
+          message: "deletion did not complete",
+          // Says the true thing: some may be gone, and retrying is safe and
+          // is what finishes the job.
+          userMessage: "Your data was not fully deleted. Please try again.",
+        },
+      });
+    }
+  })();
 });

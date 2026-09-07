@@ -119,3 +119,17 @@ export async function listAttempts(limit: number): Promise<AttemptRecord[]> {
   const db = await getDb();
   return db.collection<AttemptRecord>("attempts").find({}).sort({ at: -1 }).limit(limit).toArray();
 }
+
+/**
+ * Erases one learner's attempt trail.
+ *
+ * Part of a deletion request. Only reaches records that carry a `learnerId` —
+ * anonymous takes cannot be attributed to anyone and so cannot be found by
+ * anyone either, which is the honest consequence of letting people practise
+ * without registering. Those expire on the TTL.
+ */
+export async function deleteAttemptsFor(learnerId: string): Promise<number> {
+  const db = await getDb();
+  const result = await db.collection<AttemptRecord>("attempts").deleteMany({ learnerId });
+  return result.deletedCount;
+}
