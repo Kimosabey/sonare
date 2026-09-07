@@ -18,6 +18,8 @@ import { assertAzureFormat, assertDuration, inspectWav } from "../wav.js";
 import { recordAttempt } from "../attempts.js";
 import { recordCallOutcome } from "../counters.js";
 import { learnerIdFrom, optionalLearner } from "../middleware/identity.js";
+import { rollupSkills } from "../domain/rollup.js";
+import { mergeAndSaveSkills } from "../data/skills.js";
 import { alignSpoken } from "../alignment.js";
 import { compareVerdicts } from "../verdicts.js";
 import { recordDiagnostic } from "../diagnostics.js";
@@ -154,6 +156,34 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
      * it the honest answer, and the provider still charged for the call.
      */
     await recordCallOutcome({ seconds: info.seconds, indeterminate: result.indeterminate });
+
+    /**
+     * The learner's sound history, kept past the attempt's own expiry.
+     *
+     * `attempts` carries a 90-day TTL because it holds the spoken phrase, the
+     * device context and a session id. The syllable accuracies inside it are
+     * the learner's own record, and the product's one distinctive claim is
+     * built on having them for longer than that — so the useful part is
+     * extracted here and merged into `skills`, which has no TTL. Retention
+     * split by purpose: we stop keeping the take, the learner keeps the
+     * history.
+     *
+     * Requires an identity, because there is nowhere to put it otherwise. A
+     * learner practising anonymously still gets scored and still gets a
+     * report; only the cross-session history needs a learner to belong to.
+     *
+     * Fire-and-forget, like the attempt write. Losing a sound's history must
+     * never cost a learner the score they just earned.
+     */
+    const rollupLearner = learnerIdFrom(res);
+    if (rollupLearner !== null) {
+      const skills = rollupSkills(result, language, new Date().toISOString());
+      if (skills !== null) {
+        void mergeAndSaveSkills(rollupLearner, skills).catch((err: unknown) => {
+          logger.error({ err }, "[pronunciation] failed to roll syllables into skills");
+        });
+      }
+    }
     const totalMs = msSince(startedAt);
 
     res.json(result);

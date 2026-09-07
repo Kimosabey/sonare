@@ -311,6 +311,48 @@ describe("a learner's first session, end to end", () => {
     expect(store.get(`learners/${LEARNER}`)).toMatchObject({ displayName: "Marie", locale: "fr-FR" });
   });
 
+  it("keeps the syllables past the attempt's own expiry", async () => {
+    /**
+     * Retention split by purpose, over the whole path. The attempt carries a
+     * 90-day TTL because it holds the spoken phrase and the device context;
+     * the syllable accuracies inside it are the learner's own record, so they
+     * are rolled into `skills`, which has none. We stop keeping the take, the
+     * learner keeps the history.
+     */
+    const token = await register(LEARNER);
+
+    await score(token);
+    await new Promise((r) => setTimeout(r, 20));
+
+    const skills = store.get(`skills/${LEARNER}:fr`);
+    expect(skills?.["skills"]).toEqual([
+      { grapheme: "bon", samples: [{ at: expect.any(String), accuracy: 88 }] },
+    ]);
+  });
+
+  it("rolls up nothing for an anonymous take", async () => {
+    // There is nowhere to put it. The learner is still scored and still gets
+    // a report; only the cross-session history needs someone to belong to.
+    await score();
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect([...store.keys()].filter((k) => k.startsWith("skills/"))).toEqual([]);
+  });
+
+  it("rolls up nothing from an indeterminate take", async () => {
+    // R8 again: no measurement may be invented for audio the system declined
+    // to judge, and an invented one here would be averaged into what the
+    // learner is later told about their own pronunciation.
+    providerBehaviour = () =>
+      Promise.resolve({ indeterminate: true, provider: "azure", reason: "NO_SPEECH_DETECTED", words: [] });
+    const token = await register(LEARNER);
+
+    await score(token);
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect([...store.keys()].filter((k) => k.startsWith("skills/"))).toEqual([]);
+  });
+
   it("counts the call against the shared spend ceiling", async () => {
     // The ceiling is only real if it is reached through the actual route.
     const token = await register(LEARNER);
