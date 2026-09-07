@@ -115,7 +115,7 @@ export function useCaptureToasts(recorder: UseRecorderValue, options: CaptureToa
       toast.push({
         key: CAPTURE_KEY,
         kind: "warn",
-        title: heard ? "Couldn't match that to the phrase" : "Couldn't get a clear read",
+        title: heard ? "Couldn’t match that to the phrase" : "Couldn’t get a clear read",
         detail: heard
           ? "We heard you clearly. Try it slower, one word at a time."
           : "Try again a little louder, or somewhere quieter.",

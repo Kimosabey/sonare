@@ -131,7 +131,7 @@ describe("the two rows that are diagnostics", () => {
 
     render(<DeviceMetaPanel />);
 
-    expect(rowValue("online")).toBe("NO — recordings can't be scored");
+    expect(rowValue("online")).toBe("NO — recordings can’t be scored");
   });
 
   it("names the consequence rather than just the state", () => {
@@ -146,7 +146,7 @@ describe("the two rows that are diagnostics", () => {
     render(<DeviceMetaPanel />);
 
     expect(rowValue("secure context")).toContain("mic will not open");
-    expect(rowValue("online")).toContain("can't be scored");
+    expect(rowValue("online")).toContain("can’t be scored");
   });
 });
 

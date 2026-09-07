@@ -33,7 +33,7 @@ export function DeviceMetaPanel() {
               <Row label="viewport" value={`${window.innerWidth}×${window.innerHeight}`} />
               <Row label="language" value={navigator.language} />
               <Row label="connection" value={connection?.effectiveType ?? "not reported"} />
-              <Row label="online" value={online ? "yes" : "NO — recordings can't be scored"} />
+              <Row label="online" value={online ? "yes" : "NO — recordings can’t be scored"} />
               <Row label="secure context" value={window.isSecureContext ? "yes" : "NO — mic will not open"} />
             </tbody>
           </table>

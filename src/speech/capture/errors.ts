@@ -39,22 +39,22 @@ export class CaptureError extends Error {
 
 const USER_TEXT: Record<CaptureErrorCode, string> = {
   GESTURE_REQUIRED: "Tap the record button to start.",
-  UNSUPPORTED_BROWSER: "This browser can't record audio. Try Safari on iPhone, or Chrome elsewhere.",
+  UNSUPPORTED_BROWSER: "This browser can’t record audio. Try Safari on iPhone, or Chrome elsewhere.",
   PERMISSION_DENIED:
-    "Microphone access is blocked. Allow it in your browser's site settings, then try again.",
+    "Microphone access is blocked. Allow it in your browser’s site settings, then try again.",
   PERMISSION_DISMISSED: "The microphone prompt was dismissed. Tap record and choose Allow.",
   NO_MICROPHONE: "No microphone was found. Connect one and try again.",
-  DEVICE_LOST: "The microphone disconnected. Check it's still connected, then try again.",
+  DEVICE_LOST: "The microphone disconnected. Check it’s still connected, then try again.",
   CONTEXT_SUSPENDED: "Audio was interrupted — a call or another app may have taken the microphone. Tap record to try again.",
-  NO_AUDIO_ENERGY: "We're not hearing anything. Check the microphone isn't muted, then try again.",
+  NO_AUDIO_ENERGY: "We’re not hearing anything. Check the microphone isn’t muted, then try again.",
   TOO_SHORT: "That was too short. Hold on and say the whole phrase.",
   TOO_LONG: "That was too long. Try saying just the phrase on its own.",
-  SNR_TOO_LOW: "It's too noisy to score fairly. Move somewhere quieter and try again.",
+  SNR_TOO_LOW: "It’s too noisy to score fairly. Move somewhere quieter and try again.",
   INSECURE_CONTEXT: "Recording needs a secure connection (HTTPS).",
   INTERRUPTED:
     "Recording was interrupted — a call, another app, or the screen locking may have taken the microphone. Tap record to try again.",
   ROUTE_CHANGED: "The microphone changed partway through — maybe a headset connected or disconnected. Tap record to try again.",
-  UNSUPPORTED_SAMPLE_RATE: "This device's microphone rate isn't supported for recording. Try a different microphone or headset.",
+  UNSUPPORTED_SAMPLE_RATE: "This device’s microphone rate isn’t supported for recording. Try a different microphone or headset.",
 };
 
 export function captureError(code: CaptureErrorCode, detail: string, domain: ErrorDomain = "client"): CaptureError {

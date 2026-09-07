@@ -95,7 +95,7 @@ function ScoreCardBase({
             The code has always known an indeterminate attempt does not burn a
             try, and for a long time never said so. It said so last — under the
             provider's own words for what went wrong — and a learner reading
-            top to bottom hits "couldn't get a clear read" and a sentence about
+            top to bottom hits "couldn’t get a clear read" and a sentence about
             omitted words before reaching the reassurance. At a measured 9.4%
             indeterminate rate they meet this screen roughly once every eleven
             takes, so the order is not a detail: someone who believes they have

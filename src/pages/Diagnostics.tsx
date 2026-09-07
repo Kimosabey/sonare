@@ -343,7 +343,7 @@ export function Diagnostics() {
         setPollCount((n) => n + 1);
         setError(null);
       } catch {
-        if (!cancelled) setError("Couldn't reach the diagnostics API — is the server (and MongoDB) up?");
+        if (!cancelled) setError("Couldn’t reach the diagnostics API — is the server (and MongoDB) up?");
       }
     };
 

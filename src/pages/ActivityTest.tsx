@@ -105,8 +105,8 @@ export function ActivityTest() {
       offlineToastId.current = toast.push({
         key: "network-status",
         kind: "warn",
-        title: "You're offline",
-        detail: "Recordings can't be scored until you reconnect.",
+        title: "You’re offline",
+        detail: "Recordings can’t be scored until you reconnect.",
         duration: 0,
       });
     } else if (offlineToastId.current !== null) {

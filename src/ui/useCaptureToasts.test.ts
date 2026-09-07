@@ -318,7 +318,7 @@ describe("R8 — an indeterminate take", () => {
       lastCapture: { snrDb: HEARD_SPEECH_SNR_DB - 5 } as never,
     });
 
-    expect(last().title).toBe("Couldn't get a clear read");
+    expect(last().title).toBe("Couldn’t get a clear read");
     expect(last().detail).toContain("louder");
   });
 
@@ -338,7 +338,7 @@ describe("R8 — an indeterminate take", () => {
       lastCapture: { snrDb: HEARD_SPEECH_SNR_DB + 15 } as never,
     });
 
-    expect(last().title).toBe("Couldn't match that to the phrase");
+    expect(last().title).toBe("Couldn’t match that to the phrase");
     expect(last().detail).toContain("slower");
     expect(last().detail).not.toContain("louder");
   });
@@ -350,7 +350,7 @@ describe("R8 — an indeterminate take", () => {
 
     to({ state: "idle", result: { indeterminate: true } as never, lastCapture: null });
 
-    expect(last().title).toBe("Couldn't get a clear read");
+    expect(last().title).toBe("Couldn’t get a clear read");
   });
 
   it("warns rather than celebrating", () => {
