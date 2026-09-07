@@ -454,3 +454,129 @@ describe("the stated bar matches the gate", () => {
     expect(attemptLine()).toBe(`Attempt 1 of ${MAX_ATTEMPTS}`);
   });
 });
+
+/**
+ * Where the learner is in the session.
+ *
+ * Ten activities at three tries each is a long sitting, and the bar is the
+ * only thing on screen that answers "how much of this is left". It was built
+ * and never tested, so every state it can show was free to drift: a segment
+ * stuck on "upcoming" after a pass, or a fill that counts attempted rather
+ * than passed, would both still render a plausible-looking bar.
+ */
+describe("mid-session progress", () => {
+  function segments(): string[] {
+    return [...document.querySelectorAll(".step")].map((n) => n.className.replace("step step-", ""));
+  }
+
+  it("shows one segment per activity, whatever the language", async () => {
+    // Not a hardcoded ten. Each language ships its own set, and a bar that
+    // assumed a count would misreport the moment one changed.
+    await open();
+
+    expect(segments()).toHaveLength(LANGUAGE.activities.length);
+  });
+
+  it("marks where the learner is now", async () => {
+    await open();
+
+    expect(segments()[0]).toBe("current");
+    expect(segments().slice(1).every((s) => s === "upcoming")).toBe(true);
+  });
+
+  it("marks a passed activity as passed and moves the marker on", async () => {
+    await open();
+
+    take(88);
+    await waitFor(() => expect(nextButton()).not.toBeNull());
+    fireEvent.click(nextButton()!);
+
+    await waitFor(() => expect(segments()[1]).toBe("current"));
+    expect(segments()[0]).toBe("passed");
+  });
+
+  it("distinguishes an activity that was attempted and not passed", async () => {
+    /**
+     * The state that matters most to a learner scanning the bar: "I have been
+     * here and it did not go well" is different information from "I have not
+     * reached this yet", and the report will show it as not passed. A bar that
+     * collapsed the two would make the session look further along than it is.
+     */
+    await open();
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) take(20);
+    await waitFor(() => expect(nextButton()).not.toBeNull());
+    fireEvent.click(nextButton()!);
+
+    await waitFor(() => expect(segments()[1]).toBe("current"));
+    expect(segments()[0]).toBe("skipped");
+  });
+
+  it("counts passes rather than attempts in the summary", async () => {
+    // "3 passed · 3 attempted" and "0 passed · 3 attempted" are different
+    // sessions, and only the first is progress.
+    await open();
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) take(20);
+    await waitFor(() => expect(nextButton()).not.toBeNull());
+    fireEvent.click(nextButton()!);
+
+    await waitFor(() => expect(document.body.textContent).toContain("0 passed"));
+    expect(document.body.textContent).toContain("1 attempted");
+  });
+
+  it("fills the track from passes, not from position", async () => {
+    /**
+     * A fill driven by how far along the learner is would show progress for
+     * walking through activities without passing any of them — which is
+     * exactly what the three-try soft gate allows.
+     */
+    await open();
+    const fill = () => (document.querySelector(".steps-fill") as HTMLElement | null)?.style.width ?? "";
+
+    expect(fill()).toBe("0%");
+
+    take(88);
+    await waitFor(() => expect(nextButton()).not.toBeNull());
+    fireEvent.click(nextButton()!);
+
+    await waitFor(() => expect(fill()).not.toBe("0%"));
+    expect(Number.parseFloat(fill())).toBeCloseTo(100 / LANGUAGE.activities.length, 1);
+  });
+
+  it("names each segment for a screen reader, and hides the decorative track", async () => {
+    /**
+     * The bar is the session's shape. Read aloud it has to name the activity
+     * and its state per segment — while the fill track carries the same
+     * information again in a form a reader cannot use, so it is hidden rather
+     * than announced twice.
+     */
+    await open();
+
+    const first = document.querySelector(".step");
+    expect(first?.getAttribute("aria-label")).toBe("Activity 1: current");
+    expect(document.querySelector(".steps-track")?.getAttribute("aria-hidden")).toBe("true");
+    expect(document.querySelector(".steps")?.getAttribute("role")).toBe("list");
+  });
+
+  it("survives a restored session that is already partway through", async () => {
+    // Progress persists, so the bar's first render is often not from zero.
+    const data = installStorage({ "sonare.learnerName": "Marie" });
+    await open();
+    take(88);
+    await waitFor(() => expect(nextButton()).not.toBeNull());
+    fireEvent.click(nextButton()!);
+    await waitFor(() => expect(data.size).toBeGreaterThan(1));
+
+    cleanup();
+    // A resumed session greets the learner with "Welcome back" and its own
+    // button, so the shared open() helper's /Start/i does not reach the
+    // activity — matched on either label here.
+    await open();
+    const resume = screen.queryByRole("button", { name: /Start|Continue|Resume/i });
+    if (resume) fireEvent.click(resume);
+
+    await waitFor(() => expect(segments()[0]).toBe("passed"));
+    expect(segments()[1]).toBe("current");
+  });
+});
