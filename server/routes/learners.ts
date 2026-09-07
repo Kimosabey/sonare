@@ -15,6 +15,7 @@ import { deleteSkills } from "../store/skills.js";
 import { deleteStreak } from "../store/streaks.js";
 import { deleteAttemptsFor } from "../attempts.js";
 import { deleteDiagnosticsFor } from "../diagnostics.js";
+import { deleteRateLimitsFor } from "../rateLimitStore.js";
 import { learnerIdFrom, requireLearner } from "../middleware/identity.js";
 import { diagnosticsLimiter } from "../rateLimit.js";
 import { isAppError } from "../errors.js";
@@ -143,6 +144,12 @@ learnersRouter.delete("/learners/me", diagnosticsLimiter, requireLearner, (_req,
     try {
       const attempts = await deleteAttemptsFor(learnerId);
       const diagnostics = await deleteDiagnosticsFor(learnerId);
+      /**
+       * Rate-limit windows too. They expire on their own within minutes, but
+       * their ids contain the learner id now that a limiter keys on it — and a
+       * deletion promise with an asterisk is not worth keeping.
+       */
+      await deleteRateLimitsFor(learnerId);
       await deleteProgress(learnerId);
       await deleteSkills(learnerId);
       await deleteStreak(learnerId);

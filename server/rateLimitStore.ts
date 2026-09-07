@@ -166,3 +166,41 @@ export class MongoRateLimitStore implements Store {
     }
   }
 }
+
+/**
+ * Erases a learner's rate-limit windows. Part of a deletion request.
+ *
+ * Needed the moment a limiter started keying on the learner rather than the
+ * address: the document ids then contain the learner id, so a deletion that
+ * skipped this collection would leave them behind. Caught by the end-to-end
+ * deletion test, which asserts that *no* stored document mentions the learner
+ * — written that way precisely so a collection added later gets swept into the
+ * same assertion instead of being quietly missed.
+ *
+ * They expire on their own within minutes, so this is a small thing. It is
+ * also the difference between a deletion promise that is absolute and one that
+ * is absolute-with-an-asterisk, and the asterisk is not worth keeping.
+ *
+ * A scan over `_id`, which is fine here: a deletion request is rare and this
+ * collection is swept continuously by its TTL, so it is never large.
+ */
+export async function deleteRateLimitsFor(learnerId: string): Promise<number> {
+  try {
+    const db = await getDb();
+    const result = await db.collection<WindowDocument>("ratelimits").deleteMany({
+      // Anchored on the separator so a learner id can only match its own key
+      // segment, never a namespace or a window boundary that happens to
+      // contain the same characters.
+      _id: { $regex: `:${escapeForRegex(learnerId)}:` },
+    });
+    return result.deletedCount;
+  } catch (err) {
+    logger.error({ err }, "[ratelimit] failed to clear a learner's windows");
+    return 0;
+  }
+}
+
+/** So an id can never be read as a pattern. */
+function escapeForRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

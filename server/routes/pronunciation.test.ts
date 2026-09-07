@@ -47,8 +47,15 @@ vi.mock("../diagnostics.js", () => ({ recordDiagnostic: vi.fn(() => Promise.reso
 
 // The real limiter allows 30/min, which this file would exhaust and then start
 // asserting against 429s instead of the validation it means to test.
+/**
+ * Both scoring limiters pass through. The per-learner one was added when
+ * identified learners stopped being subject to the shared per-IP budget — a
+ * classroom behind one NAT was locking itself out — and this mock has to list
+ * every export the route imports or the module fails to load entirely.
+ */
 vi.mock("../rateLimit.js", () => ({
   scoringLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+  perLearnerScoringLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
   diagnosticsLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 

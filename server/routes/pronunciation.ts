@@ -24,7 +24,7 @@ import { mergeAndSaveSkills } from "../store/skills.js";
 import { alignSpoken } from "../alignment.js";
 import { compareVerdicts } from "../verdicts.js";
 import { recordDiagnostic } from "../diagnostics.js";
-import { scoringLimiter } from "../rateLimit.js";
+import { scoringLimiter, perLearnerScoringLimiter } from "../rateLimit.js";
 import type { PronunciationResult } from "../services/types.js";
 import { numberFromEnv } from "../env.js";
 
@@ -58,7 +58,23 @@ export const pronunciationRouter = Router();
  * token is ignored here for the same reason — it is logged and the take
  * proceeds unattributed.
  */
-pronunciationRouter.post("/pronunciation", scoringLimiter, optionalLearner, (req: Request, res: Response) => {
+pronunciationRouter.post(
+  "/pronunciation",
+  /**
+   * Identity first, then the limiters — the order is load-bearing.
+   *
+   * Each limiter decides whether to skip by asking whether this request has a
+   * learner, so it has to be resolved before either runs. `optionalLearner` is
+   * an HMAC verify with no database write, so this costs microseconds.
+   *
+   * The effect: an identified learner is bounded by their own budget and is
+   * not subject to the shared per-IP one, which is what stops a classroom
+   * behind a single NAT locking itself out.
+   */
+  optionalLearner,
+  scoringLimiter,
+  perLearnerScoringLimiter,
+  (req: Request, res: Response) => {
   uploadAudio(req, res, (uploadErr: unknown) => {
     if (uploadErr) {
       const tooBig =
