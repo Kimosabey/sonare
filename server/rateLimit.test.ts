@@ -15,9 +15,28 @@
  * assert them is to hit the ceiling.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
+
+/**
+ * The limiters are Mongo-backed now (rateLimitStore.ts), so `getDb` is mocked
+ * to fail and these run against the in-process fallback.
+ *
+ * Not a convenience. Left real, the fixed forwarded IPs below would count
+ * against a live `ratelimits` collection that persists between runs — the
+ * suite would pass once on an empty collection and fail from then on. Caught
+ * exactly that way, on the next task's gate run rather than on its own.
+ *
+ * It also means these behavioural assertions cover the fallback path
+ * end-to-end, which is the path that has to hold during a database outage.
+ */
+vi.mock("./db.js", () => ({
+  getDb: () => Promise.reject(new Error("no database in this test")),
+}));
+vi.mock("./logger.js", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
 
 let server: Server;
 let base: string;
