@@ -122,6 +122,12 @@ export function rollupSkills(
  * spoken and neither is dropped as a duplicate. Deliberately derived from the
  * take's own time rather than `Date.now()`, so re-rolling the same attempt
  * produces the same timestamps and the union stays idempotent.
+ *
+ * One consequence, recorded because it surprised a test: since a timestamp is
+ * a sample's identity, two *separate* takes landing in the same millisecond
+ * collapse into one. Harmless in reality — a take needs a recording and a
+ * provider round trip, so consecutive ones are seconds apart — but it does
+ * mean a test that scores in a tight loop accumulates one sample, not several.
  */
 function bumped(at: string, index: number): string {
   const base = new Date(at).getTime();

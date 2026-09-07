@@ -3,6 +3,7 @@ import { pronunciationRouter } from "./routes/pronunciation.js";
 import { diagnosticsRouter } from "./routes/diagnostics.js";
 import { learnersRouter } from "./routes/learners.js";
 import { syncRouter } from "./routes/sync.js";
+import { nextRouter } from "./routes/next.js";
 import { warnIfIdentityDisabled } from "./identity.js";
 import { getDb } from "./db.js";
 import { logger } from "./logger.js";
@@ -51,6 +52,7 @@ app.use("/api/v1", pronunciationRouter);
 app.use("/api/v1", diagnosticsRouter);
 app.use("/api/v1", learnersRouter);
 app.use("/api/v1", syncRouter);
+app.use("/api/v1", nextRouter);
 
 app.listen(PORT, () => {
   logger.info({ port: PORT }, "pronunciation API listening");

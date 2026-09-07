@@ -220,6 +220,7 @@ async function boot(): Promise<Express> {
   const { diagnosticsRouter } = await import("./routes/diagnostics.js");
   const { learnersRouter } = await import("./routes/learners.js");
   const { syncRouter } = await import("./routes/sync.js");
+  const { nextRouter } = await import("./routes/next.js");
 
   const app = express();
   // Exactly as index.ts sets it (NFR-04).
@@ -229,6 +230,7 @@ async function boot(): Promise<Express> {
   app.use("/api/v1", diagnosticsRouter);
   app.use("/api/v1", learnersRouter);
   app.use("/api/v1", syncRouter);
+  app.use("/api/v1", nextRouter);
   return app;
 }
 
@@ -499,6 +501,63 @@ describe("a second device", () => {
   });
 });
 
+describe("what to practise next, from what was scored", () => {
+  it("schedules the sound a take just measured", async () => {
+    /**
+     * The loop the product runs on, end to end: a take is scored, its
+     * syllables become history, and the history decides what comes next. None
+     * of the three steps is visible from the others in a unit test.
+     */
+    const token = await register(LEARNER);
+    // One take, deliberately. Two would make this assertion depend on whether
+    // both landed in the same millisecond — a sample's identity is its
+    // timestamp, so same-millisecond takes collapse into one. It is harmless
+    // in reality (a take needs a recording and a round trip) and it made this
+    // test flake between one sample and two.
+    await score(token);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const res = await fetch(`${base}/api/v1/next?slug=fr`, { headers: client(token) });
+    const body = (await res.json()) as {
+      slug: string;
+      due: Array<{ grapheme: string; strength: number }>;
+      all: Array<{ grapheme: string; step: number }>;
+      activitySelected: boolean;
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.slug).toBe("fr");
+    expect(body.all.map((s) => s.grapheme)).toEqual(["bon"]);
+    expect(body.all[0]?.samples).toBe(1);
+    // 88 is strong, so one take climbs one rung and the sound is not due
+    // again for three days.
+    expect(body.all[0]?.step).toBe(1);
+    expect(body.due).toEqual([]);
+    // Named rather than omitted, so a client can tell "not implemented" from
+    // "nothing to recommend".
+    expect(body.activitySelected).toBe(false);
+  });
+
+  it("returns an empty schedule for a learner with no history", async () => {
+    // Not an error: a first visit has nothing due, and the client has its own
+    // ordering to start with.
+    const token = await register(LEARNER);
+
+    const res = await fetch(`${base}/api/v1/next?slug=fr`, { headers: client(token) });
+
+    expect(res.status).toBe(200);
+    expect((await res.json()) as { due: unknown[]; all: unknown[] }).toMatchObject({ due: [], all: [] });
+  });
+
+  it("refuses without a token, and without a language", async () => {
+    const token = await register(LEARNER);
+
+    expect((await fetch(`${base}/api/v1/next?slug=fr`, { headers: client() })).status).toBe(401);
+    expect((await fetch(`${base}/api/v1/next`, { headers: client(token) })).status).toBe(400);
+    expect((await fetch(`${base}/api/v1/next?slug=../etc`, { headers: client(token) })).status).toBe(400);
+  });
+});
+
 describe("erasing everything, on request", () => {
   /** Fills every collection that can hold something about this learner. */
   async function fillEverything(token: string): Promise<void> {
@@ -647,6 +706,7 @@ describe("the routes are mounted where the client expects", () => {
     ["POST", "/api/v1/sync"],
     ["POST", "/api/v1/pronunciation"],
     ["DELETE", "/api/v1/learners/me"],
+    ["GET", "/api/v1/next?slug=fr"],
   ])("answers %s %s rather than 404", async (method, path) => {
     /**
      * A router mounted at the wrong prefix is invisible to every unit test —
