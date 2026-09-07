@@ -61,6 +61,72 @@
   --dur-quick: 150ms;
   --dur-standard: 350ms;
   --dur-slow: 500ms;
+  /* ══ scale ═══════════════════════════════════════════════════════════════
+   *
+   * Colour above was already tokenised. Space, radius, type and the tap floor
+   * were not, and had drifted: 19 distinct font sizes across ~45 declarations,
+   * with 9/9.5/10/10.5 all doing one job and 14/14.5/15 all doing another. A
+   * half-pixel difference is invisible on screen and expensive in a
+   * stylesheet, because every new rule has to guess which of four values it
+   * belongs with.
+   *
+   * These are the scale. New rules use them; the existing literals are being
+   * migrated deliberately rather than in one sweep, since collapsing forty
+   * declarations at once reflows a working product faster than it can be
+   * looked at.
+   */
+
+  /* Space, on a 4px base. Two half-steps because 2px and 6px both do real
+     work in chip padding, where 4px is visibly loose and 0 is cramped. */
+  --space-0: 2px;
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* Radius. 10px was already the de-facto standard at 11 of 25 uses, so the
+     scale is built around it rather than imposed over it. */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  /* Type. Seven steps, named by role rather than size so a rule says what it
+     is for. Values are the most-used member of each drifted cluster. */
+  --text-2xs: 10.5px;  /* mono labels, chip scores */
+  --text-xs: 11px;     /* eyebrows, hints */
+  --text-sm: 12.5px;   /* secondary body, table cells */
+  --text-base: 15px;   /* body */
+  --text-md: 16.5px;   /* lead paragraphs */
+  --text-lg: 23px;     /* section headings */
+  --text-xl: 30px;     /* page heading */
+
+  /**
+   * The minimum any interactive target may be, in either axis.
+   *
+   * 44px is Apple's floor and the practical one: below it a thumb on a moving
+   * bus misses. This is a token rather than a literal because the syllable
+   * chips were 36px — tappable, and the product's core interaction is tapping
+   * a syllable to hear yourself say it. scripts/verify.mjs now fails the build
+   * on any target declared under it.
+   */
+  --tap: 44px;
+
+  /**
+   * Breakpoints, for reference only — a media query cannot read a custom
+   * property. Both already in use: 460px is phone-to-large-phone, 620px is
+   * where the two-column layouts become possible. Mobile-first throughout, so
+   * these are `min-width` and the base styles are the phone.
+   */
+  --bp-phone: 460px;
+  --bp-tablet: 620px;
+
 }
 
 * {
@@ -941,12 +1007,15 @@ button:focus-visible {
 .sy {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 36px;
+  gap: var(--space-2);
+  /* Was 36px. These are buttons when there is a take to play back — the
+     product's core interaction is tapping a syllable to hear yourself say
+     it — so they sit at the tap floor like every other target. */
+  min-height: var(--tap);
   padding: 6px 10px;
   border: 1px solid var(--rule);
   border-bottom-width: 3px;
-  border-radius: 9px;
+  border-radius: var(--radius-lg);
   background: #fff;
   color: var(--ink);
   font-family: var(--sans);
@@ -1458,7 +1527,7 @@ textarea {
 .band-bar {
   display: flex;
   height: 26px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--rule);
   margin: 10px 0 8px;

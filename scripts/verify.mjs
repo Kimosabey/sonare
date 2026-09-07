@@ -203,6 +203,33 @@ forbid({
   allow: (f) => /\.test\.[tj]sx?$/.test(f),
 });
 
+// ── NFR-03 — nothing interactive below the tap floor ────────────────────────
+// The syllable chips shipped at 36px, and they are buttons: tapping one plays
+// back that slice of the learner's own audio, which is the product's core
+// interaction. 44px is the practical floor — below it a thumb on a moving bus
+// misses — and the failure is invisible on a desktop mouse, which is where
+// stylesheets get written. Declared as `--tap` so a rule can say what it means.
+{
+  const css = readFileSync(join(ROOT, "src/styles.css"), "utf8");
+  const hits = [];
+  css.split("\n").forEach((line, i) => {
+    const m = /min-(?:height|width):\s*(\d+)px/.exec(line);
+    // min-width is also used for table overflow, which is not a target — only
+    // flag it under 44 when it is plausibly one, i.e. small.
+    if (m && Number(m[1]) < 44 && Number(m[1]) > 0) {
+      hits.push({ file: "src/styles.css", line: i + 1, text: line.trim().slice(0, 100) });
+    }
+  });
+  if (hits.length) {
+    failures.push({
+      rule: "NFR-03",
+      what: "an interactive target declared below the 44px tap floor",
+      why: "Below 44px a thumb misses. Use var(--tap); the miss is invisible on the desktop mouse the CSS was written with.",
+      hits,
+    });
+  }
+}
+
 // ── report ───────────────────────────────────────────────────────────────────
 if (failures.length === 0) {
   console.log("verify: all checks passed");
