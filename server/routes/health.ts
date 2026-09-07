@@ -28,6 +28,7 @@ import { getDb } from "../db.js";
 import { getScoringProvider } from "../services/index.js";
 import { identityConfigured } from "../identity.js";
 import { snapshot } from "../infra/metrics.js";
+import { countPending } from "../fallbackLog.js";
 import { requireDiagnosticsToken } from "./diagnostics.js";
 
 export const healthRouter = Router();
@@ -93,5 +94,23 @@ healthRouter.get("/readyz", (_req, res) => {
  * same rule: there is no "unset means open".
  */
 healthRouter.get("/metrics", requireDiagnosticsToken, (_req, res) => {
-  res.json(snapshot());
+  /**
+   * `fallbackPending` is read from disk, not from a counter, and that
+   * distinction is the whole point of including it.
+   *
+   * `fallback.written` counts writes since this process started, so a restart
+   * with a full backlog reports zero — and the moment somebody most wants to
+   * know there is unreplayed learner data is right after the restart that
+   * ended the outage. This asks the filesystem, so it is true regardless of
+   * how many times the process has come and gone.
+   *
+   * The one figure here worth alerting on.
+   */
+  void countPending()
+    .then((fallbackPending) => void res.json({ ...snapshot(), fallbackPending }))
+    .catch(() => {
+      // A metrics endpoint that fails because it could not stat a file is
+      // worse than one missing a field.
+      res.json({ ...snapshot(), fallbackPending: null });
+    });
 });

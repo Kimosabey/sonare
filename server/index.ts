@@ -6,6 +6,7 @@ import { syncRouter } from "./routes/sync.js";
 import { nextRouter } from "./routes/next.js";
 import { healthRouter } from "./routes/health.js";
 import { warnIfIdentityDisabled } from "./identity.js";
+import { countPending, replayPending } from "./fallbackLog.js";
 import { getDb } from "./db.js";
 import { logger } from "./logger.js";
 import { getScoringProvider } from "./services/index.js";
@@ -73,6 +74,32 @@ app.listen(PORT, () => {
 // surfaces a bad MONGO_URL immediately instead of on a learner's first take.
 // A failure here is logged, not fatal: attempts.ts/diagnostics.ts already
 // tolerate getDb() rejecting and simply skip persistence for that call.
-void getDb().catch((err: unknown) => {
-  logger.error({ err }, "[db] initial MongoDB connection failed");
-});
+void getDb()
+  .then(async (db) => {
+    /**
+     * Drain any fallback backlog now that Mongo is answering.
+     *
+     * At startup rather than on a timer or per request. A restart is exactly
+     * the moment an outage has ended, and polling would spend a filesystem
+     * read forever to discover nothing is waiting. A long outage with no
+     * restart still accumulates — `fallback.pending` on /metrics is what makes
+     * that visible, and `npm run replay-fallback` drains it without one.
+     */
+    const pending = await countPending();
+    if (pending.attempts + pending.diagnostics === 0) return;
+
+    logger.warn({ pending }, "[fallback] a backlog is waiting — replaying");
+    for (const outcome of await replayPending(db)) {
+      if (outcome.error !== undefined) {
+        logger.error(outcome, "[fallback] replay failed — the file is left in place");
+      } else if (outcome.records > 0) {
+        logger.info(outcome, "[fallback] replayed");
+      }
+    }
+  })
+  .catch((err: unknown) => {
+    // Never fatal. attempts.ts and diagnostics.ts already tolerate getDb()
+    // rejecting and fall back to the local file, which is the mechanism this
+    // replay exists to drain.
+    logger.error({ err }, "[db] initial MongoDB connection or fallback replay failed");
+  });
