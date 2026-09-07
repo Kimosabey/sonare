@@ -72,7 +72,10 @@ function TrendRow({ trend }: { trend: SkillTrend }) {
           <span className="dim">—</span>
         ) : (
           <span className={rising ? "gain" : falling ? "dim" : undefined}>
-            {rising ? "↑" : falling ? "↓" : "→"} {round(trend.before)}
+            <span className="trend-arrow" aria-hidden="true">
+              {rising ? "↑" : falling ? "↓" : "→"}
+            </span>{" "}
+            {round(trend.before)}
           </span>
         )}
       </td>

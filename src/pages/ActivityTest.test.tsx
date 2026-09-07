@@ -689,3 +689,100 @@ describe("the no-audio exit", () => {
     expect(persistedProgress(data).progress).toHaveLength(1);
   });
 });
+
+describe("celebration, and the take it must never fire on", () => {
+  /**
+   * The motion spec's hardest rule, and it had no test.
+   *
+   * Confetti over an unmeasured result is a fabricated verdict wearing an
+   * animation: it tells a learner they succeeded at something the system
+   * explicitly declined to judge. R8 makes `indeterminate` the honest answer
+   * for unusable audio, and the celebration has to respect that or the
+   * honesty is only in the number and not on the screen.
+   */
+
+  it("says nothing celebratory about an indeterminate take", async () => {
+    await open();
+
+    take(null);
+
+    expect(screen.queryByText("PASSED")).not.toBeInTheDocument();
+    expect(screen.queryByText("FIRST TRY!")).not.toBeInTheDocument();
+    expect(screen.queryByText("NEW BEST!")).not.toBeInTheDocument();
+  });
+
+  it("does not celebrate an indeterminate take that follows a pass", async () => {
+    // The nastier version: the activity is already passed, so the banner is on
+    // screen. A later unmeasurable take must not be dressed as a new success.
+    await open();
+    take(88);
+    expect(screen.getByText("FIRST TRY!")).toBeInTheDocument();
+
+    take(null);
+
+    expect(screen.queryByText("FIRST TRY!")).not.toBeInTheDocument();
+    expect(screen.queryByText("NEW BEST!")).not.toBeInTheDocument();
+    // The pass itself stands — it was real, and R8 says the unusable take
+    // costs the learner nothing.
+    expect(screen.getByText("PASSED")).toBeInTheDocument();
+  });
+
+  it("does not celebrate a take below the pass mark", async () => {
+    await open();
+
+    take(40);
+
+    expect(screen.queryByText(/FIRST TRY!|NEW BEST!|PASSED/)).not.toBeInTheDocument();
+  });
+
+  it("celebrates a first-try pass as exactly that", async () => {
+    await open();
+
+    take(88);
+
+    expect(screen.getByText("FIRST TRY!")).toBeInTheDocument();
+  });
+
+  it("calls a beaten best a new best, and only when it is one", async () => {
+    await open();
+    take(65);
+    take(90);
+
+    expect(screen.getByText("NEW BEST!")).toBeInTheDocument();
+  });
+
+  it("does not claim a new best for a pass that did not beat one", async () => {
+    // Otherwise every subsequent pass is a personal best, which makes the
+    // label mean nothing.
+    await open();
+    take(90);
+    take(70);
+
+    expect(screen.queryByText("NEW BEST!")).not.toBeInTheDocument();
+    expect(screen.getByText("PASSED")).toBeInTheDocument();
+  });
+
+  it("adds the celebration class only for a genuine milestone", async () => {
+    /**
+     * The class is what drives the pop animation. A plain pass keeps the
+     * banner still, so the motion marks something that actually happened
+     * rather than firing on every take that clears sixty.
+     */
+    const { container } = await open();
+    take(90);
+    expect(container.querySelector(".pass-banner-celebrate")).not.toBeNull();
+
+    take(70);
+
+    expect(container.querySelector(".pass-banner")).not.toBeNull();
+    expect(container.querySelector(".pass-banner-celebrate")).toBeNull();
+  });
+
+  it("never animates a banner for an indeterminate take", async () => {
+    await open();
+
+    take(null);
+
+    expect(document.querySelector(".pass-banner-celebrate")).toBeNull();
+  });
+});

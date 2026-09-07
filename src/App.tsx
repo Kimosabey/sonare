@@ -12,6 +12,7 @@
  */
 
 import { lazy, Suspense } from "react";
+import type { ReactNode } from "react";
 import { HashRouter, Routes, Route, Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Today } from "./pages/Today.js";
 import { useSync } from "./sync/useSync.js";
@@ -178,6 +179,23 @@ function Header() {
   );
 }
 
+/**
+ * A 240ms entrance per screen.
+ *
+ * The key is the whole mechanism: React discards the previous subtree and the
+ * animation runs on the new one. There is deliberately no exit animation —
+ * an exit has to finish before the next screen can start, which turns every
+ * tap into a round trip twice as long as it needs to be.
+ */
+function ScreenTransition({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  return (
+    <div className="screen" key={location.pathname}>
+      {children}
+    </div>
+  );
+}
+
 function Shell() {
   const [learnerName] = useLearnerName();
 
@@ -200,6 +218,13 @@ function Shell() {
           activities) is statically imported and never suspends, so it renders
           exactly as before with no fallback flash. */}
       <Suspense fallback={<p className="dim">Loading…</p>}>
+        {/*
+          Keyed on the path so each screen animates in on arrival.
+          This adds no remounting the app did not already do: a different
+          route renders a different component regardless, and /:slug already
+          carries its own key so switching language starts a fresh session.
+        */}
+        <ScreenTransition>
         <Routes>
           <Route path="/" element={<Today />} />
           <Route path="/languages" element={<LanguagePicker />} />
@@ -210,6 +235,7 @@ function Shell() {
           <Route path="/fixture" element={<FixtureRunner />} />
           <Route path="/:slug" element={<ActivityTestRoute />} />
         </Routes>
+        </ScreenTransition>
       </Suspense>
     </div>
   );

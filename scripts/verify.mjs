@@ -272,6 +272,48 @@ forbid({
   }
 }
 
+// ── T13 — reduced motion stays a blanket, not a list ────────────────────────
+// The kill-switch works because it is `* { animation: none !important }`: every
+// animation added anywhere is covered without anyone remembering to opt in.
+// Narrowed to a list of selectors it would still look correct, still pass every
+// test, and silently stop covering each new animation from then on — and the
+// people it fails are the ones for whom motion causes nausea or seizures.
+// Checked structurally rather than trusted, because there are 14 @keyframes in
+// this stylesheet and nothing else ties them to the switch.
+{
+  const sheets = walk("src/styles").filter((f) => f.endsWith(".css"));
+  const css = sheets.map((f) => readFileSync(join(ROOT, f), "utf8")).join("\n");
+
+  const block = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/.exec(css);
+  const body = block?.[1] ?? "";
+
+  const problems = [];
+  if (block === null) problems.push("no prefers-reduced-motion block found");
+  else {
+    if (!/(^|\s)\*\s*\{/.test(body)) problems.push("the block does not target `*`");
+    if (!/animation:\s*none\s*!important/.test(body)) {
+      problems.push("no `animation: none !important`");
+    }
+    if (!/transition:\s*none\s*!important/.test(body)) {
+      problems.push("no `transition: none !important`");
+    }
+  }
+
+  const keyframes = [...css.matchAll(/@keyframes\s+([\w-]+)/g)].length;
+  if (keyframes === 0) {
+    problems.push("no @keyframes found at all — this check cannot vouch for anything");
+  }
+
+  if (problems.length > 0) {
+    failures.push({
+      rule: "T13",
+      what: "the reduced-motion kill-switch is not a blanket rule",
+      why: `Every animation must be covered without opting in. ${keyframes} @keyframes rely on it.`,
+      hits: problems.map((text) => ({ file: "src/styles/motion.css", line: 0, text })),
+    });
+  }
+}
+
 // ── report ───────────────────────────────────────────────────────────────────
 if (failures.length === 0) {
   console.log("verify: all checks passed");

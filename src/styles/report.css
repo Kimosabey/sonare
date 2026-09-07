@@ -540,9 +540,35 @@ button.sy {
   border-top: 1px solid var(--rule);
 }
 
+/*
+ * 400ms pulse on the day just credited.
+ *
+ * Fired here rather than on the Today screen's streak deliberately: this line
+ * renders exactly once, immediately after a session ends, which is the moment
+ * the number actually changed. On Today it would fire on every visit that day
+ * and mark nothing.
+ */
+@keyframes streak-pulse {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .session-streak {
   font-size: 16px;
   color: var(--ink);
+}
+
+.session-streak b {
+  display: inline-block;
+  transform-origin: left center;
+  animation: streak-pulse 400ms var(--ease, ease-out) both;
 }
 
 .session-gains {

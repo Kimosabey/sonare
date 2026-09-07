@@ -361,3 +361,31 @@ button:focus-visible {
    One dot per activity — the recognizable "how far through the lesson am I"
    pattern from Duolingo/Mondly-style apps. A row of dots rather than a bar
    because it also shows what's ahead, not just progress so far. */
+
+/* ── screen transition ───────────────────────────────────────────────────── */
+
+/*
+ * 240ms on arrival, so a navigation reads as a move rather than a redraw.
+ *
+ * Twelve pixels and a fade — enough to give direction, short enough that a
+ * learner tapping through several screens is never waiting on it. Deliberately
+ * one-way: there is no exit animation, because an exit has to finish before
+ * the next screen can start and that turns every tap into a 480ms round trip.
+ *
+ * Caught by the global prefers-reduced-motion switch in motion.css like
+ * everything else, which is why there is no media query here.
+ */
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.screen {
+  animation: screen-in var(--dur-standard, 240ms) var(--ease, ease-out) both;
+}
