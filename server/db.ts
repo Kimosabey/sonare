@@ -95,6 +95,14 @@ async function ensureIndexes(db: Db): Promise<void> {
        * collection scan. Nothing asked that question before learners had ids.
        */
       db.collection("attempts").createIndex({ learnerId: 1, at: -1 }),
+      /**
+       * progress is keyed `{learnerId}:{slug}`, so `_id` serves the per-request
+       * read. This one serves the full sync pull and the deletion sweep, both
+       * of which ask for every language a learner has touched.
+       *
+       * No TTL: the learner's own record.
+       */
+      db.collection("progress").createIndex({ learnerId: 1 }),
     ]);
   } catch (err) {
     // A missing index costs query speed (or unbounded retention), not
