@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { parsePlatform, parseUserAgent } from "../ui/parseUserAgent.js";
+import { parsePlatform, parseUserAgent } from "../lib/parseUserAgent.js";
 import { band } from "../speech/components/band.js";
 import type { PronunciationResult } from "../speech/scoring/types.js";
 

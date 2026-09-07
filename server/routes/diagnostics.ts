@@ -1,6 +1,6 @@
 /**
  * POST /api/v1/diagnostics — client-side capture/scoring errors, reported
- * fire-and-forget from src/ui/useCaptureToasts.ts. Never anything the
+ * fire-and-forget from src/hooks/useCaptureToasts.ts. Never anything the
  * learner is waiting on; always responds 204 regardless of whether the
  * write actually succeeded (recordDiagnostic already swallows its own
  * failures). Rate-limited but not token-gated — it's write-only and leaks

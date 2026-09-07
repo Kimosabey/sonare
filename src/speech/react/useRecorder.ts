@@ -12,8 +12,8 @@ import { CaptureError } from "../capture/errors.js";
 import type { CaptureResult, GrantedConstraints, RecorderState } from "../capture/types.js";
 import { scoreRecording, ScoringError } from "../scoring/client.js";
 import type { PronunciationResult } from "../scoring/types.js";
-import { createLevelStore } from "../../ui/levelStore.js";
-import type { LevelStore } from "../../ui/levelStore.js";
+import { createLevelStore } from "../../stores/levelStore.js";
+import type { LevelStore } from "../../stores/levelStore.js";
 
 export interface UseRecorderOptions {
   referenceText: string;

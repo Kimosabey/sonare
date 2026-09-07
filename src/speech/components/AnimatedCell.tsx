@@ -1,6 +1,6 @@
 /** A score-grid cell whose number counts up to its value rather than popping in. */
 
-import { useCountUp } from "../../ui/useCountUp.js";
+import { useCountUp } from "../../hooks/useCountUp.js";
 
 interface AnimatedCellProps {
   value: number | null | undefined;

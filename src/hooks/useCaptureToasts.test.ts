@@ -25,7 +25,7 @@ import type { UseRecorderValue } from "../speech/react/useRecorder.js";
 
 const push = vi.fn(() => 1);
 
-vi.mock("./ToastProvider.js", () => ({
+vi.mock("../components/ToastProvider.js", () => ({
   useToast: () => ({ push, dismiss: vi.fn(), clear: vi.fn() }),
 }));
 

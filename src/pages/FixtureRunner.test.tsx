@@ -46,16 +46,16 @@ vi.mock("../speech/react/useRecorder.js", () => ({
     };
   },
 }));
-vi.mock("../ui/useCaptureToasts.js", () => ({
+vi.mock("../hooks/useCaptureToasts.js", () => ({
   useCaptureToasts: () => undefined,
   HEARD_SPEECH_SNR_DB: 10,
 }));
-vi.mock("../ui/useSyllablePlayback.js", () => ({
+vi.mock("../hooks/useSyllablePlayback.js", () => ({
   useSyllablePlayback: () => ({ playingOffsetTicks: null, play: vi.fn(), available: false }),
 }));
 
 const pushedToasts: { title: string }[] = [];
-vi.mock("../ui/ToastProvider.js", () => ({
+vi.mock("../components/ToastProvider.js", () => ({
   useToast: () => ({
     push: (t: { title: string }) => void pushedToasts.push(t),
     dismiss: vi.fn(),

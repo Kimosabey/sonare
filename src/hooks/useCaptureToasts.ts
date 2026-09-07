@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef } from "react";
-import { useToast } from "./ToastProvider.js";
+import { useToast } from "../components/ToastProvider.js";
 import type { UseRecorderValue } from "../speech/react/useRecorder.js";
 
 /**

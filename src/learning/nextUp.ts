@@ -19,7 +19,7 @@
  */
 
 import { LANGUAGES } from "../activities/languages/index.js";
-import { readProgress } from "../ui/useProgressPersistence.js";
+import { readProgress } from "../hooks/useProgressPersistence.js";
 import type { Activity, ActivityProgress } from "../activities/types.js";
 
 export interface NextUp {

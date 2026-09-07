@@ -68,18 +68,18 @@ vi.mock("../speech/react/useRecorder.js", () => ({
     };
   },
 }));
-vi.mock("../ui/useCaptureToasts.js", () => ({
+vi.mock("../hooks/useCaptureToasts.js", () => ({
   useCaptureToasts: () => undefined,
   HEARD_SPEECH_SNR_DB: 10,
 }));
-vi.mock("../ui/useSyllablePlayback.js", () => ({
+vi.mock("../hooks/useSyllablePlayback.js", () => ({
   useSyllablePlayback: () => ({ playingOffsetTicks: null, play: vi.fn(), available: false }),
 }));
-vi.mock("../ui/useModelSpeech.js", () => ({
+vi.mock("../hooks/useModelSpeech.js", () => ({
   useModelSpeech: () => ({ speak: vi.fn(), cancel: vi.fn(), speaking: false, available: false }),
 }));
-vi.mock("../ui/useWakeLock.js", () => ({ useWakeLock: () => undefined }));
-vi.mock("../ui/ToastProvider.js", () => ({
+vi.mock("../hooks/useWakeLock.js", () => ({ useWakeLock: () => undefined }));
+vi.mock("../components/ToastProvider.js", () => ({
   useToast: () => ({ push: vi.fn(), dismiss: vi.fn(), clear: vi.fn() }),
 }));
 

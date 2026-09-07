@@ -21,7 +21,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LiveInterimFeedback, LiveLevelMeter } from "./LiveLevel.js";
-import { createLevelStore } from "./levelStore.js";
+import { createLevelStore } from "../stores/levelStore.js";
 
 afterEach(cleanup);
 

@@ -11,7 +11,7 @@
 import { useSyncExternalStore } from "react";
 import { LevelMeter } from "../speech/components/LevelMeter.js";
 import { InterimFeedback } from "./InterimFeedback.js";
-import type { LevelStore } from "./levelStore.js";
+import type { LevelStore } from "../stores/levelStore.js";
 
 interface LiveLevelMeterProps {
   store: LevelStore;

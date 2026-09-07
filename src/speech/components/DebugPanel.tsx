@@ -7,7 +7,7 @@
  */
 
 import { describeConstraint } from "../capture/constraints.js";
-import { parseUserAgent } from "../../ui/parseUserAgent.js";
+import { parseUserAgent } from "../../lib/parseUserAgent.js";
 import type { CaptureResult, GrantedConstraints } from "../capture/types.js";
 import type { PronunciationResult } from "../scoring/types.js";
 import { memo } from "react";

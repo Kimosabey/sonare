@@ -12,8 +12,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { LANGUAGES } from "../activities/languages/index.js";
-import { useLearnerName } from "../ui/useLearnerName.js";
-import { DeviceMetaPanel } from "../ui/DeviceMetaPanel.js";
+import { useLearnerName } from "../hooks/useLearnerName.js";
+import { DeviceMetaPanel } from "../components/DeviceMetaPanel.js";
 
 export function LanguagePicker() {
   const [name, setName] = useLearnerName();

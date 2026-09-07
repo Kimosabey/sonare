@@ -9,8 +9,8 @@
  * that only exist after a recording; this is the subset visible on load.
  */
 
-import { parseUserAgent } from "./parseUserAgent.js";
-import { useOnlineStatus } from "./useOnlineStatus.js";
+import { parseUserAgent } from "../lib/parseUserAgent.js";
+import { useOnlineStatus } from "../hooks/useOnlineStatus.js";
 
 interface NetworkInformation {
   effectiveType?: string;
