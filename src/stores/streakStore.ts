@@ -200,6 +200,29 @@ export function daysInLast(streak: Streak, window = 7, today: string = localDay(
   }).length;
 }
 
+/**
+ * Replaces the stored streak.
+ *
+ * For writing back the server's merged day set, which is a union of every
+ * device's days — so it can only ever have more days than this one, never
+ * fewer. `recordPractice` remains the only way to credit a day, and it still
+ * takes no score.
+ */
+export function writeStreak(learnerName: string | null, streak: Streak): void {
+  const days = [...new Set(streak.days.filter(isDay))].sort().slice(-MAX_DAYS);
+  const next: Streak = {
+    days,
+    current: currentRun(days),
+    longest: Math.max(streak.longest, longestRun(days)),
+  };
+
+  try {
+    localStorage.setItem(storageKey(learnerName), JSON.stringify(next));
+  } catch {
+    // Best effort — only durability is lost.
+  }
+}
+
 /** Forgets a learner's practice history. */
 export function clearStreak(learnerName: string | null): void {
   try {

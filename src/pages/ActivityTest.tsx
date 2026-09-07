@@ -36,6 +36,9 @@ import { useSyllablePlayback } from "../hooks/useSyllablePlayback.js";
 import { useModelSpeech } from "../hooks/useModelSpeech.js";
 import { useMicrophonePermission } from "../hooks/useMicrophonePermission.js";
 import { newSessionId } from "../lib/sessionId.js";
+import { recordPractice } from "../stores/streakStore.js";
+import { recordSkills } from "../stores/skillStore.js";
+import { markLanguageDirty, markStreakDirty } from "../sync/dirty.js";
 import { useProgressPersistence } from "../hooks/useProgressPersistence.js";
 import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
 import { buildReport } from "../activities/report.js";
@@ -148,6 +151,44 @@ export function ActivityTest() {
       // brief double-scoring races (continuous mode) getting a downgraded
       // celebration copy is a fully acceptable trade against the complexity
       // of computing this inside a reducer.
+      /**
+       * Credit the practice day and the sound history.
+       *
+       * Both stores existed and nothing was calling them — the streak could
+       * never be anything but zero, and the sound history accumulated only
+       * server-side through the scoring rollup. So a learner practising
+       * offline built up neither.
+       *
+       * `recordPractice` takes no score, deliberately and by signature: a day
+       * is credited for showing up. It runs even for an indeterminate take,
+       * because a learner whose audio could not be judged still practised —
+       * and R8 already says that take costs them nothing.
+       */
+      recordPractice(learnerName);
+      markStreakDirty(learnerName);
+
+      /**
+       * Syllables, only from a take that was actually measured. Rolling
+       * anything up from an indeterminate result would invent a measurement
+       * for audio the system declined to judge, and it would then be averaged
+       * into what the learner is told about their own pronunciation.
+       */
+      // Narrowed here rather than trusting the `activity` guard above: the
+      // compiler cannot see that one implies the other inside this closure,
+      // and the slug is what keys the learner's stored history.
+      if (activeLanguage !== undefined) {
+        if (!result.indeterminate) {
+          const syllables = result.words.flatMap((word) =>
+            word.syllables.map((syllable) => ({
+              grapheme: syllable.grapheme,
+              accuracy: syllable.accuracy,
+            })),
+          );
+          if (syllables.length > 0) recordSkills(activeLanguage.slug, learnerName, syllables);
+        }
+        markLanguageDirty(learnerName, activeLanguage.slug);
+      }
+
       const existingBefore = progress.find((p) => p.activityId === activity.id);
       const previousBest = existingBefore?.best ?? null;
       const isFirstAttempt = (existingBefore?.attempts.length ?? 0) === 0;

@@ -51,6 +51,24 @@ export function readProgress(slug: string, learnerName: string | null): Persiste
   return readStored(storageKey(slug, learnerName));
 }
 
+/**
+ * Writes one language's progress without mounting the hook.
+ *
+ * Sync needs this: the merged state arrives outside any component's lifecycle,
+ * and mounting four hooks to save four languages is not a thing a hook can do.
+ */
+export function writeProgress(
+  slug: string,
+  learnerName: string | null,
+  next: PersistedProgress,
+): void {
+  try {
+    localStorage.setItem(storageKey(slug, learnerName), JSON.stringify(next));
+  } catch {
+    // Private browsing or quota. The session is unaffected.
+  }
+}
+
 function readStored(key: string): PersistedProgress {
   try {
     const raw = localStorage.getItem(key);

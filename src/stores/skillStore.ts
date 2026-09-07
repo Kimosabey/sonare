@@ -208,6 +208,22 @@ export function weakestSkills(store: SkillStore, limit = 3): SkillTrend[] {
     .slice(0, limit);
 }
 
+/**
+ * Replaces the stored history for one language.
+ *
+ * For writing back what the server returned, which is already the union of
+ * this device's history and every other device's — so overwriting is correct
+ * here in a way it never is on the way out. `recordSkills` remains the only
+ * way to add a take, so nothing can accidentally use this to append.
+ */
+export function writeSkills(slug: string, learnerName: string | null, store: SkillStore): void {
+  try {
+    localStorage.setItem(storageKey(slug, learnerName), JSON.stringify(store));
+  } catch {
+    // Quota, or storage disabled. The session continues on what is in memory.
+  }
+}
+
 /** Forgets a learner's history for one language. */
 export function clearSkills(slug: string, learnerName: string | null): void {
   try {

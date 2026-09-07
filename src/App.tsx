@@ -14,6 +14,8 @@
 import { lazy, Suspense } from "react";
 import { HashRouter, Routes, Route, Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Today } from "./pages/Today.js";
+import { useSync } from "./sync/useSync.js";
+import { useLearnerName } from "./hooks/useLearnerName.js";
 import { LanguagePicker } from "./pages/LanguagePicker.js";
 import { ActivityTest } from "./pages/ActivityTest.js";
 
@@ -165,6 +167,15 @@ function Header() {
 }
 
 function Shell() {
+  const [learnerName] = useLearnerName();
+
+  /**
+   * Mounted once, here, rather than per screen. Sync is an app-level
+   * background concern: a screen that mounted it would re-sync every time the
+   * learner navigated, and the Record screen would do it mid-take.
+   */
+  useSync({ learnerName });
+
   return (
     <div className="wrap">
       <header>
