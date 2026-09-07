@@ -521,7 +521,7 @@ describe("what to practise next, from what was scored", () => {
     const body = (await res.json()) as {
       slug: string;
       due: Array<{ grapheme: string; strength: number }>;
-      all: Array<{ grapheme: string; step: number }>;
+      all: Array<{ grapheme: string; step: number; samples: number }>;
       activitySelected: boolean;
     };
 
