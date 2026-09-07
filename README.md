@@ -3,11 +3,11 @@
 Phoneme-level pronunciation practice in French, Spanish, German and Hindi: ten
 activities per language, unlocked one at a time, ending in a report. Built on Azure AI Speech phoneme scoring instead of
 the Web Speech API's transcript-match approach (no phoneme data, and biased
-against accented speech — see `files/CONTEXT.md`).
+against accented speech — see `docs/CONTEXT.md`).
 
 Started as a scoring POC; the research question it existed to answer is
 settled (see "Verification evidence" below), and this repo is now the MVP
-product surface. `files/CONTEXT.md`, `CLAUDE.md`, `PRD.md`, `TASKS.md`,
+product surface. `docs/CONTEXT.md`, `docs/CLAUDE.md`, `docs/PRD.md`, `docs/TASKS.md`,
 `HANDOFF.md` are the historical record of the hard rules (R1–R12) the capture
 pipeline still follows — read `CONTEXT.md` first if a constraint looks
 arbitrary.
@@ -81,7 +81,7 @@ it auto-releases after 45 s idle.
 
 ### Running the fixture (T19)
 
-`files/T19-RUNBOOK.md` is the procedure: what Set A and Set B are, how to reach
+`docs/T19-RUNBOOK.md` is the procedure: what Set A and Set B are, how to reach
 80 recordings across two platforms, driving `#/fixture`, exporting, running the
 analysis, and reading the result against T19's four outcomes. It also records
 the words-versus-phrases decision and the cost expectation.
