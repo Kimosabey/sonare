@@ -28,6 +28,11 @@ import { LANGUAGES } from "./activities/languages/index.js";
 /** Records every mount, so remount-versus-rerender is observable. */
 const mounts: string[] = [];
 
+vi.mock("./pages/Today.js", () => ({
+  Today: () => {
+    return <p>today screen</p>;
+  },
+}));
 vi.mock("./pages/LanguagePicker.js", () => ({
   LanguagePicker: () => {
     return <p>pick a language</p>;
@@ -63,9 +68,20 @@ afterEach(() => {
   vi.resetModules();
 });
 
-describe("the four screens", () => {
-  it("opens on the language picker", async () => {
+describe("the screens", () => {
+  it("opens on Today, not on the picker", async () => {
+    /**
+     * The change that made this screen exist. A returning learner was being
+     * asked to choose a language they had already chosen, every visit.
+     */
     await visit("#/");
+
+    expect(screen.getByText("today screen")).toBeInTheDocument();
+    expect(screen.queryByText("pick a language")).not.toBeInTheDocument();
+  });
+
+  it("still reaches the picker, at its own address", async () => {
+    await visit("#/languages");
 
     expect(screen.getByText("pick a language")).toBeInTheDocument();
   });
@@ -224,11 +240,19 @@ describe("the header", () => {
     expect(screen.getByText("Sonare · internal diagnostics")).toBeInTheDocument();
   });
 
-  it("falls back to a generic heading for an unknown slug", async () => {
+  it("falls back to the home heading for an unknown slug", async () => {
     // A hand-edited URL or a stale bookmark must not render a broken title.
+    // "Speech activity" was the old fallback and described the thing one tap
+    // away rather than the thing on screen.
     await visit("#/klingon");
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Speech activity");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Today");
+  });
+
+  it("names the picker screen", async () => {
+    await visit("#/languages");
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Choose a language");
   });
 });
 
@@ -243,6 +267,6 @@ describe("code splitting", () => {
     await visit("#/");
 
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
-    expect(screen.getByText("pick a language")).toBeInTheDocument();
+    expect(screen.getByText("today screen")).toBeInTheDocument();
   });
 });

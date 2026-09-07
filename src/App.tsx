@@ -1,5 +1,7 @@
 /**
- * Four screens: the language picker (front door), the activity test for
+ * Today is the front door: one tap to whatever the learner was last doing.
+ * The language picker moved to /languages, because a returning learner had
+ * been made to answer a question they already had. Then the activity test for
  * whichever language is in the URL (:slug), and two internal-only screens
  * reached by typing the URL directly — /diagnostics and /fixture — with no
  * nav link to either anywhere in the product UI. HashRouter specifically:
@@ -11,6 +13,7 @@
 
 import { lazy, Suspense } from "react";
 import { HashRouter, Routes, Route, Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Today } from "./pages/Today.js";
 import { LanguagePicker } from "./pages/LanguagePicker.js";
 import { ActivityTest } from "./pages/ActivityTest.js";
 
@@ -63,8 +66,12 @@ function Breadcrumb() {
 
   const isDiagnostics = location.pathname === "/diagnostics";
   const isFixture = location.pathname === "/fixture";
+  const isLanguages = location.pathname === "/languages";
   const slug = location.pathname.replace(/^\//, "");
-  const language = !isDiagnostics && !isFixture ? getLanguage(slug) : undefined;
+  // getLanguage would return undefined for "languages" anyway, but checking
+  // explicitly keeps the crumb from depending on no language ever being
+  // slugged "languages".
+  const language = !isDiagnostics && !isFixture && !isLanguages ? getLanguage(slug) : undefined;
 
   return (
     <nav className="breadcrumb" aria-label="Breadcrumb">
@@ -79,6 +86,12 @@ function Breadcrumb() {
         <>
           <span aria-hidden="true">›</span>
           <span>Fixture</span>
+        </>
+      )}
+      {isLanguages && (
+        <>
+          <span aria-hidden="true">›</span>
+          <span>Languages</span>
         </>
       )}
       {language && (
@@ -134,10 +147,19 @@ function Header() {
   const slug = location.pathname.replace(/^\//, "");
   const language = getLanguage(slug);
 
+  // Named per screen. "Speech activity" as the heading on the home screen
+  // described the thing one tap away rather than the thing being looked at.
+  const heading =
+    language !== undefined
+      ? `${language.label} speech activity`
+      : location.pathname === "/languages"
+        ? "Choose a language"
+        : "Today";
+
   return (
     <>
       <div className="eyebrow">Sonare · phoneme pronunciation scoring</div>
-      <h1>{language ? `${language.label} speech activity` : "Speech activity"}</h1>
+      <h1>{heading}</h1>
     </>
   );
 }
@@ -156,7 +178,8 @@ function Shell() {
           exactly as before with no fallback flash. */}
       <Suspense fallback={<p className="dim">Loading…</p>}>
         <Routes>
-          <Route path="/" element={<LanguagePicker />} />
+          <Route path="/" element={<Today />} />
+          <Route path="/languages" element={<LanguagePicker />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/fixture" element={<FixtureRunner />} />
           <Route path="/:slug" element={<ActivityTestRoute />} />
