@@ -167,3 +167,42 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ── practice calendar ───────────────────────────────────────────────────── */
+
+/* A grid of dates with meaning on both axes, so it is a table rather than a
+   decorative row of dots. Each square carries its own date as a label. */
+.calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 20px;
+}
+
+.calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+/* No min-height. NFR-03 flagged one, correctly — the check cannot tell a
+   decorative square from a tappable one, and the rule is not the thing to
+   bend. The declaration was unnecessary anyway: aspect-ratio inside a
+   seven-column grid already produces a square from the column width. If these
+   ever become tappable, they need var(--tap) and a different layout. */
+.calendar-day {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--rule);
+}
+
+.calendar-day-on {
+  background: var(--signal);
+}
+
+/* The trend arrows read as colour on a light ground, so they also carry a
+   glyph — colour alone would fail for a learner who cannot distinguish it. */
+.gain {
+  color: var(--pass);
+  font-weight: 600;
+}

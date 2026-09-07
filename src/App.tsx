@@ -17,6 +17,7 @@ import { Today } from "./pages/Today.js";
 import { useSync } from "./sync/useSync.js";
 import { useLearnerName } from "./hooks/useLearnerName.js";
 import { LanguagePicker } from "./pages/LanguagePicker.js";
+import { Progress } from "./pages/Progress.js";
 import { ActivityTest } from "./pages/ActivityTest.js";
 
 /**
@@ -69,11 +70,13 @@ function Breadcrumb() {
   const isDiagnostics = location.pathname === "/diagnostics";
   const isFixture = location.pathname === "/fixture";
   const isLanguages = location.pathname === "/languages";
-  const slug = location.pathname.replace(/^\//, "");
+  const progressMatch = /^\/([a-z]+)\/progress$/.exec(location.pathname);
+  const slug = progressMatch?.[1] ?? location.pathname.replace(/^\//, "");
   // getLanguage would return undefined for "languages" anyway, but checking
   // explicitly keeps the crumb from depending on no language ever being
   // slugged "languages".
   const language = !isDiagnostics && !isFixture && !isLanguages ? getLanguage(slug) : undefined;
+  const onProgress = progressMatch !== null && language !== undefined;
 
   return (
     <nav className="breadcrumb" aria-label="Breadcrumb">
@@ -118,6 +121,12 @@ function Breadcrumb() {
           </span>
         </>
       )}
+      {onProgress && (
+        <>
+          <span aria-hidden="true">›</span>
+          <span>Progress</span>
+        </>
+      )}
     </nav>
   );
 }
@@ -146,14 +155,17 @@ function Header() {
   // Parsed straight from the path rather than via useParams() — the header
   // sits outside the <Routes> tree that actually matches /:slug, so it has
   // no route params of its own to read.
-  const slug = location.pathname.replace(/^\//, "");
+  const progressMatch = /^\/([a-z]+)\/progress$/.exec(location.pathname);
+  const slug = progressMatch?.[1] ?? location.pathname.replace(/^\//, "");
   const language = getLanguage(slug);
 
   // Named per screen. "Speech activity" as the heading on the home screen
   // described the thing one tap away rather than the thing being looked at.
   const heading =
     language !== undefined
-      ? `${language.label} speech activity`
+      ? progressMatch !== null
+        ? `${language.label} progress`
+        : `${language.label} speech activity`
       : location.pathname === "/languages"
         ? "Choose a language"
         : "Today";
@@ -191,6 +203,9 @@ function Shell() {
         <Routes>
           <Route path="/" element={<Today />} />
           <Route path="/languages" element={<LanguagePicker />} />
+          {/* Declared before /:slug for readability; React Router ranks by
+              specificity, so a language can never shadow it. */}
+          <Route path="/:slug/progress" element={<Progress />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/fixture" element={<FixtureRunner />} />
           <Route path="/:slug" element={<ActivityTestRoute />} />
