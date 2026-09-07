@@ -48,11 +48,25 @@ export interface VerdictComparison {
   omissionDelta: number;
 
   /**
-   * True when the two verdicts differ at all about how many words went
-   * missing. The cheap filter for pulling interesting attempts out of the
-   * trail.
+   * True when one verdict says the take was clean and the other does not.
+   *
+   * Deliberately *not* a difference in counts. That is what it was, and
+   * running it over the 139 real attempts showed why the counts cannot be
+   * compared: all ten disagreements were French and all in the same direction,
+   * because "allez-vous" is two words to this alignment and one to Azure. The
+   * flag was firing on a definitional difference about what a word is — which
+   * this module's own tokenisation argues for, since a learner can get
+   * "allez" and "vous" separately right or wrong — and burying the cases that
+   * actually mattered among artefacts.
+   *
+   * Whether each side found *any* fault is tokenisation-independent, and it is
+   * the question worth asking: one of them thinks the learner said the phrase
+   * and the other does not.
    */
   disagrees: boolean;
+
+  /** A take carrying a number we could not compare, so its verdict is partial. */
+  numericFormsDiffer: boolean;
 
   /**
    * Findings the alignment can express and Azure cannot, so their presence is
@@ -89,6 +103,26 @@ export function compareVerdicts(
   // which is exactly the asymmetry this figure exposes.
   const omissionDelta = result.indeterminate ? 0 : providerOmissions - alignment.missing;
 
+  /**
+   * Word *presence* only, on both sides — the one question both verdicts
+   * actually answer.
+   *
+   * `Mispronunciation` is deliberately excluded. It is a judgement about how
+   * well a word was said, and this alignment does not make one: it reads a
+   * transcript, so a learner who says every word and mispronounces one is
+   * clean by its measure and faulty by Azure's. Counting it made all ten
+   * disagreements in the real trail one-directional — "we called it clean,
+   * Azure found a fault" — which was not a conflict at all but the two
+   * verdicts answering different questions, exactly as designed.
+   *
+   * Omission and Insertion are Azure's presence verdicts, and those are
+   * comparable with ours. The mispronunciation count stays in the record
+   * because it is useful; it is just not evidence of a disagreement.
+   */
+  const providerFoundAbsence = providerOmissions + providerInsertions > 0;
+  const weFoundAbsence =
+    alignment.missing + alignment.substituted + alignment.extra + alignment.repeated > 0;
+
   return {
     expectedWords: alignment.tokens.length,
     providerWords,
@@ -100,7 +134,16 @@ export function compareVerdicts(
     alignedExtra: alignment.extra,
     alignedRepeated: alignment.repeated,
     omissionDelta,
-    disagrees: !result.indeterminate && omissionDelta !== 0,
+    /**
+     * Suppressed where a number defeated the comparison. Neither side is wrong
+     * about the audio there — we simply could not check that word, and a flag
+     * that fired on it would send someone to read a take with nothing to find.
+     */
+    disagrees:
+      !result.indeterminate &&
+      alignment.numericForms === 0 &&
+      providerFoundAbsence !== weFoundAbsence,
+    numericFormsDiffer: alignment.numericForms > 0,
     providerCannotExpress: alignment.substituted + alignment.repeated,
   };
 }

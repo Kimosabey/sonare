@@ -250,3 +250,112 @@ describe("shape", () => {
     expect(verdict.providerWords).toBe(4);
   });
 });
+
+/**
+ * What a disagreement is, arrived at by measurement rather than by guessing.
+ *
+ * This flag was defined three times, and real data rejected the first two.
+ *
+ * First it was a difference in *counts*. Over the 139 real attempts that made
+ * all ten disagreements French and all in one direction — because "allez-vous"
+ * is two words to this alignment and one to Azure. It was firing on a
+ * definitional difference about what a word is.
+ *
+ * Then it was "did either side find any fault". That made all ten
+ * one-directional the other way — "we called it clean, Azure found a fault" —
+ * because Mispronunciation is a judgement about *how well* a word was said and
+ * this alignment only reads a transcript. Not a conflict: the two verdicts
+ * answering different questions, exactly as designed.
+ *
+ * Word presence against word presence is the one question both actually
+ * answer. On that basis the two agree on all 129 scored takes.
+ */
+describe("what counts as a disagreement", () => {
+  it("does not fire when Azure only reports a mispronunciation", () => {
+    /**
+     * The learner said every word and said one badly. Azure has a fault; the
+     * alignment has nothing, and correctly so — it never claimed to judge
+     * pronunciation. Flagging this would send someone to read a take where
+     * both verdicts are right.
+     */
+    const expected = "Bonjour comment allez-vous";
+    const result = scored("bonjour comment allez vous", [
+      word("bonjour", "None"),
+      word("comment", "Mispronunciation", 38),
+      word("allez", "None"),
+      word("vous", "None"),
+    ]);
+
+    const verdict = compare(expected, result);
+
+    expect(verdict.providerMispronunciations).toBe(1);
+    expect(verdict.alignedMissing).toBe(0);
+    expect(verdict.disagrees).toBe(false);
+  });
+
+  it("keeps the mispronunciation count, which is still worth having", () => {
+    // Excluded from the flag, not from the record.
+    const result = scored("bonjour", [word("bonjour", "Mispronunciation", 38)]);
+
+    expect(compare("bonjour", result).providerMispronunciations).toBe(1);
+  });
+
+  it("does not fire on a hyphen counted differently by each side", () => {
+    /**
+     * Azure segments "allez-vous" as one word; this alignment splits it,
+     * because a learner can get "allez" and "vous" separately right or wrong.
+     * Both are right about the audio and their counts will never match on a
+     * phrase containing one — which is why the flag cannot be a count
+     * comparison.
+     */
+    const expected = "Bonjour, comment allez-vous";
+    const result = scored("bonjour", [
+      word("bonjour", "None"),
+      word("comment", "Omission", 0),
+      word("allez-vous", "Omission", 0),
+    ]);
+
+    const verdict = compare(expected, result);
+
+    // Different counts — three missing to us, two omissions to Azure.
+    expect(verdict.alignedMissing).toBe(3);
+    expect(verdict.providerOmissions).toBe(2);
+    expect(verdict.omissionDelta).not.toBe(0);
+    // And no disagreement, because both found the learner dropped words.
+    expect(verdict.disagrees).toBe(false);
+  });
+
+  it("fires when one side says a word is absent and the other does not", () => {
+    // The substantive case, and the only one worth a human read.
+    const expected = "Je voudrais un café";
+    const result = scored("je voudrais un café", [
+      word("je", "None"),
+      word("voudrais", "None"),
+      word("un", "None"),
+      word("café", "Omission", 0),
+    ]);
+
+    expect(compare(expected, result).disagrees).toBe(true);
+  });
+
+  it("stays quiet on a take whose number could not be compared", () => {
+    /**
+     * Neither side is wrong about the audio there — we simply could not check
+     * that word, and a flag firing on it would send someone to read a take
+     * with nothing to find. Eight of the real attempts are this case.
+     */
+    const expected = "Il y a trente-deux personnes";
+    const result = scored("Il y a 32 personnes", [
+      word("Il", "None"),
+      word("y", "None"),
+      word("a", "None"),
+      word("32", "None"),
+      word("personnes", "None"),
+    ]);
+
+    const verdict = compare(expected, result);
+
+    expect(verdict.numericFormsDiffer).toBe(true);
+    expect(verdict.disagrees).toBe(false);
+  });
+});

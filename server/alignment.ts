@@ -13,18 +13,48 @@
  *  - **Repeated words.** Nothing detects them anywhere. A learner who stumbles
  *    and repeats a word has done something specific, and "extra word" is not
  *    what happened.
- *  - **A second opinion.** Alignment against the reference is currently a
- *    vendor judgement with nothing to check it against. Two independent
- *    verdicts that disagree are a finding about the scorer; one verdict is
- *    just a number.
+ *  - **A second opinion.** Alignment against the reference was a vendor
+ *    judgement with nothing to check it against.
+ *
+ * That third justification has now been measured, and it came out at zero.
+ * Run over the 129 scored attempts on disk (`npm run alignment-report`),
+ * Azure's word-presence verdict and this alignment agree on **every single
+ * take** — 100%, no disagreements in either direction. Azure was already
+ * right about which words were said, every time.
+ *
+ * So this module earns its place on the first two reasons and not the third:
+ * 2 of 129 takes (1.6%) carry a substitution or a repetition that Azure has
+ * no error type for. That is a real gap and a small one, and it is worth
+ * saying plainly rather than leaving the "second opinion" claim standing.
+ *
+ * Two caveats keep the 100% from being the last word. The transcripts are
+ * Azure's own, so what was measured is Azure's internal consistency between
+ * its transcript and its miscue verdict — not whether either matches the
+ * audio. And the trail is thin: 79 of those takes are English smoke tests, 49
+ * are French, the median take is 1.0 seconds, and three shipped languages have
+ * no real attempts at all. A human-confirmed fixture run is the only thing
+ * that can settle it.
  *
  * Pure and dependency-free on purpose: no DOM, no I/O, no provider types. The
  * route can call it, a test can call it, and a future fixture analysis can
  * call it over stored attempts without standing anything up.
  */
 
-/** What happened to a word the learner was asked to say. */
-export type TokenStatus = "match" | "missing" | "substituted";
+/**
+ * What happened to a word the learner was asked to say.
+ *
+ * `numeric` is not a fault. Azure transcribes spoken numbers as digits — "3"
+ * for "three", "32" for "trente-deux" — so a learner who says the number
+ * correctly produces a token that cannot be compared with the reference
+ * without a number-word table for every shipped language. Calling that a
+ * substitution told them they got it wrong; this says we could not check.
+ *
+ * Found by running the alignment over the 139 real attempts on disk, where
+ * "Il y a trente-deux étudiants" against "Il y a 32 étudiants" read as a
+ * missing word plus a substitution. The French set ships "Il y a quarante-deux
+ * personnes à la réunion", so this is live content, not an edge case.
+ */
+export type TokenStatus = "match" | "missing" | "substituted" | "numeric";
 
 export interface AlignedToken {
   /** The reference word as written, for display. */
@@ -61,10 +91,20 @@ export interface Alignment {
   extra: number;
   repeated: number;
   /**
-   * Matched words over reference words, 0–1, or null when the reference was
-   * empty. Deliberately *not* called a score: it counts words, and says
-   * nothing about how any of them were pronounced. That is Azure's job and
-   * conflating the two is the mistake this whole product exists to avoid.
+   * Aligned pairs where one side wrote a number in digits and the other in
+   * words. Counted separately from every fault, because it is not one — and
+   * reported rather than hidden, so a take containing one is known to carry a
+   * word verdict we could not fully check.
+   */
+  numericForms: number;
+  /**
+   * Matched words over the reference words we could actually check — numeric
+   * forms are excluded from the denominator rather than counted as misses,
+   * since we do not know either way. Null when nothing was checkable.
+   *
+   * Deliberately *not* called a score: it counts words, and says nothing about
+   * how any of them were pronounced. That is Azure's job and conflating the
+   * two is the mistake this whole product exists to avoid.
    */
   wordCoverage: number | null;
 }
@@ -140,6 +180,19 @@ function tokeniseRaw(text: string): string[] {
     .split(TOKEN_SPLIT)
     .map((word) => word.replace(EDGE_PUNCTUATION, ""))
     .filter((word) => normaliseWord(word).length > 0);
+}
+
+/** All digits, ignoring separators a transcript may add ("08h15", "1,000"). */
+const NUMERIC = /^[\d\u0966-\u096f][\d\u0966-\u096f.,:hH]*$/u;
+
+/**
+ * True when one side wrote a number as digits and the other did not.
+ *
+ * Devanagari digits are included in the range because a Hindi transcript can
+ * use them, and a mismatch there is the same non-fault as the Latin case.
+ */
+function numericFormDiffers(expected: string, heard: string): boolean {
+  return NUMERIC.test(expected) !== NUMERIC.test(heard);
 }
 
 type Op = "match" | "substitute" | "delete" | "insert";
@@ -239,7 +292,7 @@ export function alignSpoken(expectedText: string, heardText: string): Alignment 
 
   const tokens: AlignedToken[] = [];
   const extras: ExtraToken[] = [];
-  const counts = { matched: 0, missing: 0, substituted: 0, extra: 0, repeated: 0 };
+  const counts = { matched: 0, missing: 0, substituted: 0, extra: 0, repeated: 0, numericForms: 0 };
   let e = 0;
   let h = 0;
 
@@ -252,12 +305,18 @@ export function alignSpoken(expectedText: string, heardText: string): Alignment 
       continue;
     }
     if (op === "substitute") {
+      const expectedWord = expected[e] ?? "";
+      const heardWord = heard[h] ?? "";
+      // A digits-versus-words pair is not a fault, so it is neither a match
+      // nor a substitution — it is a comparison we could not make.
+      const numeric = numericFormDiffers(expectedWord, heardWord);
       tokens.push({
-        expected: expectedRaw[e] ?? expected[e] ?? "",
-        status: "substituted",
-        heard: heardRaw[h] ?? heard[h] ?? "",
+        expected: expectedRaw[e] ?? expectedWord,
+        status: numeric ? "numeric" : "substituted",
+        heard: heardRaw[h] ?? heardWord,
       });
-      counts.substituted += 1;
+      if (numeric) counts.numericForms += 1;
+      else counts.substituted += 1;
       e += 1;
       h += 1;
       continue;
@@ -300,6 +359,12 @@ export function alignSpoken(expectedText: string, heardText: string): Alignment 
     tokens,
     extras,
     ...counts,
-    wordCoverage: expected.length === 0 ? null : counts.matched / expected.length,
+    // Numeric forms leave the denominator, not the numerator: we do not know
+    // whether the learner said them right, and assuming either way would be
+    // inventing a result.
+    wordCoverage:
+      expected.length - counts.numericForms <= 0
+        ? null
+        : counts.matched / (expected.length - counts.numericForms),
   };
 }

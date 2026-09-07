@@ -384,3 +384,78 @@ describe("French typography", () => {
     expect(tokenise("allez–vous")).toEqual(["allez", "vous"]);
   });
 });
+
+/**
+ * Numbers, which real data caught and no invented case would have.
+ *
+ * Azure transcribes spoken numbers as digits: "3" for "three", "32" for
+ * "trente-deux", "08h15" for "huit heures et quart". Running the alignment
+ * over the 139 attempts on disk showed eight takes where a learner said the
+ * number correctly and the alignment called it a substitution or a missing
+ * word — including "Il y a trente-deux étudiants" read as one missing word
+ * plus one substitution.
+ *
+ * The French set ships "Il y a quarante-deux personnes à la réunion", so this
+ * is live content. Comparing the two forms needs a number-word table for every
+ * shipped language, and French compounds make that its own project — so the
+ * honest answer is to say we could not check, not to guess.
+ */
+describe("numbers written two ways", () => {
+  it("does not call a correctly-said number a substitution", () => {
+    const result = alignSpoken("three", "3");
+
+    expect(result.substituted).toBe(0);
+    expect(result.missing).toBe(0);
+    expect(result.numericForms).toBe(1);
+    expect(result.tokens[0]?.status).toBe("numeric");
+  });
+
+  it("works the other way round too", () => {
+    // A reference written with digits and a transcript that spells it out.
+    const result = alignSpoken("Room 3", "Room three");
+
+    expect(result.numericForms).toBe(1);
+    expect(result.substituted).toBe(0);
+  });
+
+  it("keeps a real substitution a substitution", () => {
+    // The guard must not swallow genuine faults: two number words that differ
+    // are still a substitution, because both are comparable.
+    const result = alignSpoken("three coffees", "four coffees");
+
+    expect(result.substituted).toBe(1);
+    expect(result.numericForms).toBe(0);
+  });
+
+  it("handles a transcript's own separators", () => {
+    // "08h15" and "1,000" are how a transcript writes a time and a thousand.
+    expect(alignSpoken("quinze", "08h15").numericForms).toBe(1);
+    expect(alignSpoken("mille", "1,000").numericForms).toBe(1);
+  });
+
+  it("treats Devanagari digits the same way", () => {
+    // A Hindi transcript can use them, and the mismatch is the same non-fault.
+    const result = alignSpoken("तीन", "३");
+
+    expect(result.numericForms).toBe(1);
+    expect(result.substituted).toBe(0);
+  });
+
+  it("leaves a number out of the coverage denominator rather than counting it wrong", () => {
+    /**
+     * We do not know whether the learner said it right, so it is neither
+     * matched nor missed. Counting it as a miss would understate a take that
+     * may have been perfect; counting it as a match would invent a result.
+     */
+    const result = alignSpoken("il y a trente personnes", "il y a 30 personnes");
+
+    // Four checkable words, all matched.
+    expect(result.wordCoverage).toBe(1);
+    expect(result.numericForms).toBe(1);
+  });
+
+  it("reports no coverage when the reference was only a number", () => {
+    // Nothing checkable at all — null, not zero and not one.
+    expect(alignSpoken("three", "3").wordCoverage).toBeNull();
+  });
+});

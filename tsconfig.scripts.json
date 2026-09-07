@@ -18,5 +18,5 @@
   },
   // The scripts import the real report logic rather than reimplementing it, so
   // the end-to-end test asserts on the same numbers the UI renders.
-  "include": ["scripts/**/*.ts", "src/activities/**/*.ts", "src/speech/scoring/types.ts"]
+  "include": ["scripts/**/*.ts", "src/activities/**/*.ts", "src/speech/scoring/types.ts", "server/alignment.ts", "server/verdicts.ts", "server/services/types.ts"]
 }
