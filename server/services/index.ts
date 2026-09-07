@@ -8,6 +8,7 @@ import { logger } from "../logger.js";
 import { AzureSpeechProvider } from "./azureSpeech.js";
 import type { PronunciationResult, ScoringProvider } from "./types.js";
 import { numberFromEnv } from "../env.js";
+import { reserveScoringCall } from "../counters.js";
 
 let cached: ScoringProvider | null = null;
 
@@ -42,35 +43,70 @@ const MAX_DAILY_SCORING_CALLS = numberFromEnv("MAX_DAILY_SCORING_CALLS", 2000, {
  * AzureSpeechProvider — the cap applies to "scoring calls," not to Azure
  * specifically, so it stays correct if SpeechAce arrives (R12).
  *
- * In-process state, same as the per-IP limiter and the circuit breaker in
- * azureSpeech.ts — resets on restart, doesn't share state across multiple
- * instances. Adequate for the current single-process deployment; a real
- * multi-instance rollout would need this backed by Mongo or similar.
+ * Two layers, and the order matters.
+ *
+ * The shared counter (counters.ts) is authoritative. It is one document
+ * updated atomically, so the ceiling now survives a restart and is not
+ * multiplied by running a second instance — the hole this commit closes.
+ *
+ * The in-process count remains underneath it as the **outage** ceiling, and
+ * only that. When the counter is unreachable the local figure applies, which
+ * bounds spend at instances × cap rather than leaving it unbounded, and keeps
+ * learners scoring through a database outage.
+ *
+ * That second layer is a deliberate departure from "fail closed", which is
+ * what env.ts does for numeric config and what this file's plan originally
+ * called for. Refusing outright would convert a database outage into a total
+ * product outage, and the cap exists to bound *cost*, not to gate access — a
+ * local ceiling still bounds cost. Fail-closed is right when the alternative
+ * is unbounded; here the alternative is bounded and the learner keeps working.
  */
 function withDailyCap(provider: ScoringProvider): ScoringProvider {
-  let count = 0;
-  let windowStart = startOfUtcDay();
+  let localCount = 0;
+  let localWindow = startOfUtcDay();
+
+  /** The outage path: enforce this process's own share and say so loudly. */
+  function reserveLocally(): boolean {
+    const currentWindow = startOfUtcDay();
+    if (currentWindow !== localWindow) {
+      localWindow = currentWindow;
+      localCount = 0;
+    }
+    if (localCount >= MAX_DAILY_SCORING_CALLS) return false;
+    localCount += 1;
+    return true;
+  }
+
+  function atCap(): AppError {
+    logger.warn({ limit: MAX_DAILY_SCORING_CALLS }, "[services] daily scoring cap reached");
+    return new AppError({
+      code: "PROVIDER_UNAVAILABLE",
+      domain: "server",
+      message: `daily scoring cap of ${MAX_DAILY_SCORING_CALLS} reached`,
+      userMessage: "Scoring has reached its daily limit. Please try again tomorrow.",
+    });
+  }
 
   return {
     name: provider.name,
-    score(wav: Buffer, referenceText: string, language: string): Promise<PronunciationResult> {
-      const currentWindow = startOfUtcDay();
-      if (currentWindow !== windowStart) {
-        windowStart = currentWindow;
-        count = 0;
+    async score(wav: Buffer, referenceText: string, language: string): Promise<PronunciationResult> {
+      const reservation = await reserveScoringCall(MAX_DAILY_SCORING_CALLS);
+
+      if (reservation.allowed) {
+        // Keep the local figure in step, so a mid-day outage does not hand out
+        // a second full allowance on top of what has already been spent.
+        localCount = Math.max(localCount, reservation.calls);
+        return provider.score(wav, referenceText, language);
       }
 
-      if (count >= MAX_DAILY_SCORING_CALLS) {
-        logger.warn({ limit: MAX_DAILY_SCORING_CALLS }, "[services] daily scoring cap reached");
-        throw new AppError({
-          code: "PROVIDER_UNAVAILABLE",
-          domain: "server",
-          message: `daily scoring cap of ${MAX_DAILY_SCORING_CALLS} reached`,
-          userMessage: "Scoring has reached its daily limit. Please try again tomorrow.",
-        });
-      }
+      if (reservation.reason === "at-cap") throw atCap();
 
-      count += 1;
+      // Unavailable. Fall back to this process's own ceiling.
+      logger.error(
+        { limit: MAX_DAILY_SCORING_CALLS, localCount },
+        "[services] shared scoring counter unavailable — falling back to the in-process ceiling",
+      );
+      if (!reserveLocally()) throw atCap();
       return provider.score(wav, referenceText, language);
     },
   };

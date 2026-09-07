@@ -12,6 +12,14 @@
  * allowed, and whether the count is incremented before or after the provider
  * is called. Getting the second wrong means a provider that always throws
  * never advances the counter, so a broken provider can be called forever.
+ *
+ * There are now two layers. The shared counter (counters.ts) is authoritative
+ * and is what makes the ceiling survive a restart; the in-process count sits
+ * underneath as the *outage* ceiling. `reserveScoringCall` is mocked here and
+ * defaults to `unavailable`, which is what puts the local path under test —
+ * the window and off-by-one cases below are all about that fallback, and it
+ * still has to be right, because it is what enforces the cap when the
+ * database is down. The shared-counter layer has its own block at the end.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,6 +36,27 @@ vi.mock("./azureSpeech.js", () => ({
 }));
 vi.mock("../logger.js", () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}));
+
+type Reservation =
+  | { allowed: true; calls: number }
+  | { allowed: false; reason: "at-cap"; calls: number }
+  | { allowed: false; reason: "unavailable"; calls: null };
+
+const UNAVAILABLE: Reservation = { allowed: false, reason: "unavailable", calls: null };
+
+/**
+ * Defaults to unavailable so the existing cases exercise the in-process
+ * ceiling. Mocked rather than left real because the real one talks to Mongo,
+ * and a unit test that reaches a live database shares state between runs — the
+ * tests below set a cap of two and would be counting against whatever the
+ * previous run left behind.
+ */
+const reserveScoringCall = vi.fn((): Promise<Reservation> => Promise.resolve(UNAVAILABLE));
+
+vi.mock("../counters.js", () => ({
+  reserveScoringCall: () => reserveScoringCall(),
+  recordCallOutcome: () => Promise.resolve(),
 }));
 
 const SAVED = {
@@ -57,6 +86,7 @@ async function call(provider: { score: (w: Buffer, r: string, l: string) => Prom
 beforeEach(() => {
   vi.clearAllMocks();
   score.mockResolvedValue({ accuracy: 88 });
+  reserveScoringCall.mockResolvedValue(UNAVAILABLE);
 });
 
 afterEach(() => {
@@ -273,5 +303,77 @@ describe("the daily window", () => {
     vi.setSystemTime(new Date("2026-09-05T23:30:00Z"));
 
     await expect(call(provider)).rejects.toThrow();
+  });
+});
+
+describe("the shared counter, which is authoritative", () => {
+  it("lets a permitted call through without consulting the local ceiling", async () => {
+    const { getScoringProvider } = await load({ MAX_DAILY_SCORING_CALLS: "2" });
+    // Far beyond the local cap of two: if the local path were being applied on
+    // top, this would be refused.
+    reserveScoringCall.mockResolvedValue({ allowed: true, calls: 900 });
+    const provider = getScoringProvider();
+
+    await expect(call(provider)).resolves.toEqual({ accuracy: 88 });
+    expect(score).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses at the shared cap even with the local count at zero", async () => {
+    /**
+     * The hole this closes. A restart empties the in-process count, so before
+     * the shared counter a fresh process would happily spend another full
+     * day's allowance. Here the local count is zero and the call is still
+     * refused, because the shared record says the day is spent.
+     */
+    const { getScoringProvider } = await load({ MAX_DAILY_SCORING_CALLS: "2000" });
+    reserveScoringCall.mockResolvedValue({ allowed: false, reason: "at-cap", calls: 2000 });
+    const provider = getScoringProvider();
+
+    await expect(call(provider)).rejects.toThrow(/daily scoring cap/i);
+    expect(score).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the local ceiling when the counter is unreachable", async () => {
+    // A database outage must not become a total product outage. The cap exists
+    // to bound cost, and a per-process ceiling still bounds it.
+    const { getScoringProvider } = await load({ MAX_DAILY_SCORING_CALLS: "2" });
+    reserveScoringCall.mockResolvedValue(UNAVAILABLE);
+    const provider = getScoringProvider();
+
+    await expect(call(provider)).resolves.toEqual({ accuracy: 88 });
+    await expect(call(provider)).resolves.toEqual({ accuracy: 88 });
+    // And the local ceiling is a real ceiling, not a formality.
+    await expect(call(provider)).rejects.toThrow(/daily scoring cap/i);
+    expect(score).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not hand out a second full allowance when an outage starts mid-day", async () => {
+    /**
+     * Without this the fallback would be a loophole: spend most of the day
+     * against the shared counter, lose the database, and the untouched local
+     * count would permit another cap's worth on top. The local figure is kept
+     * in step with the shared one while it is reachable.
+     */
+    const { getScoringProvider } = await load({ MAX_DAILY_SCORING_CALLS: "3" });
+    reserveScoringCall.mockResolvedValue({ allowed: true, calls: 3 });
+    const provider = getScoringProvider();
+    await call(provider);
+
+    reserveScoringCall.mockResolvedValue(UNAVAILABLE);
+
+    await expect(call(provider)).rejects.toThrow(/daily scoring cap/i);
+    expect(score).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks the shared counter before calling the provider, not after", async () => {
+    // The same off-by-one that matters for the local count: reserving after
+    // the call means a refused day still costs a paid request.
+    const { getScoringProvider } = await load({ MAX_DAILY_SCORING_CALLS: "10" });
+    reserveScoringCall.mockResolvedValue({ allowed: false, reason: "at-cap", calls: 10 });
+    const provider = getScoringProvider();
+
+    await expect(call(provider)).rejects.toThrow();
+    expect(reserveScoringCall).toHaveBeenCalledTimes(1);
+    expect(score).not.toHaveBeenCalled();
   });
 });

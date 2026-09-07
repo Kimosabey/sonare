@@ -16,6 +16,7 @@ import { AppError, isAppError } from "../errors.js";
 import { logger } from "../logger.js";
 import { assertAzureFormat, assertDuration, inspectWav } from "../wav.js";
 import { recordAttempt } from "../attempts.js";
+import { recordCallOutcome } from "../counters.js";
 import { alignSpoken } from "../alignment.js";
 import { compareVerdicts } from "../verdicts.js";
 import { recordDiagnostic } from "../diagnostics.js";
@@ -133,6 +134,18 @@ async function handleScoring(req: Request, res: Response): Promise<void> {
     const providerStart = process.hrtime.bigint();
     const result: PronunciationResult = await provider.score(file.buffer, referenceText, language);
     const providerMs = msSince(providerStart);
+
+    /**
+     * Accounted here rather than in the provider wrapper because the duration
+     * is only known once the WAV has been parsed, and re-parsing it inside the
+     * cap wrapper to get one number would be worse. Awaited but never trusted
+     * to succeed — recordCallOutcome swallows its own failures, since losing a
+     * second of accounting must not cost a learner their score.
+     *
+     * An indeterminate result is counted as billed, because it was: R8 makes
+     * it the honest answer, and the provider still charged for the call.
+     */
+    await recordCallOutcome({ seconds: info.seconds, indeterminate: result.indeterminate });
     const totalMs = msSince(startedAt);
 
     res.json(result);
