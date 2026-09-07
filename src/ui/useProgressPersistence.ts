@@ -38,6 +38,19 @@ function storageKey(slug: string, learnerName: string | null): string {
   return `sonare.progress.${SCHEMA_VERSION}.${slug}.${learnerName ?? "anonymous"}`;
 }
 
+/**
+ * One language's stored progress, without mounting the hook.
+ *
+ * The home screen has to answer "what were you last doing" across every
+ * language, which a per-language hook cannot do — it would mean mounting four
+ * of them. Exported rather than duplicated so the key shape and the validation
+ * stay in one place: a second copy of `storageKey` is a second thing to
+ * remember when the schema version moves.
+ */
+export function readProgress(slug: string, learnerName: string | null): PersistedProgress {
+  return readStored(storageKey(slug, learnerName));
+}
+
 function readStored(key: string): PersistedProgress {
   try {
     const raw = localStorage.getItem(key);
