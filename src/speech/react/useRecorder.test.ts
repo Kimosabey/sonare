@@ -29,6 +29,9 @@ let listeners: {
   onClipping?: (hot: boolean) => void;
 } = {};
 
+/** Options each Recorder was constructed with, in order. */
+const constructedWith: Record<string, unknown>[] = [];
+
 const recorderStub = {
   start: vi.fn(() => Promise.resolve()),
   stop: vi.fn(() => Promise.resolve(CAPTURE)),
@@ -46,8 +49,9 @@ vi.mock("../capture/recorder.js", () => ({
   // arrow function has no [[Construct]]. Returning an object from a
   // constructor replaces the instance, which is what hands the stub back.
   Recorder: class {
-    constructor(_options: unknown, given: typeof listeners) {
+    constructor(options: unknown, given: typeof listeners) {
       listeners = given;
+      constructedWith.push(options as Record<string, unknown>);
       return recorderStub as unknown as this;
     }
   },
@@ -122,6 +126,7 @@ function options(over: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   listeners = {};
+  constructedWith.length = 0;
   vi.clearAllMocks();
   recorderStub.start.mockResolvedValue(undefined);
   recorderStub.stop.mockResolvedValue(CAPTURE);
@@ -393,5 +398,334 @@ describe("useRecorder — the microphone lifecycle", () => {
     });
 
     await waitFor(() => expect(recorderStub.cancel).toHaveBeenCalled());
+  });
+});
+
+/**
+ * Four behaviours a mutation sweep found unpinned, all of them about *when*
+ * the microphone is running and *which* configuration it is running under.
+ *
+ * These are the worst kind to leave unguarded, because none of them announces
+ * itself: the mic stays live when it should not, or a take is scored against
+ * the wrong phrase's settings. The learner sees a plausible number either way.
+ */
+describe("useRecorder — continuous mode is opt-in", () => {
+  it("does not start another take by itself when continuous is off", async () => {
+    /**
+     * The default, and the one that matters. With the guard flattened, scoring
+     * a take immediately begins the next one — so a learner who has finished
+     * speaking has a live microphone and a recording indicator they never
+     * asked for, on a screen showing them their score.
+     */
+    const hook = await mount({ continuous: false });
+    act(() => void hook.result.current.start());
+    // stop() returns early unless the recorder reports a take in progress —
+    // a real guard against a stray second tap, so the stub has to reflect one.
+    recorderStub.getState.mockReturnValue("recording");
+    recorderStub.start.mockClear();
+
+    await act(async () => {
+      listeners.onAutoStop?.();
+    });
+    await waitFor(() => expect(hook.result.current.result).toEqual(SCORED));
+
+    expect(recorderStub.start).not.toHaveBeenCalled();
+  });
+
+  it("starts the next take when continuous is on and the session is live", async () => {
+    // The other side: segmenting on each silence is the whole point of
+    // continuous mode, and it must actually happen.
+    const hook = await mount({ continuous: true });
+    await act(async () => {
+      await hook.result.current.start();
+    });
+    recorderStub.getState.mockReturnValue("recording");
+    recorderStub.start.mockClear();
+
+    await act(async () => {
+      listeners.onAutoStop?.();
+    });
+
+    await waitFor(() => expect(recorderStub.start).toHaveBeenCalled());
+  });
+
+  it("stops segmenting once the session has ended", async () => {
+    /**
+     * Both halves of the condition are load-bearing. `continuous` alone would
+     * keep the microphone segmenting after the learner ended the session,
+     * which is the same lit-indicator problem arriving by a different route.
+     */
+    const hook = await mount({ continuous: true });
+    await act(async () => {
+      await hook.result.current.start();
+    });
+    await act(async () => {
+      hook.result.current.endSession();
+    });
+    recorderStub.getState.mockReturnValue("recording");
+    recorderStub.start.mockClear();
+
+    await act(async () => {
+      listeners.onAutoStop?.();
+    });
+
+    expect(recorderStub.start).not.toHaveBeenCalled();
+  });
+});
+
+describe("useRecorder — the recorder matches its capture settings", () => {
+  it("builds a new recorder when the silence window changes", async () => {
+    /**
+     * The key is the capture configuration — auto-stop and the hangover — not
+     * the phrase, which is deliberately read through a ref at take time so
+     * changing the prompt mid-session cannot score a take against a phrase the
+     * learner was not shown.
+     *
+     * The hangover still tracks the phrase in practice: ActivityTest derives
+     * it from the target's length. So reusing a recorder across that change
+     * would run a short phrase on a long phrase's silence window — waiting too
+     * long to stop, or cutting the learner off — and neither errors.
+     */
+    const useRecorder = await load();
+    const hook = renderHook(
+      ({ hangover }: { hangover: number }) =>
+        useRecorder(options({ autoStop: true, silenceHangoverMs: hangover })),
+      { initialProps: { hangover: 1200 } },
+    );
+    await act(async () => {
+      hook.result.current.warm();
+    });
+    const first = listeners;
+
+    hook.rerender({ hangover: 2600 });
+    await act(async () => {
+      hook.result.current.warm();
+    });
+
+    // A fresh construction installs a fresh listener bag.
+    expect(listeners).not.toBe(first);
+  });
+
+  it("keeps one recorder across a phrase change on its own", async () => {
+    // The counterpart: the phrase alone must not tear down and re-acquire the
+    // microphone, which is what reading it through a ref buys.
+    const useRecorder = await load();
+    const hook = renderHook(({ text }: { text: string }) => useRecorder(options({ referenceText: text })), {
+      initialProps: { text: "Bonjour" },
+    });
+    await act(async () => {
+      hook.result.current.warm();
+    });
+    const first = listeners;
+
+    hook.rerender({ text: "Je voudrais un café" });
+    await act(async () => {
+      hook.result.current.warm();
+    });
+
+    expect(listeners).toBe(first);
+  });
+
+  it("reuses the recorder while the phrase is unchanged", async () => {
+    // The other side: rebuilding on every render would tear down and
+    // re-acquire the microphone constantly, which is what the key exists to
+    // prevent.
+    const useRecorder = await load();
+    const hook = renderHook(() => useRecorder(options()));
+    await act(async () => {
+      hook.result.current.warm();
+    });
+    const first = listeners;
+
+    hook.rerender();
+    await act(async () => {
+      hook.result.current.warm();
+    });
+
+    expect(listeners).toBe(first);
+  });
+});
+
+describe("useRecorder — a stumble does not end a continuous session", () => {
+  /**
+   * `recorder.stop()` rejects on an utterance the capture layer refuses — too
+   * short, too noisy. In continuous mode that must re-arm rather than end the
+   * session, or a learner has to restart it after every stumble, which is
+   * exactly the moment they are most likely to stumble again.
+   */
+  it("re-arms after a rejected utterance when continuous", async () => {
+    const hook = await mount({ continuous: true });
+    await act(async () => {
+      await hook.result.current.start();
+    });
+    recorderStub.getState.mockReturnValue("recording");
+    recorderStub.stop.mockRejectedValueOnce(new Error("too short"));
+    recorderStub.start.mockClear();
+
+    await act(async () => {
+      hook.result.current.stop();
+    });
+
+    await waitFor(() => expect(recorderStub.start).toHaveBeenCalled());
+  });
+
+  it("does not re-arm after a rejected utterance when not continuous", async () => {
+    // The other side, and the one that leaves a microphone live: a refused
+    // take on a single-utterance screen must simply be over.
+    const hook = await mount({ continuous: false });
+    act(() => void hook.result.current.start());
+    recorderStub.getState.mockReturnValue("recording");
+    recorderStub.stop.mockRejectedValueOnce(new Error("too short"));
+    recorderStub.start.mockClear();
+
+    await act(async () => {
+      hook.result.current.stop();
+    });
+
+    expect(recorderStub.start).not.toHaveBeenCalled();
+  });
+
+  it("does not re-arm after a rejected utterance once the session has ended", async () => {
+    const hook = await mount({ continuous: true });
+    await act(async () => {
+      await hook.result.current.start();
+    });
+    await act(async () => {
+      hook.result.current.endSession();
+    });
+    recorderStub.getState.mockReturnValue("recording");
+    recorderStub.stop.mockRejectedValueOnce(new Error("too short"));
+    recorderStub.start.mockClear();
+
+    await act(async () => {
+      hook.result.current.stop();
+    });
+
+    expect(recorderStub.start).not.toHaveBeenCalled();
+  });
+});
+
+describe("useRecorder — the capture options it hands down", () => {
+  it("omits the silence window rather than passing undefined", async () => {
+    /**
+     * A conditional spread, not `silenceHangoverMs: options.silenceHangoverMs`.
+     * The Recorder derives its own default from the phrase when the key is
+     * absent; handing it an explicit `undefined` relies on every consumer
+     * treating the two alike, which is the kind of assumption
+     * `exactOptionalPropertyTypes` exists to stop being true by accident.
+     */
+    await mount({ autoStop: true });
+
+    expect(constructedWith[0]).not.toHaveProperty("silenceHangoverMs");
+  });
+
+  it("passes it through when there is one", async () => {
+    await mount({ autoStop: true, silenceHangoverMs: 1800 });
+
+    expect(constructedWith[0]).toMatchObject({ silenceHangoverMs: 1800, autoStop: true });
+  });
+});
+
+describe("useRecorder — ending a session mid-phrase", () => {
+  it("scores the utterance in progress rather than discarding it", async () => {
+    /**
+     * A learner who taps end while still speaking has already said the phrase.
+     * Throwing that take away costs them the attempt — and with the comparison
+     * inverted, the *only* takes that get scored are the ones that were not
+     * being recorded, which is exactly backwards.
+     */
+    const hook = await mount();
+    recorderStub.getState.mockReturnValue("recording");
+
+    await act(async () => {
+      hook.result.current.endSession();
+    });
+
+    await waitFor(() => expect(recorderStub.stop).toHaveBeenCalled());
+  });
+
+  it("does not try to stop a recorder that is not recording", async () => {
+    // Ending an idle session must not call stop() and manufacture a take out
+    // of nothing.
+    const hook = await mount();
+    recorderStub.getState.mockReturnValue("idle");
+    recorderStub.stop.mockClear();
+
+    await act(async () => {
+      hook.result.current.endSession();
+    });
+
+    expect(recorderStub.stop).not.toHaveBeenCalled();
+  });
+
+  it("survives every lifecycle call before any recorder exists", async () => {
+    /**
+     * Each recorder access on these paths is optional-chained because a
+     * learner can open a screen and leave without ever tapping record — and
+     * the cleanup still runs. Unchaining any of them throws on a screen the
+     * learner never used.
+     */
+    const useRecorder = await load();
+    const hook = renderHook(() => useRecorder(options()));
+
+    expect(() => {
+      act(() => {
+        hook.result.current.stop();
+        hook.result.current.endSession();
+        hook.result.current.releaseDevice();
+        hook.result.current.reset();
+      });
+    }).not.toThrow();
+    expect(() => hook.unmount()).not.toThrow();
+  });
+});
+
+/**
+ * Three defaults where `??` and `||` are not interchangeable, and the option
+ * being defaulted is falsy on purpose.
+ *
+ * None of these is a bug today — the code uses `??` and is right. They are
+ * here because the difference is invisible until someone "simplifies" one, and
+ * then a caller who deliberately turned something off finds it still on.
+ * `enforceSnrGate: false` is the one that matters most: recorder.ts documents
+ * it as existing so the fixture runner can keep a raw take either way, and
+ * `false || true` is `true`.
+ */
+describe("useRecorder — defaults that must not swallow a falsy option", () => {
+  it("honours enforceSnrGate: false rather than defaulting it back on", async () => {
+    await mount({ enforceSnrGate: false });
+
+    expect(constructedWith[0]).toMatchObject({ enforceSnrGate: false });
+  });
+
+  it("still defaults the gate on when nothing was said", async () => {
+    // The gate protects a learner from spending an attempt on audio the
+    // scorer cannot read, so absent must mean on.
+    await mount();
+
+    expect(constructedWith[0]).toMatchObject({ enforceSnrGate: true });
+  });
+
+  it("honours a minimum SNR of zero rather than substituting ten", async () => {
+    // Zero is how a caller says "measure everything" — the fixture's own
+    // stance. `0 || 10` is 10, which would quietly re-impose the gate the
+    // caller had just lifted.
+    await mount({ minSnrDb: 0 });
+
+    expect(constructedWith[0]).toMatchObject({ minSnrDb: 0 });
+  });
+
+  it("defaults the minimum SNR when nothing was said", async () => {
+    await mount();
+
+    expect(constructedWith[0]).toMatchObject({ minSnrDb: 10 });
+  });
+
+  it("honours autoStop: false", async () => {
+    // The one case where `||` happens to agree — asserted anyway, because the
+    // agreement is a coincidence of the default rather than a property.
+    await mount({ autoStop: false });
+
+    expect(constructedWith[0]).toMatchObject({ autoStop: false });
   });
 });
