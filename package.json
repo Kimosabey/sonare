@@ -1,6 +1,6 @@
 {
   "name": "lingotran-pronunciation-poc",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.1",
   "private": true,
   "type": "module",
   "description": "Phoneme-level pronunciation scoring POC. Replaces Web Speech API capture and transcript-match scoring.",
