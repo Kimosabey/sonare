@@ -24,6 +24,7 @@ import { ScoreCard } from "../speech/components/ScoreCard.js";
 import { ScoreCardSkeleton } from "../speech/components/ScoreCardSkeleton.js";
 import { DebugPanel } from "../speech/components/DebugPanel.js";
 import { ActivityReport } from "../speech/components/ActivityReport.js";
+import { SessionSummary } from "../components/SessionSummary.js";
 import { CaptureSettings, DEFAULT_CAPTURE_SETTINGS, SENSITIVITY_FACTOR } from "../components/CaptureSettings.js";
 import type { CaptureSettingsValue } from "../components/CaptureSettings.js";
 import { LiveInterimFeedback, LiveLevelMeter } from "../components/LiveLevel.js";
@@ -486,13 +487,19 @@ export function ActivityTest() {
   // again instead of the report that's still sitting in storage.
   if (finished) {
     return (
-      <ActivityReport
-        report={report}
-        activities={activities}
-        progress={progress}
-        onRestart={restart}
-        onExport={exportReport}
-      />
+      <>
+        <ActivityReport
+          report={report}
+          activities={activities}
+          progress={progress}
+          onRestart={restart}
+          onExport={exportReport}
+        />
+        {/* A sibling rather than part of the report: everything it shows comes
+            from browser-persistent storage, which R11 forbids inside
+            src/speech/ where ActivityReport lives. */}
+        <SessionSummary slug={activeLanguage.slug} learnerName={learnerName} />
+      </>
     );
   }
 

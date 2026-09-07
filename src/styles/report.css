@@ -528,3 +528,35 @@ button.sy {
 
 /* Wide content scrolls inside its own box. The page body must never scroll
    sideways — on a phone that makes the whole layout feel broken. */
+
+/* ── session summary ─────────────────────────────────────────────────────── */
+
+/* A sibling of the report rather than part of it: what it shows comes from
+   persistent storage, which R11 keeps out of src/speech/. Visually it reads
+   as one more block of the report. */
+.session-summary {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+}
+
+.session-streak {
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.session-gains {
+  margin: 0 0 16px;
+  padding-left: 1.1em;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.session-gains li {
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.session-gains b {
+  font-weight: 600;
+}
