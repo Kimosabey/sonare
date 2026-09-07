@@ -39,7 +39,8 @@ import { newSessionId } from "../ui/sessionId.js";
 import { useProgressPersistence } from "../ui/useProgressPersistence.js";
 import { getLanguage, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
 import { buildReport } from "../activities/report.js";
-import { adviceFor } from "../activities/advice.js";
+import { adviceFor, weakestSyllable } from "../activities/advice.js";
+import { useCompareToModel } from "../ui/useCompareToModel.js";
 import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
 import type { PronunciationResult } from "../speech/scoring/types.js";
 
@@ -198,6 +199,15 @@ export function ActivityTest() {
   // Same fallback the recorder uses: this runs before the "language not
   // found" guard below, and nothing in that branch renders the control.
   const model = useModelSpeech(activeLanguage?.code ?? "en-US");
+
+  /**
+   * The two sounds the learner needs beside each other: their own weakest
+   * syllable, then the model saying the word it belongs to. Both halves
+   * already existed and nothing sequenced them, so either was heard alone and
+   * compared against a memory.
+   */
+  const compare = useCompareToModel(playback, model, activeLanguage?.code ?? "en-US");
+  const weakest = recorder.result ? weakestSyllable(recorder.result) : null;
 
   /**
    * Advisory only — "unknown" is the normal answer on Safari, and getUserMedia
@@ -672,7 +682,34 @@ export function ActivityTest() {
             it went, this says what to do about it.
           */}
           {recorder.result && adviceFor(recorder.result) && (
-            <p className="advice">{adviceFor(recorder.result)}</p>
+            <p className="advice">
+              {adviceFor(recorder.result)}
+              {/*
+                Offered only when there is something specific to compare and
+                both halves are available — a platform with no voice for the
+                language is the ordinary case for Hindi on some devices, and a
+                button that played only the learner back under this label
+                would be worse than no button.
+              */}
+              {weakest && compare.available && (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() =>
+                      compare.compare({
+                        offsetTicks: weakest.syllable.offsetTicks,
+                        durationTicks: weakest.syllable.durationTicks,
+                        word: weakest.word,
+                      })
+                    }
+                  >
+                    Hear yours, then mine
+                  </button>
+                </>
+              )}
+            </p>
           )}
           {recorder.result ? (
             <ScoreCard
