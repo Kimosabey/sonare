@@ -19,11 +19,32 @@ cp .env.example .env     # fill AZURE_SPEECH_KEY; region is southeastasia
 npm install
 ```
 
+Two secrets, and they fail differently.
+
+`AZURE_SPEECH_KEY` is required for scoring. `LEARNER_TOKEN_SECRET` signs
+anonymous learner tokens and has **no default and no fallback** — unset means
+learner identity and sync are simply disabled, which is the safe direction: a
+built-in default would put the signing key in the repository and let anyone
+forge any learner. Generate one with:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
 Needs a MongoDB instance reachable at `MONGO_URL` (defaults to
-`mongodb://localhost:27017`) — attempt records and capture/scoring
-diagnostics are persisted there (`attempts` and `diagnostics` collections).
-A connection failure is logged, not fatal: scoring itself doesn't depend on
-it, only the analysis trail does.
+`mongodb://localhost:27017`). Ten collections, in three retention classes
+(`server/db.ts` declares them as data, and refuses at runtime to put a TTL on
+a learner-record collection):
+
+| Class | Collections | Expires |
+|---|---|---|
+| Telemetry | `attempts`, `diagnostics` | 90 days — they hold spoken phrases and device context |
+| Learner record | `learners`, `progress`, `skills`, `streaks` | **Never.** Expiring a learner's own history on a timer is a bug, not a policy |
+| Operational / aggregate | `counters`, `ratelimits`, `content`, `stats`, `migrations` | Counters and windows expire on their own horizon; content and daily rollups never do |
+
+A connection failure is logged, not fatal. Scoring keeps working — attempts
+fail over to a local NDJSON file, which is replayed automatically on the next
+startup and gauged from disk at `/metrics` as `fallbackPending`.
 
 ## Run
 
@@ -163,7 +184,31 @@ outside `server/`, `scripts/` and `.env.example` (R2); client code reading a
 `process.env` value containing `KEY`/`SECRET`; a hard-coded credential literal;
 browser-persistent storage in `src/speech/` (R11); a React import inside
 `src/speech/capture/` (NFR-05); the Azure SDK imported outside
-`server/services/` (R12).
+`server/services/` (R12); a `band()` return with no CSS rule (T12); an
+interactive target under 44px (NFR-03); `trust proxy` set to anything but
+exactly `1` (NFR-04).
+
+Three were added while building the platform, and each exists because
+something passed every other gate:
+
+- **T13** — the `prefers-reduced-motion` kill-switch must stay
+  `* { animation: none !important }`. Narrowed to a selector list it would
+  still look correct, still pass every test, and silently stop covering each
+  new animation from then on.
+- **T14** — no source file under `src/`, `server/` or `scripts/` may be
+  excluded by `.gitignore`. Nine repository modules once passed all five gates
+  while being absent from the repository, because **every gate reads the
+  working tree, not the index.**
+- **T15** — the provider's worst case must fit inside the client's upload
+  deadline with room for the upload and response. Written without that margin
+  first, it *passed* at three retries, which is exactly the change it exists
+  to prevent.
+
+Five rules are enforced **by path** — `src/speech`, `src/speech/capture`,
+`src/speech/components/band`, `src/styles`, `server/services`. Moving any of
+those directories without updating its rule makes the check pass *vacuously*,
+which is worse than deleting it: the gate stays green while the guarantee is
+gone. **A reorganisation is a rule change.**
 
 ## Scripts
 
@@ -173,10 +218,32 @@ browser-persistent storage in `src/speech/` (R11); a React import inside
 | `npm run verify` | The rule checks. |
 | `npm run test:french` | Headless regression test for the activity flow (see above). |
 | `npm run resample-bench` | Verifies the resampler's anti-aliasing and timing with real numbers — not just a typecheck. |
-| `npm run replay-fallback` | Replays `server/fallbackLog.ts`'s local NDJSON into MongoDB after an outage. |
+| `npm run replay-fallback` | Drains `server/fallbackLog.ts`'s local NDJSON into MongoDB. Startup does this automatically; the command is for a long outage with no restart. |
+| `npm run migrate` / `-- --dry` | Applies pending migrations, forward-only, under a lock. `--dry` prints the plan and changes nothing. The list is currently empty. |
+| `npm run seed-content` / `-- --force` | Publishes the bundled activity sets to the `content` collection. Idempotent by refusal; `--force` publishes the next version, which is how a corrected bundle gets out. |
+| `npm run rollup-stats [day] [to]` | Aggregates a day into `stats` (no TTL), so a trend outlives the 90-day attempt window. Defaults to yesterday — the last day that is definitely complete. |
 | `python3 scripts/analyze_fixture.py <export.json>` | T18/PRD §8 — Set A vs Set B separation, per language and per platform. Standard library only; `matplotlib` adds the plot. |
 
 `smoke`, `resample-bench` and `analyze_fixture.py` need no browser.
+
+## API surface
+
+`/api/v1` for the app, unprefixed for infrastructure.
+
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `POST /api/v1/pronunciation` | optional learner | WAV in, typed score out. Works with no identity — a learner who never registered must still be able to practise. |
+| `POST /api/v1/diagnostics` | optional learner | Client-side capture failures. Write-only. |
+| `GET /api/v1/diagnostics`, `/attempts`, `/spend` | `DIAGNOSTICS_TOKEN` | The internal screen. Constant-time compare, no "unset means open". |
+| `POST /api/v1/learners` | none | Registers a client-minted id, returns an HMAC-signed token. |
+| `POST /api/v1/learners/rotate` | token | Bounds how long a leaked token is useful. |
+| `DELETE /api/v1/learners/me` | token | Erases across every collection and reports the counts. |
+| `GET`/`POST /api/v1/sync` | token | Pull and push progress, skills and streaks. A push is also a pull. |
+| `GET /api/v1/next?slug=` | token | Which sounds are due, weakest first. |
+| `GET /api/v1/content/:slug` | none | Published activity set. **404 is the normal answer** — the client falls back to its bundle. |
+| `GET /healthz` | none | Alive. Checks nothing else, and **stays true while Mongo is down** — killing containers over a database outage turns it into a restart loop. |
+| `GET /readyz` | none | Should traffic come here. Pings Mongo and checks the provider; 503 when not. |
+| `GET /metrics` | `DIAGNOSTICS_TOKEN` | Latency percentiles, counters, and `fallbackPending` read from disk. |
 
 ## Layout
 
@@ -185,14 +252,37 @@ src/speech/capture/     framework-free capture — ports to React Native, zero R
 src/speech/react/       useRecorder.ts, the only React file under src/speech/
 src/speech/scoring/     upload client + the PRD §6 response type
 src/speech/components/  score card, word chips, phoneme detail, debug panel
-src/activities/         per-language activity sets, progress types, report aggregation
-src/pages/              LanguagePicker, ActivityTest, Diagnostics, FixtureRunner
-src/ui/                 toasts, capture settings, wake lock, progress persistence
+src/activities/         bundled activity sets + progress types. DOM-FREE ZONE:
+                        tsconfig.scripts.json includes it, so nothing here may
+                        touch localStorage or the scripts build breaks
+src/content/            served content — cache, resolver, background fetch.
+                        Every screen reads languages through resolve.ts
+src/learning/           nextUp (what to practise) + session.ts (the attempt rules)
+src/sync/               offline-first sync — dirty tracking, token, engine
+src/stores/             levelStore, skillStore, streakStore
+src/hooks/              the ten use* hooks
+src/components/         toasts, capture settings, error boundary, session summary
+src/pages/              Today, LanguagePicker, ActivityTest, Progress,
+                        Diagnostics, FixtureRunner
+src/styles/             ten sheets; index.css imports them in cascade order
+server/domain/          pure logic, no I/O: alignment, verdicts, numbers,
+                        merge rules, scheduler, rollup
+server/store/           repositories: learners, progress, skills, streaks,
+                        content, stats + the shared optimistic-concurrency merge
 server/services/        ScoringProvider interface + azureSpeech.ts (only SDK importer)
-server/routes/          POST /api/v1/pronunciation, /api/v1/diagnostics + /attempts
-scripts/                smoke, verify, dev, test:french, resample-bench,
-                        replay-fallback, analyze_fixture.py (T18)
+server/infra/           metrics
+server/migrations/      the forward-only runner and its (empty) list
+server/routes/          pronunciation, diagnostics, learners, sync, next,
+                        content, health
+docs/                   PRD, context, handoff, runbooks, reference PDFs
 ```
+
+Two directory names are load-bearing rather than tidy. `src/activities/` is
+DOM-free because `tsconfig.scripts.json` shares it with Node scripts.
+`server/data/` holds **only** the fallback NDJSON — `.gitignore` matches
+`data/` at any depth so real learner records can never be committed, and that
+rule silently swallowed nine source files once. T14 now refuses any
+git-ignored source file.
 
 ## Known deviations and findings
 
