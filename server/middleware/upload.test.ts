@@ -68,6 +68,21 @@ async function upload(h: Harness, form: FormData): Promise<Response> {
   return fetch(`${h.base}/upload`, { method: "POST", body: form });
 }
 
+/**
+ * An upload's outcome with enough context to diagnose it from one log line.
+ *
+ * `expect(status).toBe(413)` tells you a number was wrong and nothing about
+ * why. This case failed once under full-suite load and has not reproduced in
+ * ten runs since, so the next occurrence may be the only chance to see it —
+ * and a bare status leaves nothing to look at. The body distinguishes a
+ * multer limit breach from an unrelated 500, and `label` says which
+ * configuration was in force.
+ */
+async function outcome(h: Harness, form: FormData, label: string) {
+  const res = await upload(h, form);
+  return { label, status: res.status, body: (await res.text()).slice(0, 160) };
+}
+
 afterEach(() => {
   if (ORIGINAL === undefined) delete process.env.MAX_AUDIO_SECONDS;
   else process.env.MAX_AUDIO_SECONDS = ORIGINAL;
@@ -224,15 +239,36 @@ describe("the ceiling tracks its configuration", () => {
      */
     for (const nonsense of ["fifteen", "15s", "abc", "1,000", ""]) {
       const h = await serve(nonsense);
-      const oversize = new FormData();
-      oversize.append("audio", audio(wavBytes(60)), "take.wav");
-      const legitimate = new FormData();
-      legitimate.append("audio", audio(wavBytes(10)), "take.wav");
+      /**
+       * try/finally, so a failed assertion still closes the server.
+       *
+       * The close used to sit after the assertions, which meant one failure
+       * leaked up to four listening servers for the rest of the run — a test
+       * that fails should not also degrade everything after it.
+       */
+      try {
+        const oversize = new FormData();
+        oversize.append("audio", audio(wavBytes(60)), "take.wav");
+        const legitimate = new FormData();
+        legitimate.append("audio", audio(wavBytes(10)), "take.wav");
 
-      // The default is in force, so 60 seconds is refused and 10 is not.
-      expect((await upload(h, oversize)).status, nonsense).toBe(413);
-      expect((await upload(h, legitimate)).status, nonsense).toBe(200);
-      await h.close();
+        /**
+         * The default is in force, so 60 seconds is refused and 10 is not.
+         *
+         * The whole outcome goes in the assertion *message* rather than being
+         * the asserted value. `toMatchObject` elides the properties it is not
+         * comparing, which hid the response body — the one field that
+         * distinguishes a multer limit breach from an unrelated 500. As a
+         * message it always prints.
+         */
+        const refused = await outcome(h, oversize, nonsense);
+        expect(refused.status, JSON.stringify(refused)).toBe(413);
+
+        const accepted = await outcome(h, legitimate, nonsense);
+        expect(accepted.status, JSON.stringify(accepted)).toBe(200);
+      } finally {
+        await h.close();
+      }
     }
   });
 
