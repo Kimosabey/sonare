@@ -40,6 +40,14 @@ import { newSessionId } from "../lib/sessionId.js";
 import { recordPractice } from "../stores/streakStore.js";
 import { recordSkills } from "../stores/skillStore.js";
 import { markLanguageDirty, markStreakDirty } from "../sync/dirty.js";
+import {
+  applySkip,
+  applyTake,
+  canAdvanceFrom,
+  celebrationFor,
+  scoredAttemptsOf,
+  stepStateFor,
+} from "../learning/session.js";
 import { useProgressPersistence } from "../hooks/useProgressPersistence.js";
 import { MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
 import { resolveLanguage } from "../content/resolve.js";
@@ -193,33 +201,19 @@ export function ActivityTest() {
 
       const existingBefore = progress.find((p) => p.activityId === activity.id);
       const previousBest = existingBefore?.best ?? null;
-      const isFirstAttempt = (existingBefore?.attempts.length ?? 0) === 0;
       setBestBeforeAttempt(previousBest);
 
-      if (accuracy !== null && accuracy >= PASS_SCORE) {
-        if (isFirstAttempt) setCelebration({ kind: "firstTry", score: accuracy });
-        else if (previousBest === null || accuracy > previousBest) setCelebration({ kind: "personalBest", score: accuracy });
-        else setCelebration({ kind: "pass", score: accuracy });
-      } else {
-        setCelebration(null);
-      }
+      // The rule lives in learning/session.ts, where it is tested directly
+      // rather than through a rendered screen with a mocked recorder.
+      setCelebration(
+        celebrationFor({
+          accuracy,
+          previousBest,
+          isFirstAttempt: (existingBefore?.attempts.length ?? 0) === 0,
+        }),
+      );
 
-      setProgress((prev) => {
-        const existing = prev.find((p) => p.activityId === activity.id);
-        const attempts = [...(existing?.attempts ?? []), attempt];
-        const best = attempts.reduce<number | null>(
-          (acc, a) => (a.accuracy === null ? acc : acc === null ? a.accuracy : Math.max(acc, a.accuracy)),
-          null,
-        );
-        const passed = best !== null && best >= PASS_SCORE;
-        // An indeterminate attempt does not burn a try — the learner was never
-        // measured, so charging them for it would be punishing our own failure.
-        const scoredAttempts = attempts.filter((a) => a.accuracy !== null).length;
-        const skipped = !passed && scoredAttempts >= MAX_ATTEMPTS;
-
-        const next: ActivityProgress = { activityId: activity.id, attempts, best, passed, skipped };
-        return existing ? prev.map((p) => (p.activityId === activity.id ? next : p)) : [...prev, next];
-      });
+      setProgress((prev) => applyTake(prev, activity.id, attempt));
     },
   });
 
@@ -384,8 +378,8 @@ export function ActivityTest() {
     if (recorder.state === "requesting") setCelebration(null);
   }, [recorder.state]);
 
-  const scoredAttempts = current?.attempts.filter((a) => a.accuracy !== null).length ?? 0;
-  const canAdvance = Boolean(current?.passed) || scoredAttempts >= MAX_ATTEMPTS;
+  const scoredAttempts = scoredAttemptsOf(current?.attempts ?? []);
+  const canAdvance = canAdvanceFrom(current);
   const isLast = index === activities.length - 1;
 
   const advance = useCallback(() => {
@@ -417,10 +411,7 @@ export function ActivityTest() {
    */
   const skipWithoutRecording = useCallback(() => {
     if (!activity) return;
-    setProgress((prev) => {
-      if (prev.some((p) => p.activityId === activity.id)) return prev;
-      return [...prev, { activityId: activity.id, attempts: [], best: null, passed: false, skipped: true }];
-    });
+    setProgress((prev) => applySkip(prev, activity.id));
     advance();
   }, [activity, advance]);
 
@@ -569,7 +560,7 @@ export function ActivityTest() {
         <div className="steps" role="list" aria-label={`Activity ${activity.id} of ${activities.length}`}>
           {activities.map((a, i) => {
             const p = progress.find((pr) => pr.activityId === a.id);
-            const state = i === index ? "current" : p?.passed ? "passed" : p?.skipped ? "skipped" : "upcoming";
+            const state = stepStateFor(i === index, p);
             return <span key={a.id} role="listitem" className={`step step-${state}`} aria-label={`Activity ${a.id}: ${state}`} />;
           })}
         </div>
