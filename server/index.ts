@@ -6,6 +6,7 @@ import { syncRouter } from "./routes/sync.js";
 import { nextRouter } from "./routes/next.js";
 import { healthRouter } from "./routes/health.js";
 import { contentRouter } from "./routes/content.js";
+import { modelVoiceRouter } from "./routes/modelVoice.js";
 import { warnIfIdentityDisabled } from "./identity.js";
 import { countPending, replayPending } from "./fallbackLog.js";
 import { getDb } from "./db.js";
@@ -57,6 +58,13 @@ app.use("/api/v1", learnersRouter);
 app.use("/api/v1", syncRouter);
 app.use("/api/v1", nextRouter);
 app.use("/api/v1", contentRouter);
+/**
+ * The cached model voice, as static files. Mounted here rather than at the
+ * root because the dev server proxies exactly `/api` to this process, so one
+ * URL works in development and in production. A miss is a 404 the client
+ * reads as "use the platform voice" — see routes/modelVoice.ts.
+ */
+app.use("/api/v1", modelVoiceRouter);
 // Unprefixed, because a liveness probe is infrastructure rather than API: an
 // orchestrator should not have to know the app's versioning scheme.
 app.use(healthRouter);

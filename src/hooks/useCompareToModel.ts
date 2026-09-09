@@ -11,6 +11,12 @@
  * Nothing new is captured or synthesised. This sequences two things that
  * already exist, which is why it is a dozen lines rather than a feature.
  *
+ * **The model here is the platform voice, not a served recording.** The
+ * served recordings cover whole reference phrases, and this asks for a single
+ * word — so there is nothing cached to play and the platform synthesiser is
+ * what speaks. That is why availability below reads `canSpeakAnyText`: see the
+ * note on `ModelHandle`.
+ *
  * **The model speaks the whole word, not the syllable.** Handing a fragment
  * like "ment" to speech synthesis does not produce that syllable as it sounds
  * inside "comment" — it produces a reading of the letters, with its own
@@ -52,7 +58,20 @@ export interface PlaybackHandle {
 export interface ModelHandle {
   speak: (text: string, lang: string) => void;
   cancel: () => void;
-  available: boolean;
+  /**
+   * Whether *arbitrary* text can be spoken — not merely whether a model voice
+   * exists at all.
+   *
+   * This reads `canSpeakAnyText` rather than `available` on purpose, and the
+   * difference is load-bearing. Since the model voice gained served
+   * recordings, `available` is true wherever a recording of the *phrase*
+   * exists — including on a device with no platform voice for the language,
+   * which is the ordinary case for Hindi. The comparison asks for one word,
+   * which is never a whole phrase and so never has a recording. Reading
+   * `available` here would show the button on exactly those devices and then
+   * play the learner followed by silence.
+   */
+  canSpeakAnyText: boolean;
 }
 
 export interface CompareToModel {
@@ -113,7 +132,7 @@ export function useCompareToModel(
   return {
     // Both halves or neither. Playing only the learner back, under a label
     // that promises a comparison, is worse than not offering it.
-    available: playback.available && model.available,
+    available: playback.available && model.canSpeakAnyText,
     compare,
   };
 }

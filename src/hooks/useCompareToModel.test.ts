@@ -15,7 +15,7 @@ import { useCompareToModel } from "./useCompareToModel.js";
 
 const TICKS_PER_SECOND = 10_000_000;
 
-function handles(over: { playbackAvailable?: boolean; modelAvailable?: boolean } = {}) {
+function handles(over: { playbackAvailable?: boolean; modelSpeaksAnyText?: boolean } = {}) {
   const order: string[] = [];
   const playback = {
     play: vi.fn((offset: number, duration: number) => order.push(`play:${offset}:${duration}`)),
@@ -24,7 +24,13 @@ function handles(over: { playbackAvailable?: boolean; modelAvailable?: boolean }
   const model = {
     speak: vi.fn((text: string) => order.push(`speak:${text}`)),
     cancel: vi.fn(() => order.push("cancel")),
-    available: over.modelAvailable ?? true,
+    /**
+     * `canSpeakAnyText`, not `available`. Since the model voice gained served
+     * recordings, `available` is true wherever a recording of the *phrase*
+     * exists — and this hook asks for a single word, which never has one. The
+     * platform voice is the only thing that can answer here.
+     */
+    canSpeakAnyText: over.modelSpeaksAnyText ?? true,
   };
   return { playback, model, order };
 }
@@ -208,8 +214,14 @@ describe("availability", () => {
      * Playing only the learner back, under a label promising a comparison, is
      * worse than not offering it — and a platform with no voice for the
      * language is the ordinary case for Hindi on some devices.
+     *
+     * That case is now *more* likely to be reached, not less: a Hindi learner
+     * on such a device has served recordings, so `model.available` is true and
+     * the Listen button shows. Only `canSpeakAnyText` still says no, and it is
+     * the one this hook reads — reading the other would show a comparison
+     * button that plays the learner and then nothing.
      */
-    const withoutModel = handles({ modelAvailable: false });
+    const withoutModel = handles({ modelSpeaksAnyText: false });
     const withoutTake = handles({ playbackAvailable: false });
     const both = handles();
 

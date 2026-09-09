@@ -1,5 +1,10 @@
 /**
- * The daily scoring counter, shared and durable.
+ * The daily spend counters, shared and durable — one per paid provider.
+ *
+ * `spend:{day}` bounds scoring calls (Azure). `voice:{day}` bounds model-voice
+ * synthesis characters (ElevenLabs) and lives at the bottom of this file. They
+ * are separate documents on purpose: a day of generating audio must not be
+ * able to consume the allowance for scoring learner attempts.
  *
  * The ceiling in services/index.ts is in-process state: it resets on restart
  * and is not shared between instances. Its own comment says so — "adequate for
@@ -140,6 +145,110 @@ export async function reserveScoringCall(cap: number, when: Date = new Date()): 
     if (isDuplicateKey(err)) return { allowed: false, reason: "at-cap", calls: cap };
     logger.error({ err, day }, "[counters] could not reserve a scoring call — refusing");
     return { allowed: false, reason: "unavailable", calls: null };
+  }
+}
+
+/**
+ * ── the model voice's own ceiling ────────────────────────────────────────────
+ *
+ * A second paid provider needs a second cap, and it needs to be a *separate*
+ * one. Sharing `spend:` would let a day of generating model audio eat the
+ * allowance for scoring learner attempts, which is the thing learners are
+ * actually here for — one provider's budget must not be able to starve the
+ * other.
+ *
+ * Counted in **characters**, because that is how ElevenLabs bills. A call
+ * count would be the wrong unit by an order of magnitude between a two-word
+ * greeting and a fourteen-word sentence.
+ */
+export interface VoiceCounterDocument {
+  /** `voice:{YYYY-MM-DD}`, UTC — the same calendar the bill uses. */
+  _id: string;
+  day: string;
+  characters: number;
+  phrases: number;
+  expiresAt: Date;
+}
+
+/**
+ * Mirrors `Reservation`, in characters. Separate type rather than a reused one
+ * so a caller cannot read a character figure as a call count.
+ */
+export type CharacterReservation =
+  | { allowed: true; characters: number }
+  | { allowed: false; reason: "at-cap"; characters: number }
+  | { allowed: false; reason: "unavailable"; characters: null };
+
+function voiceCounterId(day: string): string {
+  return `voice:${day}`;
+}
+
+/**
+ * Claims `characters` against today's synthesis cap, atomically.
+ *
+ * The same increment-and-check shape `reserveScoringCall` uses, and for the
+ * same reason: check-then-increment lets two concurrent runs both read
+ * `cap - 1` and both proceed. `{ characters: { $lte: cap - characters } }`
+ * plus `$inc` is one operation, so the total can never pass the cap however
+ * many callers arrive at once.
+ *
+ * **Fails closed.** An unreadable counter allows nothing. There is no
+ * in-process fallback of the kind services/index.ts keeps for scoring, and the
+ * difference is deliberate: refusing to score turns a database outage into a
+ * product outage for a learner mid-attempt, while refusing to *generate* audio
+ * costs a background run that can simply be re-run — and the fallback voice is
+ * still there in the meantime. Nothing a learner is waiting on passes through
+ * here.
+ *
+ * A request larger than the whole cap is refused rather than clamped: a
+ * partial phrase is not a phrase.
+ */
+export async function reserveSynthesisCharacters(
+  cap: number,
+  characters: number,
+  when: Date = new Date(),
+): Promise<CharacterReservation> {
+  if (!Number.isFinite(cap) || cap <= 0) return { allowed: false, reason: "at-cap", characters: 0 };
+  if (!Number.isFinite(characters) || characters < 1) {
+    return { allowed: false, reason: "at-cap", characters: 0 };
+  }
+  // Checked before the query: an upsert against a filter nothing can satisfy
+  // would otherwise insert a first reservation and allow it.
+  if (characters > cap) return { allowed: false, reason: "at-cap", characters: cap };
+
+  const day = utcDay(when);
+  try {
+    const db = await getDb();
+    const updated = await db.collection<VoiceCounterDocument>("counters").findOneAndUpdate(
+      { _id: voiceCounterId(day), characters: { $lte: cap - characters } },
+      {
+        $inc: { characters, phrases: 1 },
+        $setOnInsert: { day, expiresAt: expiryFor(day) },
+      },
+      { upsert: true, returnDocument: "after" },
+    );
+
+    if (updated === null) return { allowed: false, reason: "at-cap", characters: cap };
+    return { allowed: true, characters: updated.characters };
+  } catch (err) {
+    // The upsert colliding on `_id` *is* "we are at the cap": the filter
+    // matched nothing because the day's total is already too high, so Mongo
+    // tried to insert over a document that exists.
+    if (isDuplicateKey(err)) return { allowed: false, reason: "at-cap", characters: cap };
+    logger.error({ err, day }, "[counters] could not reserve synthesis characters — refusing");
+    return { allowed: false, reason: "unavailable", characters: null };
+  }
+}
+
+/** Today's synthesis counter, or null when there is none or it cannot be read. */
+export async function readVoiceCounter(when: Date = new Date()): Promise<VoiceCounterDocument | null> {
+  const day = utcDay(when);
+  try {
+    const db = await getDb();
+    return await db.collection<VoiceCounterDocument>("counters").findOne({ _id: voiceCounterId(day) });
+  } catch (err) {
+    logger.error({ err, day }, "[counters] failed to read the synthesis counter");
+    return null;
   }
 }
 

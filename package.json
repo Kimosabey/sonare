@@ -26,7 +26,8 @@
     "seed-content": "tsx --env-file=.env scripts/seed-content.ts",
     "replay-fallback": "tsx --env-file=.env scripts/replay-fallback.ts",
     "fixture-design": "node --env-file=.env scripts/fixture-design-check.mjs",
-    "alignment-report": "tsx scripts/alignment-report.ts"
+    "alignment-report": "tsx scripts/alignment-report.ts",
+    "generate-model-voice": "tsx --env-file=.env scripts/generate-model-voice.ts"
   },
   "dependencies": {
     "express": "^5.2.1",
