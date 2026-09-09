@@ -139,14 +139,35 @@ vi.mock("../hooks/useSyllablePlayback.js", () => ({
 const modelSpeak = vi.fn();
 const modelCancel = vi.fn();
 let modelAvailable = false;
-vi.mock("../hooks/useModelSpeech.js", () => ({
-  useModelSpeech: () => ({
-    speak: modelSpeak,
-    cancel: modelCancel,
-    speaking: false,
-    available: modelAvailable,
-  }),
-}));
+/**
+ * Which word the model voice is saying, under the test's control the same way
+ * `available` is.
+ *
+ * `null` by default, for the same reason: it is the honest default for jsdom,
+ * and it is also the answer on every real engine that reports no word
+ * boundaries at all — a platform reality rather than a test convenience. Every
+ * test that does not mention it therefore drives the no-boundary path, which
+ * is the one that must render exactly as this screen did before word marking
+ * existed. `phraseTokens` is deliberately not mocked: the screen and the hook
+ * agree on what "word 3" means because one function answers it for both, and
+ * stubbing it here would test a screen agreeing with itself.
+ */
+let modelWordIndex: number | null = null;
+vi.mock("../hooks/useModelSpeech.js", async () => {
+  const actual = await vi.importActual<typeof import("../hooks/useModelSpeech.js")>(
+    "../hooks/useModelSpeech.js",
+  );
+  return {
+    phraseTokens: actual.phraseTokens,
+    useModelSpeech: () => ({
+      speak: modelSpeak,
+      cancel: modelCancel,
+      speaking: false,
+      available: modelAvailable,
+      wordIndex: modelWordIndex,
+    }),
+  };
+});
 vi.mock("../hooks/useWakeLock.js", () => ({ useWakeLock: () => undefined }));
 vi.mock("../components/ToastProvider.js", () => ({
   useToast: () => ({ push: vi.fn(), dismiss: vi.fn(), clear: vi.fn() }),
@@ -263,6 +284,7 @@ beforeEach(() => {
   scored = null;
   lifecycle = null;
   modelAvailable = false;
+  modelWordIndex = null;
   modelSpeak.mockClear();
   modelCancel.mockClear();
   reset.mockClear();
@@ -1145,6 +1167,97 @@ describe("the phrase and the model voice", () => {
     await open();
 
     expect(listen()).toBeNull();
+  });
+
+  /**
+   * Following along while hearing the phrase.
+   *
+   * Two properties, and the second is the one that matters more. Where the
+   * engine reports word boundaries, the word being said is marked. Where it
+   * reports none — the common case on several platforms — the phrase is the
+   * plain run of text it has always been, with no wrapper elements, nothing
+   * marked, and nothing waiting.
+   */
+  describe("the word being spoken", () => {
+    const words = () => [...document.querySelectorAll(".phrase .phrase-word")];
+    const marked = () => document.querySelector(".phrase .phrase-word.now");
+    const target = LANGUAGE.activities[0]?.target ?? "";
+
+    it("leaves the phrase one plain run of text where no boundary ever arrives", async () => {
+      /**
+       * The no-highlight path, asserted rather than assumed. `boundary`
+       * support is uneven and some engines fire nothing, so this is not an
+       * edge case — it is how the feature behaves on whole platforms, and it
+       * has to be indistinguishable from the screen that shipped before it.
+       */
+      modelAvailable = true;
+      await open();
+
+      expect(words()).toEqual([]);
+      expect(document.querySelector(".phrase")?.childElementCount).toBe(0);
+      expect(document.querySelector(".phrase")?.textContent).toBe(target);
+    });
+
+    it("marks the word the voice is on, and only that one", async () => {
+      modelAvailable = true;
+      modelWordIndex = 1;
+      await open();
+
+      expect(marked()?.textContent).toBe(target.split(/\s+/)[1]);
+      expect(words().filter((w) => w.classList.contains("now"))).toHaveLength(1);
+    });
+
+    it("marks the first word, which is the offset an engine reports first", async () => {
+      modelAvailable = true;
+      modelWordIndex = 0;
+      await open();
+
+      expect(marked()?.textContent).toBe(target.split(/\s+/)[0]);
+    });
+
+    it("rebuilds the phrase character for character while marking it", async () => {
+      /**
+       * The phrase is the thing the learner is scored against, so redrawing it
+       * out of spans must not alter it — not a space, not a mark. French puts
+       * a space before its question mark and a tokenizer that normalised
+       * whitespace would silently retypeset the target.
+       */
+      modelAvailable = true;
+      modelWordIndex = 1;
+      await open();
+
+      expect(document.querySelector(".phrase")?.textContent).toBe(target);
+      expect(document.querySelector(".phrase")?.getAttribute("lang")).toBe(LANGUAGE.code);
+    });
+
+    it("marks nothing when the index is past the end of the phrase", async () => {
+      // A single word spoken through the same hook (the compare-to-model
+      // control) reports index 0 against its own text, not this phrase's. The
+      // phrase is off screen by then, and an index nothing matches marks
+      // nothing rather than guessing.
+      modelAvailable = true;
+      modelWordIndex = 99;
+      await open();
+
+      expect(marked()).toBeNull();
+      // Still every word, still the whole phrase — just none of them lit.
+      expect(words().length).toBeGreaterThan(0);
+      expect(document.querySelector(".phrase")?.textContent).toBe(target);
+    });
+
+    it("stops marking once the phrase is replaced by the outcome", async () => {
+      // The mark belongs to the phrase, and the phrase is gone in the result
+      // phase — nothing should be left lit behind the score.
+      modelAvailable = true;
+      modelWordIndex = 0;
+      await open();
+      expect(marked()).not.toBeNull();
+
+      take(88);
+
+      expect(document.querySelector(".phrase")).toBeNull();
+      expect(marked()).toBeNull();
+    });
   });
 
   it("keeps the English gloss, below the actions", async () => {

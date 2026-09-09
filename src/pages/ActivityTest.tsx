@@ -34,7 +34,7 @@ import { useWakeLock } from "../hooks/useWakeLock.js";
 import { useOnlineStatus } from "../hooks/useOnlineStatus.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
 import { useSyllablePlayback } from "../hooks/useSyllablePlayback.js";
-import { useModelSpeech } from "../hooks/useModelSpeech.js";
+import { phraseTokens, useModelSpeech } from "../hooks/useModelSpeech.js";
 import { useMicrophonePermission } from "../hooks/useMicrophonePermission.js";
 import { newSessionId } from "../lib/sessionId.js";
 import { readStreak, recordPractice } from "../stores/streakStore.js";
@@ -599,6 +599,27 @@ export function ActivityTest() {
         ? "result"
         : "prompt";
 
+  /**
+   * Which word of the phrase the model voice is saying, or null for none.
+   *
+   * Following along while hearing a phrase is how a learner maps a sound to
+   * its spelling; the phrase was previously a wall of text that a voice moved
+   * through invisibly, so a learner hearing an unfamiliar syllable had no way
+   * to tell which part of the spelling had just produced it.
+   *
+   * Null far more often than not — nothing is speaking, or the engine reports
+   * no word boundaries — and null is a complete answer, not a degraded one:
+   * see the branch at the phrase below.
+   *
+   * `useCompareToModel` drives the same hook with a single word rather than
+   * the phrase, so its index is 0 and would mark the phrase's first word if
+   * the phrase were on screen. It is not: comparison only exists once there is
+   * a result, and the phrase is replaced by the outcome then. Both ways back
+   * to the phrase — retrying and advancing — cancel the model first, in the
+   * two effects above, which clears this to null with it.
+   */
+  const spokenWord = model.wordIndex;
+
   return (
     <section key={activity.id} className="enter-1">
       <div className="activity-head">
@@ -670,7 +691,25 @@ export function ActivityTest() {
             those would make a reader speak English in a French voice.
           */}
           <p className="phrase" lang={activeLanguage.code}>
-            {activity.target}
+            {spokenWord === null
+              ? // The phrase as one text node — which is what it was before
+                // word marking existed, and what it stays on every engine
+                // that reports no boundaries. The branch is the guarantee:
+                // where there is no word to mark there is no wrapper, no
+                // extra node, and nothing for the absent event to hold up.
+                activity.target
+              : phraseTokens(activity.target).map((token) =>
+                  token.index === null ? (
+                    token.text
+                  ) : (
+                    <span
+                      key={token.start}
+                      className={token.index === spokenWord ? "phrase-word now" : "phrase-word"}
+                    >
+                      {token.text}
+                    </span>
+                  ),
+                )}
           </p>
         </>
       )}

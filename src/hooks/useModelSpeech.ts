@@ -16,6 +16,13 @@
  * itself is deliberately not spelled here: R1 is a plain grep and correctly
  * does not exempt prose.)
  *
+ * It also reports *where* it is. The platform emits a boundary event per word
+ * as it speaks, which is enough to mark the word being said — the thing that
+ * turns hearing a phrase into following one, and how a learner maps a sound to
+ * its spelling. That reporting is uneven across engines and absent on some, so
+ * it is treated throughout as information that may never arrive: see
+ * `wordIndex` and the `onboundary` note below.
+ *
  * Honest about what it is: a synthetic voice is not a native speaker. For a
  * pronunciation model that gap is real — but the platform voices for fr-FR,
  * es-ES, de-DE and hi-IN are good enough to imitate, and the alternative on
@@ -37,8 +44,84 @@ export interface ModelSpeech {
   /** False when the platform has no usable voice — the control then hides rather than lying. */
   available: boolean;
   speaking: boolean;
+  /**
+   * Which word of the utterance is sounding right now, counting words the way
+   * `phraseTokens` does — or `null` when there is no word to mark.
+   *
+   * `null` covers two cases the caller deliberately does not have to tell
+   * apart: nothing is speaking, and something is speaking but this engine
+   * reports no word boundaries at all. In both there is no word to mark, so
+   * the phrase renders exactly as it did before any of this existed. See the
+   * note on `onboundary` in `speak`.
+   */
+  wordIndex: number | null;
   speak: (text: string, lang: string) => void;
   cancel: () => void;
+}
+
+/** One run of a phrase: either a word, or the whitespace between two words. */
+export interface PhraseToken {
+  text: string;
+  /** Where this run starts in the phrase — the same units a boundary reports. */
+  start: number;
+  /** Its position among the phrase's words, or `null` for whitespace. */
+  index: number | null;
+}
+
+/**
+ * Split a phrase into its words and the gaps between them, losing nothing.
+ *
+ * Lives beside the hook rather than beside the rendering because the two have
+ * to agree on what "word 3" means, and the only way to guarantee that is for
+ * one function to answer it for both — the hook turns a character offset into
+ * a word number with it, the screen draws those same words with it.
+ *
+ * Whitespace runs are kept as tokens rather than discarded, so concatenating
+ * the tokens reproduces the phrase character for character. That is what lets
+ * the screen rebuild the phrase out of spans without rewriting a single space
+ * — French puts one before its question mark, and a `split(/\s+/)` that threw
+ * the gaps away would silently normalise it.
+ */
+export function phraseTokens(text: string): PhraseToken[] {
+  const tokens: PhraseToken[] = [];
+  let index = 0;
+  let start = 0;
+  // Capturing the separator keeps the gaps in the result, alternating with the
+  // words. Empty strings appear when the phrase begins or ends with
+  // whitespace; they are skipped rather than rendered as empty spans.
+  for (const run of text.split(/(\s+)/)) {
+    if (run !== "") {
+      const gap = /^\s+$/.test(run);
+      tokens.push({ text: run, start, index: gap ? null : index });
+      if (!gap) index += 1;
+    }
+    start += run.length;
+  }
+  return tokens;
+}
+
+/**
+ * The word containing `charIndex`, or the next word after it.
+ *
+ * Engines disagree about where a word starts: some report the first letter,
+ * some the whitespace or opening punctuation ahead of it. An offset landing
+ * between two words therefore has to resolve *forwards*, to the word about to
+ * be said, rather than backwards to the one just finished — resolving
+ * backwards makes the highlight trail the voice by a word, which teaches the
+ * learner the wrong mapping and is worse than showing nothing.
+ *
+ * `null` when the offset is past the last word, which the caller ignores
+ * rather than acts on.
+ */
+function wordAtChar(tokens: PhraseToken[], charIndex: number): number | null {
+  for (const token of tokens) {
+    if (token.index === null) continue;
+    if (charIndex >= token.start && charIndex < token.start + token.text.length) return token.index;
+    // Tokens are in document order, so the first word starting at or after
+    // the offset is the next one due.
+    if (token.start >= charIndex) return token.index;
+  }
+  return null;
 }
 
 function pickVoice(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | null {
@@ -57,6 +140,7 @@ function pickVoice(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesi
 export function useModelSpeech(lang: string): ModelSpeech {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [speaking, setSpeaking] = useState(false);
+  const [wordIndex, setWordIndex] = useState<number | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   /**
@@ -78,6 +162,7 @@ export function useModelSpeech(lang: string): ModelSpeech {
     window.speechSynthesis?.cancel();
     utteranceRef.current = null;
     setSpeaking(false);
+    setWordIndex(null);
   }, []);
 
   // Speech outliving the component would keep talking over the next screen.
@@ -102,14 +187,44 @@ export function useModelSpeech(lang: string): ModelSpeech {
         if (utteranceRef.current === utterance) {
           utteranceRef.current = null;
           setSpeaking(false);
+          setWordIndex(null);
         }
       };
       // Treated the same as ending: a failed utterance must not leave the
       // control stuck looking busy.
       utterance.onerror = utterance.onend;
 
+      /**
+       * Following along while hearing a phrase is how a learner maps a sound
+       * to its spelling, and the platform already knows where the voice is.
+       *
+       * **Strictly an enhancement, and written so that it cannot become a
+       * requirement.** `boundary` support is uneven — several engines fire
+       * nothing at all, and on those `wordIndex` simply stays `null` for the
+       * whole utterance. Nothing here is awaited, nothing gates `speak` or
+       * `onend` on a boundary arriving, and the highlight is the only thing
+       * that depends on one. Playback on an engine that reports no boundaries
+       * is byte-for-byte the playback that shipped before this existed.
+       *
+       * The token list is captured per utterance rather than read from state:
+       * a second tap replaces the utterance, and the stale one's late events
+       * must not renumber the new phrase. The identity check does the same job
+       * `onend` does above.
+       */
+      const tokens = phraseTokens(text);
+      utterance.onboundary = (event) => {
+        if (utteranceRef.current !== utterance) return;
+        // Engines also report sentence boundaries; only words move a word.
+        if (event.name !== "" && event.name !== "word") return;
+        const at = wordAtChar(tokens, event.charIndex);
+        // An offset past the end is ignored rather than obeyed: clearing the
+        // highlight mid-phrase would read as the voice having stopped.
+        if (at !== null) setWordIndex(at);
+      };
+
       utteranceRef.current = utterance;
       setSpeaking(true);
+      setWordIndex(null);
       synth.speak(utterance);
     },
     [],
@@ -118,6 +233,7 @@ export function useModelSpeech(lang: string): ModelSpeech {
   return {
     available: typeof window !== "undefined" && !!window.speechSynthesis && pickVoice(voices, lang) !== null,
     speaking,
+    wordIndex,
     speak,
     cancel,
   };

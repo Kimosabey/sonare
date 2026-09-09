@@ -77,6 +77,41 @@
   text-wrap: balance;
 }
 
+/*
+ * The word the model voice is saying, as it says it.
+ *
+ * Only present while a word is actually marked — the phrase is one plain text
+ * node otherwise (ActivityTest.tsx), so these rules describe a state that
+ * exists for the length of an utterance and not one moment longer.
+ *
+ * Purple, deliberately not green/amber/red: this is a position in a sentence,
+ * not a judgement on it, and every other coloured text on this screen is a
+ * verdict. The same reasoning as the streak chip above.
+ *
+ * A static state change, on purpose. The reduced-motion kill-switch is a
+ * blanket `* { animation: none !important; transition: none !important }`, so
+ * anything legible only while moving is invisible to the people that switch
+ * protects. Colour and ground carry the whole signal here; the transition only
+ * softens the handover between words and takes nothing with it when stripped.
+ *
+ * `box-shadow` rather than padding for the breathing room: horizontal padding
+ * on an inline element pushes the rest of the line sideways, so every word in
+ * the phrase would shuffle as the voice reached it — motion where the point is
+ * to hold still and be read.
+ */
+.phrase-word {
+  border-radius: var(--radius-sm);
+  transition:
+    background-color var(--dur-quick) var(--ease),
+    color var(--dur-quick) var(--ease);
+}
+
+.phrase-word.now {
+  background: var(--signal-soft);
+  color: var(--signal);
+  box-shadow: 0 0 0 3px var(--signal-soft);
+}
+
 /* The task above the phrase — what to do, not what to say. Quiet, because
    the phrase is the subject and this is the label on it. */
 .task {
