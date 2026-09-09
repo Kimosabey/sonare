@@ -244,7 +244,7 @@ describe("a failure costs nothing", () => {
     await seedPractice(dirty);
     // A token already in hand, so the failure is the sync itself rather than
     // registration — both defer, and they defer for different reasons.
-    localStorage.setItem("sonare.sync.token.v1", TOKEN);
+    localStorage.setItem(`sonare.sync.token.v1.${LEARNER}`, TOKEN);
     networkFails = true;
 
     const outcome = await engine.syncNow({ learnerName: LEARNER, fetchImpl: fakeFetch });
@@ -310,7 +310,7 @@ describe("a failure costs nothing", () => {
     const outcome = await engine.syncNow({ learnerName: LEARNER, fetchImpl: fakeFetch });
 
     expect(outcome).toEqual({ status: "deferred", reason: "rejected" });
-    expect(localStorage.getItem("sonare.sync.token.v1")).toBeNull();
+    expect(localStorage.getItem(`sonare.sync.token.v1.${LEARNER}`)).toBeNull();
   });
 });
 
@@ -485,5 +485,52 @@ describe("when storage will not cooperate", () => {
     });
 
     await expect(engine.syncNow({ learnerName: LEARNER, fetchImpl: fakeFetch })).resolves.toBeDefined();
+  });
+});
+
+describe("a shared device", () => {
+  it("registers each named learner separately", async () => {
+    /**
+     * The bug this guards. Identity used to be one id and one token per
+     * *browser* while every local store keyed on the learner's name — so two
+     * learners on a classroom tablet were pushed to the server under the same
+     * identity and the server merged them. Shared streak days, sound
+     * histories pooled across two different accents, and activities showing
+     * as passed that the other person never attempted.
+     */
+    const { engine } = await load();
+
+    await engine.syncNow({ learnerName: "marie", fetchImpl: fakeFetch });
+    await engine.syncNow({ learnerName: "ahmed", fetchImpl: fakeFetch });
+
+    const registrations = exchanges.filter((e) => e.url.includes("/learners"));
+    expect(registrations).toHaveLength(2);
+
+    const ids = registrations.map((e) => (e.body as { learnerId: string }).learnerId);
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it("does not reuse one learner's token for another", async () => {
+    // A single token per browser would defeat the per-learner id entirely:
+    // the second learner would present the first one's credential and be
+    // merged straight back into their record.
+    const { engine } = await load();
+    await engine.syncNow({ learnerName: "marie", fetchImpl: fakeFetch });
+    exchanges.length = 0;
+
+    await engine.syncNow({ learnerName: "ahmed", fetchImpl: fakeFetch });
+
+    expect(exchanges.some((e) => e.url.includes("/learners"))).toBe(true);
+  });
+
+  it("keeps dirty work attributed to the learner who did it", async () => {
+    const { engine, dirty } = await load();
+    dirty.markLanguageDirty("marie", "fr");
+
+    await engine.syncNow({ learnerName: "ahmed", fetchImpl: fakeFetch });
+
+    // Ahmed's sync carries nothing of Marie's, and Marie's flag survives.
+    expect(syncBody()).toEqual({ progress: [], skills: [] });
+    expect(dirty.readDirty("marie").progress).toEqual(["fr"]);
   });
 });

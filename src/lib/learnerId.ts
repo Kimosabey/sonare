@@ -17,11 +17,19 @@
  * request — see the identity middleware. This module only answers "who is
  * this browser saying it is".
  *
- * Two honest limits, worth stating because both surprise people. Clearing site
- * data loses the id, and with it the link to the server's copy of that
- * learner's progress; and a device handed to a second person shares one
- * learner. Both are inherent to anonymity, and both are only fixed by an
- * optional account, which must never become required in order to practise.
+ * Keyed by the learner's chosen name as well as by device, and that is a bug
+ * fix rather than a nicety. It used to be one id per browser while every local
+ * store keyed on the name — so on a shared device two learners had separate
+ * local progress and were pushed to the server under the *same* identity. The
+ * server merged them: shared streak days, pooled sound histories across two
+ * different accents, and activities showing as passed that the other person
+ * had never attempted. A classroom tablet is the stated commercial surface, so
+ * this was exactly the wrong thing to get wrong.
+ *
+ * One honest limit remains. Clearing site data loses the id, and with it the
+ * link to the server's copy of that learner's progress. That is inherent to
+ * anonymity, and is only fixed by an optional account — which must never
+ * become required in order to practise.
  */
 
 import { newUuid } from "./uuid.js";
@@ -29,7 +37,13 @@ import { newUuid } from "./uuid.js";
 /** In the key, so a bump orphans the old id rather than misreading it. */
 const SCHEMA_VERSION = "v1";
 
-const STORAGE_KEY = `sonare.learnerId.${SCHEMA_VERSION}`;
+/**
+ * `anonymous` for a learner who has not given a name, matching the fallback
+ * every other store uses so the two never disagree about who is who.
+ */
+function storageKey(learnerName: string | null): string {
+  return `sonare.learnerId.${SCHEMA_VERSION}.${learnerName ?? "anonymous"}`;
+}
 
 /**
  * Set when storage could not be written, so one session keeps a stable id even
@@ -39,7 +53,7 @@ const STORAGE_KEY = `sonare.learnerId.${SCHEMA_VERSION}`;
  * every call — and since this id is about to key progress, skills and streaks,
  * that would silently split one session's work across several learners.
  */
-let inMemory: string | null = null;
+const inMemory = new Map<string, string>();
 
 /** RFC 4122 shape. A stored value that is not one is not an identity. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -51,14 +65,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * and is trivially editable, and an id of `""` or `"null"` would key a shared
  * bucket that every learner on the device would land in.
  */
-export function readLearnerId(): string | null {
+export function readLearnerId(learnerName: string | null): string | null {
+  const key = storageKey(learnerName);
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (raw !== null && UUID.test(raw)) return raw;
   } catch {
     // Storage disabled or blocked. Fall through to whatever this session has.
   }
-  return inMemory;
+  return inMemory.get(key) ?? null;
 }
 
 /**
@@ -67,15 +82,16 @@ export function readLearnerId(): string | null {
  * Never throws and never returns null: a caller that cannot get an id has no
  * sensible fallback, and every screen that needs one needs it to render.
  */
-export function ensureLearnerId(): string {
-  const existing = readLearnerId();
+export function ensureLearnerId(learnerName: string | null): string {
+  const existing = readLearnerId(learnerName);
   if (existing !== null) return existing;
 
+  const key = storageKey(learnerName);
   const minted = newUuid();
-  inMemory = minted;
+  inMemory.set(key, minted);
 
   try {
-    localStorage.setItem(STORAGE_KEY, minted);
+    localStorage.setItem(key, minted);
   } catch {
     // Quota, or private browsing. The id holds for this session in memory;
     // only its durability is lost, which is the right thing to sacrifice.
@@ -90,10 +106,11 @@ export function ensureLearnerId(): string {
  * Clears the in-memory copy too. Leaving it would make a reset look like it
  * worked and then hand back the same identity for the rest of the session.
  */
-export function clearLearnerId(): void {
-  inMemory = null;
+export function clearLearnerId(learnerName: string | null): void {
+  const key = storageKey(learnerName);
+  inMemory.delete(key);
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(key);
   } catch {
     // Best effort.
   }

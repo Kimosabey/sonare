@@ -14,40 +14,53 @@
 import { ensureLearnerId } from "../lib/learnerId.js";
 
 const SCHEMA_VERSION = "v1";
-const STORAGE_KEY = `sonare.sync.token.${SCHEMA_VERSION}`;
+
+/**
+ * Keyed by learner, following learnerId.ts.
+ *
+ * A single token per browser would defeat the per-learner id entirely: the
+ * second learner on a shared device would present the first learner's
+ * credential and be merged straight back into their record.
+ */
+function storageKey(learnerName: string | null): string {
+  return `sonare.sync.token.${SCHEMA_VERSION}.${learnerName ?? "anonymous"}`;
+}
 
 /**
  * Held in memory as well, so a session where storage is blocked still makes
  * exactly one registration call instead of one per sync.
  */
-let inMemory: string | null = null;
+const inMemory = new Map<string, string>();
 
 /** Three dot-separated parts. Not verified here — only the server can do that. */
 const TOKEN_SHAPE = /^[^.]+\.[^.]+\.[^.]+$/;
 
-export function readToken(): string | null {
+export function readToken(learnerName: string | null): string | null {
+  const key = storageKey(learnerName);
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (raw !== null && TOKEN_SHAPE.test(raw)) return raw;
   } catch {
     // Storage disabled. Fall through to this session's copy.
   }
-  return inMemory;
+  return inMemory.get(key) ?? null;
 }
 
-export function saveToken(token: string): void {
-  inMemory = token;
+export function saveToken(learnerName: string | null, token: string): void {
+  const key = storageKey(learnerName);
+  inMemory.set(key, token);
   try {
-    localStorage.setItem(STORAGE_KEY, token);
+    localStorage.setItem(key, token);
   } catch {
     // Quota or private browsing. The token holds for this session.
   }
 }
 
-export function clearToken(): void {
-  inMemory = null;
+export function clearToken(learnerName: string | null): void {
+  const key = storageKey(learnerName);
+  inMemory.delete(key);
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(key);
   } catch {
     // Best effort.
   }
@@ -68,7 +81,8 @@ export interface RegisterOptions {
  * where the learner is doing something else and sync is the background task.
  */
 export async function register(options: RegisterOptions = {}): Promise<string | null> {
-  const learnerId = ensureLearnerId();
+  const learnerName = options.displayName ?? null;
+  const learnerId = ensureLearnerId(learnerName);
   const doFetch = options.fetchImpl ?? fetch;
 
   try {
@@ -91,7 +105,7 @@ export async function register(options: RegisterOptions = {}): Promise<string | 
     const body = (await response.json()) as { token?: unknown };
     if (typeof body.token !== "string" || !TOKEN_SHAPE.test(body.token)) return null;
 
-    saveToken(body.token);
+    saveToken(learnerName, body.token);
     return body.token;
   } catch {
     // Offline, blocked, aborted. Sync simply does not happen this time.
@@ -101,5 +115,5 @@ export async function register(options: RegisterOptions = {}): Promise<string | 
 
 /** The stored token, registering for one if there is none. */
 export async function ensureToken(options: RegisterOptions = {}): Promise<string | null> {
-  return readToken() ?? (await register(options));
+  return readToken(options.displayName ?? null) ?? (await register(options));
 }

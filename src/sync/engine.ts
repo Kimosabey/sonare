@@ -111,7 +111,7 @@ export async function syncNow(options: SyncOptions): Promise<SyncOutcome> {
      * it so the next attempt registers again, which is cheap and gets the same
      * learner back, rather than retrying a credential that cannot work.
      */
-    clearToken();
+    clearToken(learnerName);
     return { status: "deferred", reason: "rejected" };
   }
   if (!response.ok) return { status: "deferred", reason: "rejected" };
