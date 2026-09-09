@@ -551,264 +551,304 @@ export function ActivityTest() {
 
   const passedCount = progress.filter((p) => p.passed).length;
 
+  /**
+   * Which of the three states the screen is in.
+   *
+   * All three used to render at once. A learner who had not yet spoken was
+   * shown the phrase, then a record region, then a result region announcing
+   * its own emptiness — "Result / No attempt yet." That is the component's
+   * state shape drawn as UI: three regions because there are three kinds of
+   * state to hold, rather than because a learner needs three things in front
+   * of them at once.
+   *
+   * Derived on every render, and derived from the recorder. Not held in state
+   * and deliberately not carried in the route: the honesty rule (R8) and the
+   * three-try count both live on this screen and both read the recorder, so a
+   * second, settable copy of "where are we" is a copy that can disagree with
+   * the take actually in flight — a learner mid-take on a screen that has
+   * moved on, or a try charged against a state that no longer exists. There is
+   * nothing to keep in sync here because there is nothing second.
+   *
+   * `processing` belongs to the result state rather than the speaking one: the
+   * take is already over, and what belongs on screen while the provider thinks
+   * is the skeleton holding the score card's shape.
+   */
+  const phase =
+    recorder.state === "requesting" || recorder.state === "ready" || recorder.state === "recording"
+      ? "speaking"
+      : recorder.state === "processing" || recorder.result !== null || recorder.error !== null
+        ? "result"
+        : "prompt";
+
   return (
-    <>
-      <section key={activity.id} className="enter-1">
-        {/* tabIndex -1: focusable by the advance effect above, never a tab
-            stop of its own. */}
-        <h2 ref={activityHeadingRef} tabIndex={-1}>
-          Activity {activity.id} of {activities.length} — {activity.title}
-        </h2>
-        <div className="steps-track" aria-hidden="true">
-          <div className="steps-fill" style={{ width: `${(passedCount / activities.length) * 100}%` }} />
-        </div>
-        <div className="steps" role="list" aria-label={`Activity ${activity.id} of ${activities.length}`}>
-          {activities.map((a, i) => {
-            const p = progress.find((pr) => pr.activityId === a.id);
-            const state = stepStateFor(i === index, p);
-            return <span key={a.id} role="listitem" className={`step step-${state}`} aria-label={`Activity ${a.id}: ${state}`} />;
-          })}
-        </div>
+    <section key={activity.id} className="enter-1">
+      {/* tabIndex -1: focusable by the advance effect above, never a tab
+          stop of its own. */}
+      <h2 ref={activityHeadingRef} tabIndex={-1}>
+        Activity {activity.id} of {activities.length} — {activity.title}
+      </h2>
+      <div className="steps-track" aria-hidden="true">
+        <div className="steps-fill" style={{ width: `${(passedCount / activities.length) * 100}%` }} />
+      </div>
+      <div className="steps" role="list" aria-label={`Activity ${activity.id} of ${activities.length}`}>
+        {activities.map((a, i) => {
+          const p = progress.find((pr) => pr.activityId === a.id);
+          const state = stepStateFor(i === index, p);
+          return <span key={a.id} role="listitem" className={`step step-${state}`} aria-label={`Activity ${a.id}: ${state}`} />;
+        })}
+      </div>
 
-        <p className="what" style={{ marginTop: 14, marginBottom: 0 }}>
-          <strong>{activity.prompt}</strong>
-        </p>
+      {/*
+        The phrase and everything about it. Shown while the learner is reading
+        it and while they are saying it — the target cannot vanish the moment
+        the microphone opens, because with auto-stop they are still reading it
+        — and replaced by the outcome once there is one.
+      */}
+      {phase !== "result" && (
+        <>
+          <p className="what" style={{ marginTop: 14, marginBottom: 0 }}>
+            <strong>{activity.prompt}</strong>
+          </p>
 
-        {/* The one field here genuinely in the language being taught. The
-            prompt above and the gloss below are English instruction *about*
-            it, so they stay untagged — tagging them would have a screen
-            reader speak English in a French voice. WCAG 3.1.2. */}
-        <div className="prompt" lang={activeLanguage.code}>
-          {activity.target}
+          {/* The one field here genuinely in the language being taught. The
+              prompt above and the gloss below are English instruction *about*
+              it, so they stay untagged — tagging them would have a screen
+              reader speak English in a French voice. WCAG 3.1.2. */}
+          <div className="prompt" lang={activeLanguage.code}>
+            {activity.target}
+          </div>
+          {model.available && (
+            <button
+              type="button"
+              className="listen"
+              /* Disabled rather than hidden while the mic is live: hiding it
+                 would shift the layout at the exact moment the learner is
+                 about to speak. */
+              disabled={phase === "speaking"}
+              onClick={() =>
+                model.speaking ? model.cancel() : model.speak(activity.target, activeLanguage.code)
+              }
+            >
+              {model.speaking ? "Stop" : "Listen"}
+            </button>
+          )}
+          <p className="hint">&ldquo;{activity.gloss}&rdquo;</p>
+
+          <details>
+            <summary>Why this phrase</summary>
+            <div className="body">
+              <p className="what" style={{ margin: 0 }}>
+                {activity.focus}
+              </p>
+            </div>
+          </details>
+        </>
+      )}
+
+      {phase === "result" && recorder.error && (
+        <div className="verdict v-fail" role="status" aria-live="polite" ref={errorRef} tabIndex={-1}>
+          <div className="tag">ERROR</div>
+          <div>
+            {recorder.error.userMessage}
+            {/*
+              Behind ?debug=1. The code and domain are real support value and
+              the wrong audience: this is already sent to the diagnostics
+              collection, so hiding it loses nothing — and a learner reading
+              an error code concludes the app is broken rather than that
+              their microphone is off.
+            */}
+            {debugEnabled && (
+              <details className="error-details">
+                <summary>Technical details</summary>
+                <div className="hint">
+                  {recorder.error.code} · {recorder.error.domain} · {recorder.error.detail}
+                </div>
+              </details>
+            )}
+          </div>
         </div>
-        {model.available && (
-          <button
-            type="button"
-            className="listen"
-            /* Disabled rather than hidden while the mic is live: hiding it
-               would shift the layout at the exact moment the learner is
-               about to speak. */
-            disabled={recorder.state === "recording" || recorder.state === "requesting"}
-            onClick={() =>
-              model.speaking ? model.cancel() : model.speak(activity.target, activeLanguage.code)
-            }
-          >
-            {model.speaking ? "Stop" : "Listen"}
+      )}
+
+      {phase === "result" && current?.passed && (
+        <div
+          className={`verdict v-warn pass-banner${celebration && celebration.kind !== "pass" ? " pass-banner-celebrate" : ""}`}
+          style={{ borderColor: "#b4dbcb", background: "#e7f3ee" }}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="tag" style={{ color: "var(--pass)" }}>
+            {celebration?.kind === "firstTry" ? "FIRST TRY!" : celebration?.kind === "personalBest" ? "NEW BEST!" : "PASSED"}
+          </div>
+          <div>
+            {celebration?.kind === "personalBest"
+              ? `Scored ${Math.round(current.best ?? 0)} — beat your previous best. Move on when you are ready.`
+              : `Scored ${Math.round(current.best ?? 0)}. Move on when you are ready.`}
+          </div>
+        </div>
+      )}
+
+      {phase === "result" && !current?.passed && scoredAttempts >= MAX_ATTEMPTS && (
+        <div className="verdict v-warn">
+          <div className="tag">MOVE ON</div>
+          <div>
+            {MAX_ATTEMPTS} attempts used. This one is recorded as not passed and will show in the
+            report — carry on to the next activity.
+          </div>
+        </div>
+      )}
+
+      {/*
+        The live region is mounted in every state, empty or not, and that is
+        the point rather than an oversight. A screen reader only announces
+        changes inside an `aria-live` container that was already in the
+        document — mounting the container together with its content is the
+        classic way to make an announcement silently never fire. So the
+        container is unconditional and its *contents* are sequenced.
+
+        What it no longer holds is "No attempt yet.": a learner who has not
+        spoken does not need to be told they have not spoken.
+      */}
+      <div aria-live="polite">
+        {phase === "result" && (
+          <>
+            {/*
+              Specific to the attempt just made, unlike the activity's own
+              focus text, which reads the same at 41 and at 79. Rendered above
+              the score card because it is the actionable half — the numbers
+              say how it went, this says what to do about it.
+            */}
+            {recorder.result && adviceFor(recorder.result) && (
+              <p className="advice">
+                {adviceFor(recorder.result)}
+                {/*
+                  Offered only when there is something specific to compare and
+                  both halves are available — a platform with no voice for the
+                  language is the ordinary case for Hindi on some devices, and a
+                  button that played only the learner back under this label
+                  would be worse than no button.
+                */}
+                {weakest && compare.available && (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() =>
+                        compare.compare({
+                          offsetTicks: weakest.syllable.offsetTicks,
+                          durationTicks: weakest.syllable.durationTicks,
+                          word: weakest.word,
+                        })
+                      }
+                    >
+                      Hear yours, then mine
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+            {/*
+              Three outcomes, not two. "processing" is its own — it used to
+              fall through to "No attempt yet.", which is actively wrong: the
+              learner has just made an attempt and is told there isn't one, for
+              the second and a half they most want reassurance.
+            */}
+            {recorder.result ? (
+              <ScoreCard
+                result={recorder.result}
+                heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
+                lang={activeLanguage.code}
+                previousBest={bestBeforeAttempt}
+                detailed={debugEnabled}
+                {...(playback.available
+                  ? { onSelectSyllable: (s: { offsetTicks: number; durationTicks: number }) => playback.play(s.offsetTicks, s.durationTicks) }
+                  : {})}
+                playingOffsetTicks={playback.playingOffsetTicks}
+              />
+            ) : recorder.state === "processing" ? (
+              <ScoreCardSkeleton />
+            ) : null}
+          </>
+        )}
+      </div>
+
+      {/*
+        No stated threshold. Publishing the pass mark turned practice into a
+        number to clear: it invited gaming the figure rather than saying the
+        phrase well, and a learner can act on the syllable chips but not on
+        "60".
+
+        Tries remaining stays, because running out is a real constraint a
+        learner needs to see coming, and it is as relevant beside a result as
+        it is before one. It counts *scored* attempts — an unusable take costs
+        nothing (R8).
+      */}
+      <p className="what">
+        {MAX_ATTEMPTS - scoredAttempts === 1
+          ? "Last try for this one"
+          : `${MAX_ATTEMPTS - scoredAttempts} tries left`}
+      </p>
+
+      <div className="row">
+        <RecordButton
+          state={recorder.state}
+          onStart={recorder.start}
+          onStop={recorder.stop}
+          autoStop={settings.autoStop}
+          speaking={recorder.speaking}
+          continuous={settings.continuous}
+          sessionActive={recorder.sessionActive}
+        />
+        {canAdvance && (
+          <button type="button" onClick={advance}>
+            {isLast ? "Finish and see report" : "Next activity"}
           </button>
         )}
-        <p className="hint">&ldquo;{activity.gloss}&rdquo;</p>
-
-        <details>
-          <summary>Why this phrase</summary>
-          <div className="body">
-            <p className="what" style={{ margin: 0 }}>
-              {activity.focus}
-            </p>
-          </div>
-        </details>
-      </section>
-
-      <section>
         {/*
-          No heading, and no stated threshold.
-          A heading for a button is form layout — the button is labelled and
-          is the largest thing here. And publishing the pass mark turned
-          practice into a number to clear: it invited gaming the figure rather
-          than saying the phrase well, and a learner can act on the syllable
-          chips but not on "60".
-
-          Tries remaining stays, because running out is a real constraint a
-          learner needs to see coming. It counts *scored* attempts — an
-          unusable take costs nothing (R8).
+          Offered only while this activity has nothing recorded against it and
+          nothing is in flight. Once there is a take, "Next activity" is the
+          honest way on and a second escape would invite discarding a real
+          result by mistake.
         */}
-        <p className="what">
-          {MAX_ATTEMPTS - scoredAttempts === 1
-            ? "Last try for this one"
-            : `${MAX_ATTEMPTS - scoredAttempts} tries left`}
-        </p>
-
-        <div className="row">
-          <RecordButton
-            state={recorder.state}
-            onStart={recorder.start}
-            onStop={recorder.stop}
-            autoStop={settings.autoStop}
-            speaking={recorder.speaking}
-            continuous={settings.continuous}
-            sessionActive={recorder.sessionActive}
-          />
-          {canAdvance && (
-            <button type="button" onClick={advance}>
-              {isLast ? "Finish and see report" : "Next activity"}
-            </button>
-          )}
-          {/*
-            Offered only while this activity has nothing recorded against it.
-            Once there is a take, "Next activity" is the honest way on and a
-            second escape would invite discarding a real result by mistake.
-            Hidden mid-recording for the same reason the settings are disabled
-            there — leaving a take in flight is not what the learner asked for.
-          */}
-          {attemptsUsed === 0 && recorder.state !== "recording" && recorder.state !== "processing" && (
-            <button type="button" className="ghost" onClick={skipWithoutRecording}>
-              Can&rsquo;t speak right now
-            </button>
-          )}
-        </div>
-
-        {settings.interim && (
-          <LiveInterimFeedback
-            store={recorder.levelStore}
-            recording={recorder.state === "recording"}
-            speaking={recorder.speaking}
-            hangoverMs={hangoverMs}
-            autoStop={settings.autoStop}
-          />
+        {attemptsUsed === 0 && phase === "prompt" && (
+          <button type="button" className="ghost" onClick={skipWithoutRecording}>
+            Can&rsquo;t speak right now
+          </button>
         )}
+      </div>
 
+      {/*
+        Only while the microphone is actually open. Both of these used to
+        render before the learner had spoken — a level meter reading silence
+        and an interim panel with nothing to report are instruments idling,
+        which is a large part of what made this screen read as a tool.
+      */}
+      {phase === "speaking" && settings.interim && (
+        <LiveInterimFeedback
+          store={recorder.levelStore}
+          recording={recorder.state === "recording"}
+          speaking={recorder.speaking}
+          hangoverMs={hangoverMs}
+          autoStop={settings.autoStop}
+        />
+      )}
+
+      {phase === "speaking" && (
         <LiveLevelMeter
           store={recorder.levelStore}
           active={recorder.state === "recording"}
           clipping={recorder.clipping}
         />
+      )}
 
-        {recorder.error && (
-          <div className="verdict v-fail" role="status" aria-live="polite" ref={errorRef} tabIndex={-1}>
-            <div className="tag">ERROR</div>
-            <div>
-              {recorder.error.userMessage}
-              {/*
-                Behind ?debug=1. The code and domain are real support value and
-                the wrong audience: this is already sent to the diagnostics
-                collection, so hiding it loses nothing — and a learner reading
-                an error code concludes the app is broken rather than that
-                their microphone is off.
-              */}
-              {debugEnabled && (
-                <details className="error-details">
-                  <summary>Technical details</summary>
-                  <div className="hint">
-                    {recorder.error.code} · {recorder.error.domain} · {recorder.error.detail}
-                  </div>
-                </details>
-              )}
-            </div>
-          </div>
-        )}
-
-        {current?.passed && (
-          <div
-            className={`verdict v-warn pass-banner${celebration && celebration.kind !== "pass" ? " pass-banner-celebrate" : ""}`}
-            style={{ borderColor: "#b4dbcb", background: "#e7f3ee" }}
-            role="status"
-            aria-live="polite"
-          >
-            <div className="tag" style={{ color: "var(--pass)" }}>
-              {celebration?.kind === "firstTry" ? "FIRST TRY!" : celebration?.kind === "personalBest" ? "NEW BEST!" : "PASSED"}
-            </div>
-            <div>
-              {celebration?.kind === "personalBest"
-                ? `Scored ${Math.round(current.best ?? 0)} — beat your previous best. Move on when you are ready.`
-                : `Scored ${Math.round(current.best ?? 0)}. Move on when you are ready.`}
-            </div>
-          </div>
-        )}
-
-        {!current?.passed && scoredAttempts >= MAX_ATTEMPTS && (
-          <div className="verdict v-warn">
-            <div className="tag">MOVE ON</div>
-            <div>
-              {MAX_ATTEMPTS} attempts used. This one is recorded as not passed and will show in the
-              report — carry on to the next activity.
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section>
-        {/*
-          No heading, and nothing at all until there is something to say.
-          "Result / No attempt yet." was the worst element on the screen: an
-          empty panel announcing its own emptiness, which is a data model
-          rendered as UI. A learner who has not spoken yet does not need to be
-          told they have not spoken yet.
-
-          The live region itself stays mounted even while empty, and that is
-          deliberate rather than leftover. A screen reader only announces
-          changes inside an `aria-live` container that was already in the
-          document — mounting the container together with its content is the
-          classic way to make an announcement silently never fire. So the
-          container is always here and its *contents* are conditional.
-        */}
-        <div aria-live="polite">
-          {/*
-            Three states, not two. "processing" is its own — it used to fall
-            through to "No attempt yet.", which is actively wrong: the learner
-            has just made an attempt and is told there isn't one, for the
-            second and a half they most want reassurance.
-          */}
-          {/*
-            Specific to the attempt just made, unlike the activity's own focus
-            text, which reads the same at 41 and at 79. Rendered above the
-            score card because it is the actionable half — the numbers say how
-            it went, this says what to do about it.
-          */}
-          {recorder.result && adviceFor(recorder.result) && (
-            <p className="advice">
-              {adviceFor(recorder.result)}
-              {/*
-                Offered only when there is something specific to compare and
-                both halves are available — a platform with no voice for the
-                language is the ordinary case for Hindi on some devices, and a
-                button that played only the learner back under this label
-                would be worse than no button.
-              */}
-              {weakest && compare.available && (
-                <>
-                  {" "}
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() =>
-                      compare.compare({
-                        offsetTicks: weakest.syllable.offsetTicks,
-                        durationTicks: weakest.syllable.durationTicks,
-                        word: weakest.word,
-                      })
-                    }
-                  >
-                    Hear yours, then mine
-                  </button>
-                </>
-              )}
-            </p>
-          )}
-          {recorder.result ? (
-            <ScoreCard
-              result={recorder.result}
-              heardSpeech={(recorder.lastCapture?.snrDb ?? 0) >= HEARD_SPEECH_SNR_DB}
-              lang={activeLanguage.code}
-              previousBest={bestBeforeAttempt}
-              detailed={debugEnabled}
-              {...(playback.available
-                ? { onSelectSyllable: (s: { offsetTicks: number; durationTicks: number }) => playback.play(s.offsetTicks, s.durationTicks) }
-                : {})}
-              playingOffsetTicks={playback.playingOffsetTicks}
-            />
-          ) : recorder.state === "processing" ? (
-            <ScoreCardSkeleton />
-          ) : null}
-        </div>
-
-        {debugEnabled && (
-          <DebugPanel
-            granted={recorder.granted}
-            contextSampleRate={recorder.contextSampleRate}
-            capture={recorder.lastCapture}
-            result={recorder.result}
-          />
-        )}
-      </section>
-    </>
+      {debugEnabled && (
+        <DebugPanel
+          granted={recorder.granted}
+          contextSampleRate={recorder.contextSampleRate}
+          capture={recorder.lastCapture}
+          result={recorder.result}
+        />
+      )}
+    </section>
   );
 }

@@ -20,11 +20,13 @@
  * subject, and what the screen *does* with one is this file's.
  */
 
+import { useCallback, useState } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { LANGUAGES, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
+import type { RecorderState } from "../speech/capture/types.js";
 
 /**
  * A helper rather than a bare index plus a throw: module-scope narrowing does
@@ -40,19 +42,66 @@ function firstLanguage(): (typeof LANGUAGES)[number] {
 const LANGUAGE = firstLanguage();
 
 let scored: ((result: unknown, capture: unknown) => void) | null = null;
+let lifecycle: ((state: RecorderState, error?: RecorderError | null) => void) | null = null;
 const reset = vi.fn();
 const endSession = vi.fn();
 
+interface RecorderError {
+  code: string;
+  domain: string;
+  userMessage: string;
+  detail: string;
+}
+
+/**
+ * A *stateful* recorder stub, in the two ways the old one was not.
+ *
+ * It returned `result: null` forever, which is a state the real recorder
+ * cannot be in: useRecorder sets `result`, calls `onScored`, and drops back to
+ * `idle` on three consecutive lines from the same score, so a landed score
+ * always leaves a result on the hook. Every test below therefore drove the
+ * screen through "a take was scored and the recorder is holding nothing" —
+ * fiction, and load-bearing fiction now that the screen sequences what it
+ * shows off exactly that field.
+ *
+ * And its `state` was pinned to "idle", so two thirds of the lifecycle the
+ * screen now reads were unreachable. `lifecycle()` drives it, which is what
+ * lets the tests below assert that the phrase survives the microphone opening
+ * and that the level meter does not exist before it.
+ */
 vi.mock("../speech/react/useRecorder.js", () => ({
   useRecorder: (options: { onScored: (r: unknown, c: unknown) => void }) => {
-    scored = options.onScored;
+    const [state, setState] = useState<RecorderState>("idle");
+    const [error, setError] = useState<RecorderError | null>(null);
+    const [result, setResult] = useState<unknown>(null);
+    const [capture, setCapture] = useState<unknown>(null);
+    scored = (r, c) => {
+      setResult(r);
+      setCapture(c);
+      options.onScored(r, c);
+      // The real hook returns to idle on the same tick it publishes a score.
+      setState("idle");
+    };
+    lifecycle = (next, nextError = null) => {
+      setState(next);
+      setError(nextError);
+    };
+    // Stable identity: several effects on the screen list a recorder callback
+    // as a dependency, and a fresh function each render would re-run them.
+    const doReset = useCallback(() => {
+      reset();
+      setResult(null);
+      setCapture(null);
+      setError(null);
+      setState("idle");
+    }, []);
     return {
-      state: "idle",
+      state,
       speaking: false,
       level: -60,
-      result: null,
-      error: null,
-      lastCapture: null,
+      result,
+      error,
+      lastCapture: capture,
       granted: null,
       contextSampleRate: null,
       clipping: false,
@@ -64,7 +113,7 @@ vi.mock("../speech/react/useRecorder.js", () => ({
       warm: vi.fn(),
       releaseDevice: vi.fn(),
       endSession,
-      reset,
+      reset: doReset,
     };
   },
 }));
@@ -141,6 +190,11 @@ function take(accuracy: number | null): void {
   );
 }
 
+/** Puts the recorder into one lifecycle state, with an optional error. */
+function enter(state: RecorderState, error: RecorderError | null = null): void {
+  act(() => lifecycle?.(state, error));
+}
+
 /**
  * The tries-remaining line as rendered.
  *
@@ -187,6 +241,7 @@ async function completeSession(): Promise<void> {
 
 beforeEach(() => {
   scored = null;
+  lifecycle = null;
   reset.mockClear();
   endSession.mockClear();
   installStorage({ "sonare.learnerName": "Marie" });
@@ -807,5 +862,161 @@ describe("celebration, and the take it must never fire on", () => {
     take(null);
 
     expect(document.querySelector(".pass-banner-celebrate")).toBeNull();
+  });
+});
+
+/**
+ * One state at a time.
+ *
+ * The screen used to render all three of its regions at once: the phrase, a
+ * record region, and a result region that announced its own emptiness ("Result
+ * / No attempt yet.") to a learner who had not yet spoken. Three regions
+ * because the component holds three kinds of state, not because anyone needs
+ * three things at once — which is most of why this read as an instrument
+ * rather than a product.
+ *
+ * Which one shows is derived from the recorder on every render. Nothing here
+ * asserts an internal name; each test drives one of the recorder's real
+ * lifecycle states and asserts what a learner can see in it, so the derivation
+ * stays free to change shape as long as the sequence holds.
+ */
+describe("the three states are sequenced, not stacked", () => {
+  const phrase = () => document.querySelector(".prompt");
+  const scoreCard = () => document.querySelector(".overall");
+  const meter = () => document.querySelector(".meter");
+  const liveRegion = () => document.querySelector("[aria-live='polite']");
+
+  it("shows the phrase and no result before anything has been recorded", async () => {
+    await open();
+
+    expect(phrase()?.textContent).toContain(LANGUAGE.activities[0]?.target ?? "");
+    expect(scoreCard()).toBeNull();
+    expect(document.body.textContent).not.toMatch(/no attempt yet/i);
+  });
+
+  it("does not idle a level meter at a learner who has not spoken", async () => {
+    /**
+     * A meter reading silence is an instrument with nothing to measure. It was
+     * the clearest single tell that this screen was built to be watched by
+     * whoever wrote it rather than used by a learner.
+     */
+    await open();
+
+    expect(meter()).toBeNull();
+  });
+
+  it("keeps the aria-live container mounted while it is empty", async () => {
+    /**
+     * The one thing here that must not be conditionally rendered, and the
+     * failure is silent: a screen reader only announces changes inside a live
+     * region that was *already* in the document when they happened. Mount the
+     * container together with its first content and the announcement never
+     * fires — no error, no visual difference, and nothing a sighted test would
+     * notice.
+     */
+    await open();
+
+    const region = liveRegion();
+    expect(region).not.toBeNull();
+    expect(region?.textContent).toBe("");
+  });
+
+  it("brings the meter up once the microphone is open, and keeps the phrase", async () => {
+    /**
+     * The phrase cannot vanish when recording starts. With auto-stop the
+     * learner is still reading it as they speak, so removing it would take the
+     * target away at the one moment it is being used.
+     */
+    await open();
+
+    enter("recording");
+
+    expect(meter()).not.toBeNull();
+    expect(phrase()?.textContent).toContain(LANGUAGE.activities[0]?.target ?? "");
+  });
+
+  it("hands the screen over to the outcome while the provider is thinking", async () => {
+    // The take is over by "processing", so this belongs with the result rather
+    // than with the phrase — the skeleton holding the score card's shape is
+    // the honest thing on screen for that second and a half.
+    await open();
+
+    enter("processing");
+
+    expect(screen.getByTestId("score-skeleton")).toBeInTheDocument();
+    expect(phrase()).toBeNull();
+  });
+
+  it("replaces the phrase with the result once there is one", async () => {
+    // Not both at once: the score, the advice and the ways on are what a
+    // learner needs after speaking, and the phrase is what they needed before.
+    await open();
+
+    take(40);
+
+    await waitFor(() => expect(scoreCard()).not.toBeNull());
+    expect(phrase()).toBeNull();
+  });
+
+  it("announces the result inside the container that was already there", async () => {
+    // The pairing that makes the mounted-while-empty rule worth having: the
+    // same node, still there, now with something in it.
+    await open();
+    const before = liveRegion();
+
+    take(40);
+
+    await waitFor(() => expect(liveRegion()?.textContent).not.toBe(""));
+    expect(liveRegion()).toBe(before);
+  });
+
+  it("goes back to the phrase for the next activity", async () => {
+    // advance() resets the recorder, so the derivation returns to the prompt
+    // state on its own — there is no second copy of "where are we" to move.
+    await open();
+    take(88);
+    await waitFor(() => expect(nextButton()).not.toBeNull());
+
+    fireEvent.click(nextButton()!);
+
+    await waitFor(() =>
+      expect(phrase()?.textContent).toContain(LANGUAGE.activities[1]?.target ?? ""),
+    );
+    expect(scoreCard()).toBeNull();
+  });
+
+  it("treats a capture failure as an outcome, not as a missing one", async () => {
+    /**
+     * A learner whose microphone was refused has had something happen to
+     * them. Leaving the screen in its "read this and speak" state would show
+     * them a phrase and a button that has already failed, with the reason
+     * somewhere below it.
+     */
+    await open();
+
+    enter("error", {
+      code: "NOT_ALLOWED",
+      domain: "capture",
+      userMessage: "Sonare needs your microphone.",
+      detail: "NotAllowedError",
+    });
+
+    expect(screen.getByText("Sonare needs your microphone.")).toBeInTheDocument();
+    expect(phrase()).toBeNull();
+  });
+
+  it("withdraws the no-audio exit the moment a take is in flight", async () => {
+    /**
+     * The exit belongs to the prompt state only. Sequencing must not have
+     * quietly left it beside a live microphone, where tapping it would throw
+     * away the take the learner is in the middle of.
+     */
+    await open();
+    const exitButton = () => screen.queryByRole("button", { name: /Can’t speak right now/i });
+    expect(exitButton()).not.toBeNull();
+
+    enter("recording");
+
+    expect(exitButton()).toBeNull();
   });
 });
