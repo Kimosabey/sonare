@@ -218,7 +218,15 @@ export function ActivityTest() {
         celebrationFor({
           accuracy,
           previousBest,
-          isFirstAttempt: (existingBefore?.attempts.length ?? 0) === 0,
+          // Scored attempts, not all attempts. An indeterminate take is not a
+          // try: R8 says it costs the learner nothing, and every other
+          // allowance decision on this screen already counts with
+          // scoredAttemptsOf. Counting raw length here meant one unusable take
+          // pushed the next take past `firstTry` into `personalBest`, so a
+          // learner who had never scored was congratulated for beating a best
+          // that did not exist — the honesty boundary broken by arithmetic
+          // rather than by a fabricated number.
+          isFirstAttempt: scoredAttemptsOf(existingBefore?.attempts ?? []) === 0,
         }),
       );
 

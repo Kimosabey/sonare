@@ -511,33 +511,23 @@ describe("R8, seen from inside a journey", () => {
   });
 
   /**
-   * A real defect, pinned rather than described.
+   * **Fixed — this is now a plain assertion.**
    *
-   * An unusable take must cost the learner nothing (R8). It costs them this:
-   * the take *after* it is no longer their first attempt, so
-   * `celebrationFor` falls past the `firstTry` branch into `personalBest`,
-   * and the banner reads "beat your previous best" over a best that has never
+   * An unusable take must cost the learner nothing (R8), and it was costing
+   * them this: the take *after* it was no longer their first attempt, so
+   * `celebrationFor` fell past the `firstTry` branch into `personalBest`, and
+   * the banner read "beat your previous best" over a best that had never
    * existed — the indeterminate take left `best` null. A learner whose first
-   * word was drowned out by a bus is congratulated for beating a score nobody
-   * ever recorded, and loses the "FIRST TRY!" they earned.
+   * word was drowned out by a bus was congratulated for beating a score
+   * nobody ever recorded, and lost the "FIRST TRY!" they had earned.
    *
-   *   src/pages/ActivityTest.tsx:221
-   *     isFirstAttempt: (existingBefore?.attempts.length ?? 0) === 0
-   *   counts every attempt where every other try-allowance decision on this
-   *   screen counts scored ones — `scoredAttemptsOf` already exists for
-   *   exactly this and is used three lines from here.
-   *
-   *   src/learning/session.ts:139
-   *     if (previousBest === null || accuracy > previousBest)
-   *   returns `personalBest` when there is no previous best at all, and
-   *   src/pages/ActivityTest.tsx:753 renders that as "beat your previous
-   *   best".
-   *
-   * Marked `.fails` so the suite stays honest in both directions: it records
-   * today's behaviour without going green on it, and it will start failing
-   * the moment somebody fixes either line — which is the signal to delete it.
+   * `ActivityTest.tsx` now counts `scoredAttemptsOf(...)` here, matching
+   * every other try-allowance decision on that screen. Worth keeping as a
+   * test rather than deleting with the bug: this is the honesty boundary
+   * being broken by arithmetic rather than by a fabricated number, which is
+   * the harder kind to notice — nothing in the code looked dishonest.
    */
-  it.fails("does not let an unusable take rewrite what the next one is told", async () => {
+  it("does not let an unusable take rewrite what the next one is told", async () => {
     await renderApp(`#/${FRENCH.slug}`);
     press(/^Start$/);
 
