@@ -383,6 +383,34 @@ export async function synthesise(request: SynthesisRequest): Promise<Synthesis |
     return null;
   }
 
+  /**
+   * No chosen voice means no synthesis — the sibling of the guard above.
+   *
+   * `declaresLanguage` stops the wrong *model*; this stops the wrong *voice*.
+   * Without it a language absent from OWNER_VOICE_IDS silently reaches the
+   * English placeholder, and `eleven_v3` will read Devanagari or Kannada
+   * script in an English speaker's accent — cheerfully, at 200, with valid
+   * character timings. That is worse than having no served audio at all,
+   * because the platform synthesiser at least reaches for the right language,
+   * and because a learner imitates the accent they are given. The accent is
+   * the variable this product exists to measure.
+   *
+   * Caught by a dry run showing `hi-IN -> 21m00Tcm4TlvDq8ikWAM`. An earlier
+   * version of this file *claimed* in a comment that synthesis refused here
+   * and only shipped the `hasChosenVoice` predicate, which is the more
+   * embarrassing half: the guard was documented, agreed with, and absent.
+   *
+   * An explicit `request.voiceId` bypasses this, because naming a voice at
+   * the call site is a decision rather than a default falling through.
+   */
+  if (request.voiceId === undefined && !hasChosenVoice(request.language)) {
+    logger.warn(
+      { language: request.language, placeholder: PLACEHOLDER_VOICE_ID },
+      "[elevenLabs] no voice chosen for this language — refusing rather than teaching it in the placeholder's accent. Set ELEVENLABS_VOICE_IDS or add it to OWNER_VOICE_IDS.",
+    );
+    return null;
+  }
+
   const key = apiKey();
   if (key === undefined) {
     logger.warn(

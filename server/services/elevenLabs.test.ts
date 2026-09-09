@@ -231,6 +231,52 @@ describe("the voice", () => {
   });
 });
 
+describe("the chosen-voice guard", () => {
+  it("refuses a language with no voice chosen, without spending a request", async () => {
+    /**
+     * The sibling of the declared-language guard: that one stops the wrong
+     * model, this one stops the wrong *voice*.
+     *
+     * Caught by a dry run printing `hi-IN -> 21m00Tcm4TlvDq8ikWAM`. Hindi has
+     * no voice in OWNER_VOICE_IDS, so it fell through to the English
+     * placeholder — and `eleven_v3` reads Devanagari in an English accent
+     * cheerfully, at 200, with valid character timings. Worse than no served
+     * audio, because the platform synthesiser at least reaches for the right
+     * language, and because a learner imitates the accent they are given.
+     *
+     * The stub answers with a good body, so removing the guard makes this
+     * test receive usable-looking audio rather than fail loudly.
+     */
+    const { impl, calls } = stubFetch(alignedBody("नमस्ते"));
+
+    const result = await synthesise({
+      text: "नमस्ते",
+      language: "hi-IN",
+      fetchImpl: impl,
+    });
+
+    expect(result).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("honours an explicitly named voice for that same language", async () => {
+    // Naming a voice at the call site is a decision, not a default falling
+    // through — so the guard must not block a deliberate one-off.
+    const { impl, calls } = stubFetch(alignedBody("नमस्ते"));
+
+    const result = await synthesise({
+      text: "नमस्ते",
+      language: "hi-IN",
+      voiceId: "adeliberatehindivoice",
+      fetchImpl: impl,
+    });
+
+    expect(result).not.toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toContain("adeliberatehindivoice");
+  });
+});
+
 describe("the declared-language guard", () => {
   it("refuses a language the model does not declare, without spending a request", async () => {
     /**
@@ -482,9 +528,12 @@ describe("a successful synthesis", () => {
   });
 
   it("names the model in the body", async () => {
-    const { impl, calls } = stubFetch(alignedBody("नमस्ते"));
+    // French, not Hindi: this test is about the model id, and Hindi has no
+    // chosen voice, so it is now refused before a body is ever built. Using it
+    // here made the test fail for a reason unrelated to its subject.
+    const { impl, calls } = stubFetch(alignedBody("Bonjour"));
 
-    await synthesise({ text: "नमस्ते", language: "hi-IN", fetchImpl: impl });
+    await synthesise({ text: "Bonjour", language: "fr-FR", fetchImpl: impl });
 
     expect(JSON.parse(String(calls[0]?.init.body)).model_id).toBe(DEFAULT_MODEL_ID);
   });

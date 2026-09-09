@@ -34,3 +34,16 @@ data/
 
 # Diagnostic learner audio from SAVE_AUDIO_DIR. Never committed.
 audio-debug/
+
+# Generated model-voice audio (scripts/generate-model-voice.ts). Reproducible
+# from the content sets plus the API, so it is build output rather than source:
+# binary mp3s per phrase per content version would only accumulate in history.
+#
+# Unanchored, following the `data/` lesson directly above — MODEL_VOICE_CACHE_DIR
+# is relative to process.cwd(), so running the server from a subdirectory would
+# otherwise produce an unignored copy that git offers to commit.
+#
+# Consequence worth stating: a fresh deploy has no cache, so every language
+# falls back to the platform synthesiser until `npm run generate-model-voice`
+# has run. That degrades rather than breaks, which is the intended shape.
+voice-cache/

@@ -41,7 +41,13 @@
 
 import { LANGUAGES } from "../src/activities/languages/index.js";
 import { fillCache, cacheDir, type LanguageInput, type FillSummary } from "../server/modelVoice/cache.js";
-import { apiKey, declaredLanguageCount, modelId, voiceIdFor } from "../server/services/elevenLabs.js";
+import {
+  apiKey,
+  declaredLanguageCount,
+  hasChosenVoice,
+  modelId,
+  voiceIdFor,
+} from "../server/services/elevenLabs.js";
 
 /** The bundle's epoch. Published sets carry real versions; see the header. */
 const BUNDLED_CONTENT_VERSION = 0;
@@ -108,15 +114,35 @@ async function main(): Promise<void> {
   }
 
   const model = modelId();
-  const characters = sets.reduce(
+
+  /**
+   * A language with no chosen voice is reported and dropped from the plan.
+   *
+   * `synthesise` refuses it anyway, so including it here would spend nothing —
+   * but it would print a character total and a language count that a reader
+   * would reasonably act on, and it hid a real mistake once: a dry run
+   * cheerfully listed `hi-IN -> <the English placeholder>`, which reads as
+   * "Hindi is covered" when the truth is the opposite. The plan should not
+   * claim work the run will decline to do.
+   */
+  const speakable = sets.filter((set) => hasChosenVoice(set.language));
+  const unvoiced = sets.filter((set) => !hasChosenVoice(set.language));
+
+  const characters = speakable.reduce(
     (total, set) => total + set.phrases.reduce((n, p) => n + p.text.trim().length, 0),
     0,
   );
 
   console.log(`model: ${model} (declares ${declaredLanguageCount(model) ?? "?"} languages)`);
-  for (const set of sets) console.log(`voice: ${set.language} -> ${voiceIdFor(set.language)}`);
+  for (const set of speakable) console.log(`voice: ${set.language} -> ${voiceIdFor(set.language)}`);
+  for (const set of unvoiced) {
+    console.log(
+      `skip:  ${set.language} -> no voice chosen; it keeps the platform synthesiser ` +
+        `(set ELEVENLABS_VOICE_IDS=${set.language}:<id> to include it)`,
+    );
+  }
   console.log(
-    `${sets.length} language(s), ${sets.reduce((n, s) => n + s.phrases.length, 0)} phrase(s), ` +
+    `${speakable.length} language(s), ${speakable.reduce((n, s) => n + s.phrases.length, 0)} phrase(s), ` +
       `${characters} characters if nothing is cached`,
   );
 
