@@ -1,3 +1,52 @@
+/* ── the activity header ─────────────────────────────────────────────────── */
+
+/*
+ * The activity's name and the learner's streak, on one line.
+ *
+ * Baseline-aligned rather than centred so the chip sits on the heading's own
+ * line of type instead of floating beside its box, and `space-between` so the
+ * pair reads as one header rather than as two stacked statements.
+ */
+.activity-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+/* The one heading on this screen, and now the activity's name rather than its
+   position. Larger than the base h2, which was sized for panel headings —
+   this is the only one left. */
+.activity-head h2 {
+  font-size: var(--text-lg);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/*
+ * The streak, in front of the learner while they can still add to it rather
+ * than only on the report once the session is over.
+ *
+ * Purple, not green or amber: this is a count of days shown up, not a verdict
+ * on anything. streakStore's `recordPractice` takes no score by signature, so
+ * there is deliberately no colour here that could read as pass or fail.
+ */
+.streak-chip {
+  flex: none;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--signal);
+  white-space: nowrap;
+}
+
 /* ── the phrase ───────────────────────────────────────────────────────────── */
 
 /*

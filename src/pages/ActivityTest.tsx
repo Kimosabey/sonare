@@ -37,7 +37,7 @@ import { useSyllablePlayback } from "../hooks/useSyllablePlayback.js";
 import { useModelSpeech } from "../hooks/useModelSpeech.js";
 import { useMicrophonePermission } from "../hooks/useMicrophonePermission.js";
 import { newSessionId } from "../lib/sessionId.js";
-import { recordPractice } from "../stores/streakStore.js";
+import { readStreak, recordPractice } from "../stores/streakStore.js";
 import { recordSkills } from "../stores/skillStore.js";
 import { markLanguageDirty, markStreakDirty } from "../sync/dirty.js";
 import {
@@ -552,6 +552,25 @@ export function ActivityTest() {
   const passedCount = progress.filter((p) => p.passed).length;
 
   /**
+   * The learner's practice days, read rather than recomputed.
+   *
+   * `recordPractice` already credits the day on every take — including an
+   * indeterminate one, because a learner whose audio could not be judged still
+   * showed up — so the number exists and nothing on this screen was showing
+   * it. It only appeared on the report, after ten activities, which is the
+   * least useful moment: a streak is a reason to keep going, and by then there
+   * is nothing left to keep going with.
+   *
+   * Read on render rather than held in state, like Today.tsx: the source is
+   * synchronous localStorage, and a take credits a day mid-session, so a
+   * cached copy would show a learner yesterday's figure for the rest of the
+   * sitting. Nothing here derives, thresholds or judges the number — this is
+   * the store's own answer, and `recordPractice` takes no score by signature
+   * so a bad take can never cost a day.
+   */
+  const streak = readStreak(learnerName);
+
+  /**
    * Which of the three states the screen is in.
    *
    * All three used to render at once. A learner who had not yet spoken was
@@ -582,11 +601,34 @@ export function ActivityTest() {
 
   return (
     <section key={activity.id} className="enter-1">
-      {/* tabIndex -1: focusable by the advance effect above, never a tab
-          stop of its own. */}
-      <h2 ref={activityHeadingRef} tabIndex={-1}>
-        Activity {activity.id} of {activities.length} — {activity.title}
-      </h2>
+      <div className="activity-head">
+        {/*
+          The activity's own name, which is what the learner is about to do.
+          The heading used to read "Activity 3 of 10 — Ordering in a café":
+          two thirds of it was a position, and the only part that says
+          anything about the next thirty seconds arrived after an em dash.
+          Position moved to the rail below, which shows exactly that and
+          already carries "Activity 3 of 10" as its accessible name, so
+          nothing was lost by not saying it twice.
+
+          tabIndex -1: focusable by the advance effect above, never a tab
+          stop of its own.
+        */}
+        <h2 ref={activityHeadingRef} tabIndex={-1}>
+          {activity.title}
+        </h2>
+
+        {/*
+          Attendance, in front of the learner while they can still add to it.
+          Nothing is shown at zero: "0 days in a row" is a scoreboard reading
+          nil, which is the opposite of the encouragement a streak is for.
+        */}
+        {streak.current > 0 && (
+          <p className="streak-chip">
+            {streak.current === 1 ? "Day 1" : `${streak.current} days in a row`}
+          </p>
+        )}
+      </div>
       <div className="steps-track" aria-hidden="true">
         <div className="steps-fill" style={{ width: `${(passedCount / activities.length) * 100}%` }} />
       </div>
@@ -802,6 +844,18 @@ export function ActivityTest() {
             {model.speaking ? "Stop" : "Listen"}
           </button>
         )}
+        {/*
+          After a result, going again and moving on are the two things a
+          learner wants, and they now sit together. Retrying used to be the
+          record button in a region above the score, so "have another go" and
+          "carry on" were in different places on the screen and the nearer one
+          was the one that discarded what they had just read.
+
+          `retry` only changes the label. Both remain real choices — a learner
+          who passed may want to beat their own score, and one who has not may
+          want to move on — so neither is withheld; the quieter styling says
+          which is the ordinary next step without taking the other away.
+        */}
         <RecordButton
           state={recorder.state}
           onStart={recorder.start}
@@ -810,6 +864,8 @@ export function ActivityTest() {
           speaking={recorder.speaking}
           continuous={settings.continuous}
           sessionActive={recorder.sessionActive}
+          retry={phase === "result"}
+          secondary={phase === "result" && canAdvance}
         />
         {canAdvance && (
           <button type="button" onClick={advance}>

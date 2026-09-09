@@ -12,6 +12,27 @@ interface RecordButtonProps {
   /** Session stays open across utterances. */
   continuous?: boolean;
   sessionActive?: boolean;
+  /**
+   * Label the idle button as a retake rather than a first attempt.
+   *
+   * "Start speaking" under a score the learner has just read is describing the
+   * wrong moment — they are not starting, they are deciding whether to go
+   * again. The label lives here rather than being duplicated as a second
+   * bespoke button on the screen, because everything else about the tap
+   * belongs here: R10 requires the call into the capture layer to happen
+   * synchronously inside this handler, and the busy/disabled matrix is one
+   * decision that should have one owner.
+   */
+  retry?: boolean;
+  /**
+   * Render as the quieter half of a pair.
+   *
+   * After a result there are two things a learner may want and both are
+   * legitimate, so both are offered — but two identically filled buttons make
+   * the pair ambiguous rather than ordered. This is styling only; nothing
+   * about the tap changes.
+   */
+  secondary?: boolean;
 }
 
 function RecordButtonBase({
@@ -22,6 +43,8 @@ function RecordButtonBase({
   speaking = false,
   continuous = false,
   sessionActive = false,
+  retry = false,
+  secondary = false,
 }: RecordButtonProps) {
   const recording = state === "recording";
   const busy = state === "requesting" || state === "processing" || state === "ready";
@@ -40,15 +63,19 @@ function RecordButtonBase({
           ? "Listening for the next…"
           : state === "error"
             ? "Try again"
-            : continuous
-              ? "Start session"
-              : "Start speaking";
+            : retry
+              ? "Try again"
+              : continuous
+                ? "Start session"
+                : "Start speaking";
 
   return (
     <>
       <button
         type="button"
-        className={recording ? "rec" : ""}
+        // `rec` last where both apply: the live-microphone treatment is not
+        // something a "quieter of the pair" hint may override.
+        className={[secondary ? "ghost" : "", recording ? "rec" : ""].filter(Boolean).join(" ")}
         // In auto mode the take ends on silence, so the button has nothing to
         // do while recording — disabling it prevents a tap that would look
         // like a stop but land as a no-op.

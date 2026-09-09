@@ -85,6 +85,51 @@ describe("RecordButton", () => {
     expect(screen.getByRole("button", { name: "Listening for the next…" })).toBeDisabled();
   });
 
+  it("retry: labels the idle button for a second attempt rather than a first", () => {
+    // "Start speaking" under a score the learner has just read describes the
+    // wrong moment — they are deciding whether to go again, not starting.
+    render(<RecordButton state="idle" onStart={vi.fn()} onStop={vi.fn()} retry />);
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
+  });
+
+  it("retry does not survive into the states that describe themselves", () => {
+    /**
+     * The label ternary checks retry *after* recording, requesting, processing
+     * and sessionActive, which is the order that matters: a button reading
+     * "Try again" while the microphone is live would invite a tap that stops
+     * the take the learner is in the middle of.
+     */
+    const { rerender } = render(
+      <RecordButton state="processing" onStart={vi.fn()} onStop={vi.fn()} retry />,
+    );
+    expect(screen.getByRole("button", { name: "Scoring…" })).toBeDisabled();
+
+    rerender(<RecordButton state="recording" onStart={vi.fn()} onStop={vi.fn()} retry autoStop />);
+    expect(screen.getByRole("button", { name: "Listening…" })).toBeInTheDocument();
+  });
+
+  it("secondary is styling only — the tap it offers is unchanged", () => {
+    // Offered, not urged: after a result both going again and moving on are
+    // real choices, and only one of them can be the filled one.
+    const onStart = vi.fn();
+    render(<RecordButton state="idle" onStart={onStart} onStop={vi.fn()} retry secondary />);
+
+    const button = screen.getByRole("button", { name: "Try again" });
+    expect(button).toHaveClass("ghost");
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    expect(onStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("never lets the quieter styling override the live-microphone treatment", () => {
+    // `rec` carries the recording state's colour and pulse. A caller passing
+    // secondary while the mic is open must not be able to mute that.
+    render(
+      <RecordButton state="recording" onStart={vi.fn()} onStop={vi.fn()} secondary />,
+    );
+    expect(screen.getByRole("button", { name: "Stop recording" })).toHaveClass("rec");
+  });
+
   it("ready: busy/disabled even though the label still reads as the pre-recording prompt", () => {
     // Real, slightly surprising behavior: "ready" isn't one of the label
     // branches, so it falls through to "Start speaking" — but `busy`

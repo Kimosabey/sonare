@@ -27,6 +27,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { LANGUAGES, MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
 import type { RecorderState } from "../speech/capture/types.js";
+// Not mocked, deliberately: the streak in the header has to be the store's own
+// answer, and seeding through `writeStreak` proves the screen reads it rather
+// than counting the takes in front of it.
+import { localDay, writeStreak } from "../stores/streakStore.js";
 
 /**
  * A helper rather than a bare index plus a throw: module-scope narrowing does
@@ -1155,5 +1159,150 @@ describe("the phrase and the model voice", () => {
     expect(gloss()?.textContent).toContain(LANGUAGE.activities[0]?.gloss ?? "");
     expect(precedes(phrase(), actions())).toBe(true);
     expect(precedes(actions(), gloss())).toBe(true);
+  });
+});
+
+/**
+ * The header, and the pair of choices after a result.
+ *
+ * Three things the screen already had and was not using. The activity has a
+ * name — "Ordering in a café" — which appeared only as the tail of "Activity 3
+ * of 10 — Ordering in a café", after the two thirds a learner cannot act on.
+ * The streak was recorded on every take and shown nowhere until the report,
+ * which is the least useful moment for a reason to keep going. And retrying
+ * was the record button in a region above the score, so "have another go" and
+ * "carry on" lived in different places with the nearer one discarding what the
+ * learner had just read.
+ */
+describe("the header, and the two ways on", () => {
+  const heading = () => screen.getByRole("heading");
+  const chip = () => document.querySelector(".streak-chip");
+  const retryButton = () => screen.queryByRole("button", { name: "Try again" });
+
+  /** Seeds `days` consecutive practice days ending today, via the store's own API. */
+  function seedStreak(days: number): void {
+    const list: string[] = [];
+    const day = new Date();
+    for (let i = 0; i < days; i += 1) {
+      list.unshift(localDay(day));
+      // Calendar arithmetic rather than subtracting 86,400,000 milliseconds,
+      // which lands on the same local day twice across a DST boundary.
+      day.setDate(day.getDate() - 1);
+    }
+    writeStreak("Marie", { days: list, current: 0, longest: 0 });
+  }
+
+  it("uses the activity's own name as the heading", async () => {
+    await open();
+
+    expect(heading()).toHaveTextContent(LANGUAGE.activities[0]?.title ?? "");
+  });
+
+  it("leaves exactly one heading on the screen", async () => {
+    /**
+     * There were three — "Activity N of M — title", "Record" and "Result" —
+     * two of which were labels on panels rather than anything a learner needed
+     * named. A heading per region is form layout; a screen reader user
+     * navigating by heading was being offered the component's structure.
+     */
+    await open();
+
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
+  });
+
+  it("stops saying the position in prose, and still says it to a screen reader", async () => {
+    /**
+     * The rail below the heading is the position indicator: one dot per
+     * activity, the current one scaled up, and "Activity 1 of 10" as its
+     * accessible name. Printing the same sentence above it is the count
+     * duplication that was already cut once from this screen.
+     */
+    await open();
+
+    expect(document.body.textContent).not.toMatch(/Activity \d+ of \d+/);
+    expect(document.querySelector(".steps")?.getAttribute("aria-label")).toBe(
+      `Activity 1 of ${LANGUAGE.activities.length}`,
+    );
+  });
+
+  it("reads the streak the store already holds rather than counting the session", async () => {
+    /**
+     * The load-bearing one. Four days are seeded and nothing has been recorded
+     * in this session, so a header showing four can only have read them —
+     * anything derived from the takes on screen would show zero. It also means
+     * a learner who is four days in is told so on activity one, not after ten.
+     */
+    installStorage({ "sonare.learnerName": "Marie" });
+    seedStreak(4);
+
+    await open();
+
+    expect(chip()).toHaveTextContent("4 days in a row");
+  });
+
+  it("says nothing at all before there is a day to show", async () => {
+    // "0 days in a row" is a scoreboard reading nil, which is the opposite of
+    // what a streak is for.
+    await open();
+
+    expect(chip()).toBeNull();
+  });
+
+  it("credits the day on a take that could not be scored", async () => {
+    /**
+     * Attendance, never score — the rule is `recordPractice`'s signature, not
+     * a comment: it takes no accuracy and no pass flag. A learner whose audio
+     * came back unusable still practised, and R8 already says that take costs
+     * them nothing, so it must not cost them the day either.
+     */
+    installStorage({ "sonare.learnerName": "Marie" });
+    await open();
+
+    take(null);
+
+    await waitFor(() => expect(chip()).toHaveTextContent("Day 1"));
+  });
+
+  it("invites a first attempt before there is one, not a retry", async () => {
+    await open();
+
+    expect(screen.getByRole("button", { name: "Start speaking" })).toBeInTheDocument();
+    expect(retryButton()).toBeNull();
+  });
+
+  it("puts going again and moving on side by side once there is a result", async () => {
+    await open();
+
+    take(88);
+
+    await waitFor(() => expect(retryButton()).not.toBeNull());
+    expect(nextButton()).not.toBeNull();
+    expect(retryButton()?.closest(".row")).toBe(nextButton()?.closest(".row"));
+  });
+
+  it("makes moving on the louder of the two once there is a way on", async () => {
+    /**
+     * Both stay real choices: a learner who passed may want to beat their own
+     * score. But two identically filled buttons make the pair ambiguous rather
+     * than ordered, so the retry is the quieter one — offered, not urged.
+     */
+    await open();
+
+    take(88);
+
+    await waitFor(() => expect(retryButton()).not.toBeNull());
+    expect(retryButton()?.className).toContain("ghost");
+  });
+
+  it("keeps the retry loud while it is the only thing to do", async () => {
+    // Below the mark with tries left there is no way on yet, so nothing is
+    // competing and the retry should not be whispering.
+    await open();
+
+    take(PASS_SCORE - 1);
+
+    await waitFor(() => expect(retryButton()).not.toBeNull());
+    expect(nextButton()).toBeNull();
+    expect(retryButton()?.className).not.toContain("ghost");
   });
 });
