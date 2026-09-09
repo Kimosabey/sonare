@@ -141,9 +141,17 @@ function take(accuracy: number | null): void {
   );
 }
 
-/** "Attempt N of M" as rendered. */
+/**
+ * The tries-remaining line as rendered.
+ *
+ * Was "Attempt N of M", alongside a stated "pass at 60". Both were cut: a
+ * published threshold turns practice into a number to clear, and an attempt
+ * *counter* reads as an exam where the same information framed as what is
+ * left reads as a constraint. Every assertion below moved to the new phrasing
+ * — the property each one protects is unchanged.
+ */
 function attemptLine(): string {
-  return document.body.textContent?.match(/Attempt \d+ of \d+/)?.[0] ?? "";
+  return document.body.textContent?.match(/\d+ tries left|Last try for this one/)?.[0] ?? "";
 }
 
 /**
@@ -214,8 +222,9 @@ describe("R8 — an indeterminate take does not cost a try", () => {
 
     take(null);
 
-    await waitFor(() => expect(document.body.textContent).toContain("Attempt"));
-    expect(attemptLine()).toBe(before);
+    // Waits on the line itself rather than on the word "Attempt", which no
+     // longer exists. Still fails if a try was burned: the text would change.
+     await waitFor(() => expect(attemptLine()).toBe(before));
   });
 
   it("does not unlock the next activity, however many times it happens", async () => {
@@ -231,7 +240,7 @@ describe("R8 — an indeterminate take does not cost a try", () => {
     take(null);
     take(null);
 
-    await waitFor(() => expect(attemptLine()).toMatch(/Attempt 1 of/));
+    await waitFor(() => expect(attemptLine()).toBe("3 tries left"));
     expect(nextButton()).toBeNull();
   });
 
@@ -281,7 +290,7 @@ describe("R8 — an indeterminate take does not cost a try", () => {
     take(null);
     take(12);
 
-    await waitFor(() => expect(attemptLine()).toMatch(new RegExp(`Attempt 3 of ${MAX_ATTEMPTS}`)));
+    await waitFor(() => expect(attemptLine()).toBe("Last try for this one"));
   });
 });
 
@@ -309,7 +318,7 @@ describe("the soft gate", () => {
 
     take(PASS_SCORE - 1);
 
-    await waitFor(() => expect(attemptLine()).toMatch(/Attempt 2 of/));
+    await waitFor(() => expect(attemptLine()).toBe("2 tries left"));
     expect(nextButton()).toBeNull();
   });
 
@@ -435,23 +444,31 @@ describe("ending the session", () => {
   });
 });
 
-describe("the stated bar matches the gate", () => {
-  it("tells the learner the number that actually decides it", async () => {
+describe("the bar is enforced without being published", () => {
+  it("never prints the pass threshold", async () => {
     /**
-     * The gate reads `accuracy` and nothing else. Stating a bar the screen
-     * then measures differently is the worst version of this — a learner
-     * reading 68 against "pass at 60" and being told they did not pass has no
-     * way to know which of the four displayed numbers was the exam.
+     * This used to assert the opposite — that the screen states "pass at 60"
+     * — on the reasoning that a stated bar must match the measured one. The
+     * reasoning was sound and the conclusion was wrong: the honest fix for
+     * "which of these four numbers is the exam" is to stop publishing a
+     * number a learner cannot act on, not to publish it more clearly.
+     *
+     * Asserted as an absence so the cut cannot quietly regress. That the gate
+     * passes *at* the mark rather than above it is covered directly in
+     * learning/session.test.ts, which is a better place for it than a
+     * rendered screen.
      */
     await open();
 
-    expect(document.body.textContent).toContain(`pass at ${PASS_SCORE}`);
+    expect(document.body.textContent).not.toContain(`pass at ${PASS_SCORE}`);
+    expect(document.body.textContent).not.toMatch(/pass(es)? at \d+/i);
   });
 
-  it("states the try allowance it enforces", async () => {
+  it("states what is left rather than counting what is spent", async () => {
+    // Same information, and it reads as a constraint rather than a rubric.
     await open();
 
-    expect(attemptLine()).toBe(`Attempt 1 of ${MAX_ATTEMPTS}`);
+    expect(attemptLine()).toBe(`${MAX_ATTEMPTS} tries left`);
   });
 });
 
@@ -512,17 +529,23 @@ describe("mid-session progress", () => {
     expect(segments()[0]).toBe("skipped");
   });
 
-  it("counts passes rather than attempts in the summary", async () => {
-    // "3 passed · 3 attempted" and "0 passed · 3 attempted" are different
-    // sessions, and only the first is progress.
+  it("marks an exhausted activity skipped rather than passed", async () => {
+    /**
+     * "3 passed · 3 attempted" and "0 passed · 3 attempted" are different
+     * sessions and only the first is progress — which is what the counts this
+     * used to read were for. Those counts were cut as scorekeeping vocabulary
+     * redundant with the rail directly below them, so the assertion moved to
+     * the rail, which is the thing now carrying the distinction. It says the
+     * same thing without a number and without judgement.
+     */
     await open();
 
     for (let i = 0; i < MAX_ATTEMPTS; i++) take(20);
     await waitFor(() => expect(nextButton()).not.toBeNull());
     fireEvent.click(nextButton()!);
 
-    await waitFor(() => expect(document.body.textContent).toContain("0 passed"));
-    expect(document.body.textContent).toContain("1 attempted");
+    await waitFor(() => expect(screen.getByLabelText("Activity 1: skipped")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Activity 1: passed")).not.toBeInTheDocument();
   });
 
   it("fills the track from passes, not from position", async () => {
@@ -603,7 +626,7 @@ describe("the no-audio exit", () => {
 
     fireEvent.click(exitButton()!);
 
-    await waitFor(() => expect(attemptLine()).toMatch(/Attempt 1 of/));
+    await waitFor(() => expect(attemptLine()).toBe("3 tries left"));
     expect(document.body.textContent).toContain(`${LANGUAGE.activities[1]?.title ?? ""}`);
   });
 
@@ -659,7 +682,7 @@ describe("the no-audio exit", () => {
 
     take(null);
 
-    await waitFor(() => expect(attemptLine()).toMatch(/Attempt 1 of/));
+    await waitFor(() => expect(attemptLine()).toBe("3 tries left"));
     expect(exitButton()).toBeNull();
   });
 

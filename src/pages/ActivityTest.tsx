@@ -49,7 +49,16 @@ import {
   stepStateFor,
 } from "../learning/session.js";
 import { useProgressPersistence } from "../hooks/useProgressPersistence.js";
-import { MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
+/**
+ * `PASS_SCORE` is deliberately absent now.
+ *
+ * With the threshold no longer printed and the pass decision living in
+ * learning/session.ts, this screen does not know what the pass mark is — and
+ * cannot accidentally state one that differs from the one being enforced.
+ * `MAX_ATTEMPTS` stays because the tries-remaining line is real information a
+ * learner needs.
+ */
+import { MAX_ATTEMPTS } from "../activities/languages/index.js";
 import { resolveLanguage } from "../content/resolve.js";
 import { buildReport } from "../activities/report.js";
 import { adviceFor, weakestSyllable } from "../activities/advice.js";
@@ -505,7 +514,7 @@ export function ActivityTest() {
         <p className="what enter-2">
           {resuming
             ? `Continuing Activity ${index + 1} of ${activities.length} — ${passedSoFar} passed so far.`
-            : `Ten short activities, ${activeLanguage.label} pronunciation scored phoneme by phoneme.`}
+            : `Ten short ${activeLanguage.label} phrases. Hear each one, say it, and see exactly which sounds to fix.`}
         </p>
         {micPermission === "denied" ? (
           <p className="verdict v-fail enter-2" role="status">
@@ -550,10 +559,6 @@ export function ActivityTest() {
         <h2 ref={activityHeadingRef} tabIndex={-1}>
           Activity {activity.id} of {activities.length} — {activity.title}
         </h2>
-        <p className="what">
-          {passedCount} passed · {progress.length} attempted
-        </p>
-
         <div className="steps-track" aria-hidden="true">
           <div className="steps-fill" style={{ width: `${(passedCount / activities.length) * 100}%` }} />
         </div>
@@ -565,10 +570,7 @@ export function ActivityTest() {
           })}
         </div>
 
-        <p className="what" style={{ marginTop: 14 }}>
-          {activity.kind === "respond" ? `Answer aloud in ${activeLanguage.label}` : `Say this aloud in ${activeLanguage.label}`}
-        </p>
-        <p className="what" style={{ marginBottom: 0 }}>
+        <p className="what" style={{ marginTop: 14, marginBottom: 0 }}>
           <strong>{activity.prompt}</strong>
         </p>
 
@@ -597,7 +599,7 @@ export function ActivityTest() {
         <p className="hint">&ldquo;{activity.gloss}&rdquo;</p>
 
         <details>
-          <summary>What this activity is testing</summary>
+          <summary>Why this phrase</summary>
           <div className="body">
             <p className="what" style={{ margin: 0 }}>
               {activity.focus}
@@ -607,10 +609,22 @@ export function ActivityTest() {
       </section>
 
       <section>
-        <h2>Record</h2>
+        {/*
+          No heading, and no stated threshold.
+          A heading for a button is form layout — the button is labelled and
+          is the largest thing here. And publishing the pass mark turned
+          practice into a number to clear: it invited gaming the figure rather
+          than saying the phrase well, and a learner can act on the syllable
+          chips but not on "60".
+
+          Tries remaining stays, because running out is a real constraint a
+          learner needs to see coming. It counts *scored* attempts — an
+          unusable take costs nothing (R8).
+        */}
         <p className="what">
-          Attempt {Math.min(scoredAttempts + 1, MAX_ATTEMPTS)} of {MAX_ATTEMPTS} · pass at{" "}
-          {PASS_SCORE}
+          {MAX_ATTEMPTS - scoredAttempts === 1
+            ? "Last try for this one"
+            : `${MAX_ATTEMPTS - scoredAttempts} tries left`}
         </p>
 
         <div className="row">
@@ -663,16 +677,21 @@ export function ActivityTest() {
             <div className="tag">ERROR</div>
             <div>
               {recorder.error.userMessage}
-              {/* The raw code/domain/detail is real diagnostic value for a support
-                  report, but showing it as the primary, most-visible text (it used
-                  to be the red tag itself) reads as broken rather than handled —
-                  collapsed by default, one tap away when it's actually needed. */}
-              <details className="error-details">
-                <summary>Technical details</summary>
-                <div className="hint">
-                  {recorder.error.code} · {recorder.error.domain} · {recorder.error.detail}
-                </div>
-              </details>
+              {/*
+                Behind ?debug=1. The code and domain are real support value and
+                the wrong audience: this is already sent to the diagnostics
+                collection, so hiding it loses nothing — and a learner reading
+                an error code concludes the app is broken rather than that
+                their microphone is off.
+              */}
+              {debugEnabled && (
+                <details className="error-details">
+                  <summary>Technical details</summary>
+                  <div className="hint">
+                    {recorder.error.code} · {recorder.error.domain} · {recorder.error.detail}
+                  </div>
+                </details>
+              )}
             </div>
           </div>
         )}
@@ -707,7 +726,20 @@ export function ActivityTest() {
       </section>
 
       <section>
-        <h2>Result</h2>
+        {/*
+          No heading, and nothing at all until there is something to say.
+          "Result / No attempt yet." was the worst element on the screen: an
+          empty panel announcing its own emptiness, which is a data model
+          rendered as UI. A learner who has not spoken yet does not need to be
+          told they have not spoken yet.
+
+          The live region itself stays mounted even while empty, and that is
+          deliberate rather than leftover. A screen reader only announces
+          changes inside an `aria-live` container that was already in the
+          document — mounting the container together with its content is the
+          classic way to make an announcement silently never fire. So the
+          container is always here and its *contents* are conditional.
+        */}
         <div aria-live="polite">
           {/*
             Three states, not two. "processing" is its own — it used to fall
@@ -765,17 +797,8 @@ export function ActivityTest() {
             />
           ) : recorder.state === "processing" ? (
             <ScoreCardSkeleton />
-          ) : (
-            <p className="what">No attempt yet.</p>
-          )}
+          ) : null}
         </div>
-
-        {attemptsUsed > 1 && (
-          <p className="hint">
-            Best so far: {current?.best === null ? "—" : Math.round(current?.best ?? 0)} across{" "}
-            {attemptsUsed} attempts
-          </p>
-        )}
 
         {debugEnabled && (
           <DebugPanel
