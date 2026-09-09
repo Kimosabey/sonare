@@ -52,6 +52,7 @@ vi.mock("./pages/ActivityTest.js", () => ({
 vi.mock("./pages/Diagnostics.js", () => ({ Diagnostics: () => <p>diagnostics screen</p> }));
 vi.mock("./pages/FixtureRunner.js", () => ({ FixtureRunner: () => <p>fixture screen</p> }));
 vi.mock("./pages/Settings.js", () => ({ Settings: () => <p>settings screen</p> }));
+vi.mock("./pages/Authoring.js", () => ({ Authoring: () => <p>authoring screen</p> }));
 
 async function visit(hash: string) {
   window.location.hash = hash;
@@ -108,6 +109,26 @@ describe("the screens", () => {
     vi.resetModules();
     await visit("#/fixture");
     expect(await screen.findByText("fixture screen")).toBeInTheDocument();
+
+    cleanup();
+    vi.resetModules();
+    await visit("#/authoring");
+    expect(await screen.findByText("authoring screen")).toBeInTheDocument();
+  });
+
+  it("does not mistake an internal screen for a language", async () => {
+    /**
+     * `/authoring` and `/:slug` are both one segment. React Router ranks the
+     * literal above the param, so the ordering in the file cannot break this —
+     * but "authoring" reaching the activity screen would be a blank session
+     * for a language that does not exist, so it is worth an assertion rather
+     * than a comment.
+     */
+    await visit("#/authoring");
+    await screen.findByText("authoring screen");
+
+    expect(screen.queryByText("activity screen")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Switch language")).not.toBeInTheDocument();
   });
 
   it("navigates by hash, so a refresh through a tunnel survives", async () => {

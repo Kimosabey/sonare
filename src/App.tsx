@@ -2,9 +2,9 @@
  * Today is the front door: one tap to whatever the learner was last doing.
  * The language picker moved to /languages, because a returning learner had
  * been made to answer a question they already had. Then the activity test for
- * whichever language is in the URL (:slug), and two internal-only screens
- * reached by typing the URL directly — /diagnostics and /fixture — with no
- * nav link to either anywhere in the product UI. /settings is the exception
+ * whichever language is in the URL (:slug), and three internal-only screens
+ * reached by typing the URL directly — /diagnostics, /fixture and /authoring —
+ * with no nav link to any of them anywhere in the product UI. /settings is the exception
  * to that: it is learner-facing and carries the export and deletion controls,
  * so it has a footer link on every screen — a right nobody can find is not
  * one. HashRouter specifically:
@@ -25,11 +25,11 @@ import { Progress } from "./pages/Progress.js";
 import { ActivityTest } from "./pages/ActivityTest.js";
 
 /**
- * Split, not statically imported. Both screens are reached only by typing the
- * URL — there is no nav link to either anywhere in the product UI (see the
+ * Split, not statically imported. These screens are reached only by typing the
+ * URL — there is no nav link to any of them anywhere in the product UI (see the
  * file comment above) — so every learner was downloading and parsing ~30 kB
  * of internal tooling they will never open. The learner flow (picker +
- * activities) is what should be fast; these two can afford a fetch on the
+ * activities) is what should be fast; these can afford a fetch on the
  * rare visit that actually wants them.
  */
 const Diagnostics = lazy(() =>
@@ -37,6 +37,14 @@ const Diagnostics = lazy(() =>
 );
 const FixtureRunner = lazy(() =>
   import("./pages/FixtureRunner.js").then((m) => ({ default: m.FixtureRunner })),
+);
+/**
+ * Content authoring. Internal, and the most clearly-split of the three: it
+ * carries an editor for every field of every activity, and the learner who
+ * opens it is nobody.
+ */
+const Authoring = lazy(() =>
+  import("./pages/Authoring.js").then((m) => ({ default: m.Authoring })),
 );
 /**
  * Split for the same reason, and it is learner-facing rather than internal:
@@ -82,13 +90,16 @@ function Breadcrumb() {
   const isFixture = location.pathname === "/fixture";
   const isLanguages = location.pathname === "/languages";
   const isSettings = location.pathname === "/settings";
+  const isAuthoring = location.pathname === "/authoring";
   const progressMatch = /^\/([a-z]+)\/progress$/.exec(location.pathname);
   const slug = progressMatch?.[1] ?? location.pathname.replace(/^\//, "");
   // getLanguage would return undefined for "languages" anyway, but checking
   // explicitly keeps the crumb from depending on no language ever being
   // slugged "languages".
   const language =
-    !isDiagnostics && !isFixture && !isLanguages && !isSettings ? resolveLanguage(slug) : undefined;
+    !isDiagnostics && !isFixture && !isLanguages && !isSettings && !isAuthoring
+      ? resolveLanguage(slug)
+      : undefined;
   const onProgress = progressMatch !== null && language !== undefined;
 
   return (
@@ -116,6 +127,12 @@ function Breadcrumb() {
         <>
           <span aria-hidden="true">›</span>
           <span>Settings</span>
+        </>
+      )}
+      {isAuthoring && (
+        <>
+          <span aria-hidden="true">›</span>
+          <span>Content</span>
         </>
       )}
       {language && (
@@ -167,6 +184,15 @@ function Header() {
       <>
         <div className="eyebrow">Sonare · internal fixture recording</div>
         <h1>Fixture runner</h1>
+      </>
+    );
+  }
+
+  if (location.pathname === "/authoring") {
+    return (
+      <>
+        <div className="eyebrow">Sonare · internal content authoring</div>
+        <h1>Content</h1>
       </>
     );
   }
@@ -262,6 +288,7 @@ function Shell() {
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/fixture" element={<FixtureRunner />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/authoring" element={<Authoring />} />
           <Route path="/:slug" element={<ActivityTestRoute />} />
         </Routes>
         </ScreenTransition>

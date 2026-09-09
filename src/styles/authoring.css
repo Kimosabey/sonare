@@ -1,0 +1,113 @@
+/* ── the content authoring screen ─────────────────────────────────────────
+ *
+ * A new sheet rather than rules added to content.css: that one holds the
+ * shared table and scroll rules this screen reuses, and index.css's ordering
+ * rule is about not moving what already has a place in the cascade.
+ *
+ * No animations here on purpose. The reduced-motion kill-switch in motion.css
+ * is a blanket `* { animation: none !important }` and covers anything added
+ * anywhere — but this screen's one irreversible-ish action is publishing a
+ * version, and that is the last place that wants decoration.
+ *
+ * Every interactive target is at or above var(--tap) (44px). The miss is
+ * invisible on the desktop mouse this CSS was written with, and an author
+ * correcting a phrase on a phone is exactly the case the screen exists for.
+ */
+
+/* One activity per disclosure. Ten activities is seventy fields, and a flat
+   list of seventy is a screen nobody can find anything in. */
+.authoring-activity {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 0 12px;
+  margin-top: 10px;
+}
+
+.authoring-activity > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.authoring-activity[open] > summary {
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 8px;
+}
+
+/* Label above field on a narrow screen, beside it once there is room — a
+   seven-field form in one column is a lot of scrolling on a desktop. */
+.authoring-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.authoring-field > label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  min-width: 62px;
+}
+
+.authoring-field > input {
+  flex: 1 1 220px;
+}
+
+/* The per-field explanation sits under the input rather than beside it, so a
+   long hint cannot squeeze the field it describes down to nothing. */
+.authoring-field > .hint {
+  flex: 1 1 100%;
+}
+
+/* A numeric id is two characters wide; a full-width box invites a sentence. */
+.authoring-narrow {
+  max-width: 84px;
+}
+
+/*
+ * What is standing between this draft and a publish.
+ *
+ * Marked as information rather than as failure: on a set being typed from
+ * scratch every field is empty and every one of these is listed, which is the
+ * normal state of a half-finished draft and not an error to be alarmed by.
+ */
+.authoring-problems {
+  border-left: 3px solid var(--warn);
+  padding-left: 14px;
+  margin-top: 14px;
+}
+
+.authoring-problems ul,
+.authoring-outcome ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+/* What the last publish did. The border is the section boundary the global
+   rule already draws, recoloured — not an extra box. */
+.authoring-outcome {
+  border-left: 3px solid var(--signal);
+  padding-left: 14px;
+  margin-top: 14px;
+}
+
+/* Which version a learner is actually being served. The version numbers in
+   the table are otherwise indistinguishable, and "the highest one" is a fact
+   about the list rather than something the list says. */
+.authoring-live {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--signal);
+}

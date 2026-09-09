@@ -22,3 +22,6 @@
    declares no animation, so sitting after motion.css costs the kill-switch
    nothing. */
 @import "./settings.css";
+/* Same reasoning, and it reuses content.css's table rules above rather than
+   restating them. Declares no animation either. */
+@import "./authoring.css";

@@ -14,7 +14,17 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "mongodb";
-import { latestVersion, publish, readContent, readLatest, type ContentDocument } from "./content.js";
+import {
+  contentProblems,
+  latestVersion,
+  listVersions,
+  publish,
+  readContent,
+  readDraft,
+  readLatest,
+  readVersion,
+  type ContentDocument,
+} from "./content.js";
 
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -46,6 +56,8 @@ function fakeDb(): Db {
           }),
         }),
       }),
+      findOne: (filter: { _id: string }) =>
+        Promise.resolve(store.find((d) => d._id === filter._id) ?? null),
       insertOne: (doc: ContentDocument) => {
         if (store.some((d) => d._id === doc._id)) {
           const err = new Error("E11000 duplicate key") as Error & { code: number };
@@ -217,5 +229,194 @@ describe("publishing", () => {
     expect(await latestVersion(db, "fr")).toBe(2);
     // And is per language, so publishing French does not affect Spanish.
     expect(await latestVersion(db, "es")).toBe(0);
+  });
+
+  it("names what is wrong in what it throws", async () => {
+    /**
+     * `npm run seed-content` publishes through this same function, and its
+     * whole output is a log line. "Invalid set for fr" would send whoever ran
+     * it to a debugger; the reason belongs in the error.
+     */
+    await expect(
+      publish(fakeDb(), set({ activities: [activity({ target: "" })] }), 1),
+    ).rejects.toThrow(/target cannot be empty/);
+  });
+
+  it("refuses a set whose rows would be dropped rather than publishing what survives", async () => {
+    /**
+     * The one place the read path's leniency would do real harm. `readContent`
+     * drops a bad row so one typo cannot take down a language — correct when
+     * serving. On the way in it would mean publishing nine of the ten
+     * activities somebody typed and reporting success, so `publish` refuses
+     * the whole set instead.
+     */
+    const activities = [activity({ id: 1 }), activity({ id: 2, target: "" }), activity({ id: 3 })];
+
+    await expect(publish(fakeDb(), set({ activities }), 1)).rejects.toThrow(/activity 2/);
+    expect(store).toHaveLength(0);
+  });
+});
+
+/**
+ * The rules the publish gate applies, stated once and shared by everything
+ * that can publish: `npm run seed-content` and the authoring screen both go
+ * through `publish`, which goes through here.
+ *
+ * These are the rules src/activities/languages/languages.test.ts already holds
+ * the bundle to. That test is the whole of the validation seed-content has ever
+ * had — its input is the bundle, and the bundle cannot land without passing it.
+ * An authoring screen has no test standing in front of it, so the same rules
+ * have to exist at runtime.
+ */
+describe("what may be published", () => {
+  it("accepts a well-formed set with nothing to say about it", () => {
+    expect(contentProblems({ ...set(), version: 1 })).toEqual([]);
+  });
+
+  it.each([
+    ["a bad slug", { slug: "FR" }, /slug/],
+    ["a locale the provider will reject", { code: "french" }, /locale/],
+    ["a whitespace label", { label: "   " }, /label/],
+    ["no activities", { activities: [] }, /at least one activity/],
+    ["activities that are not a list", { activities: {} }, /must be a list/],
+    ["a kind the UI cannot render", { activities: [activity({ kind: "sing" })] }, /kind must be one of/],
+    ["a whitespace target", { activities: [activity({ target: " " })] }, /target cannot be empty/],
+    ["a fractional id", { activities: [activity({ id: 1.5 })] }, /whole number/],
+    [
+      "a duplicate id",
+      { activities: [activity({ id: 1 }), activity({ id: 1, target: "Bonsoir" })] },
+      /already used/,
+    ],
+    ["a duplicate target", { activities: [activity({ id: 1 }), activity({ id: 2 })] }, /repeats/],
+    [
+      "a target past the capture ceiling",
+      { activities: [activity({ target: "un ".repeat(15) })] },
+      /cut off mid-phrase/,
+    ],
+  ])("refuses %s", (_label, over, expected) => {
+    const problems = contentProblems({ ...set(), version: 1, ...over });
+
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.join(" | ")).toMatch(expected);
+  });
+
+  it("counts activities from one, so a problem names the row an author is looking at", () => {
+    const activities = [activity({ id: 1 }), activity({ id: 2, target: "" })];
+
+    expect(contentProblems({ ...set(), version: 1, activities })).toEqual([
+      "activity 2: target cannot be empty",
+    ]);
+  });
+
+  it("normalises whitespace rather than refusing over it", () => {
+    /**
+     * A trailing space is the likeliest thing to survive a copy-paste. Refusing
+     * the publish over one would teach an author to distrust the screen;
+     * storing it would put it in front of the scorer.
+     */
+    const draft = readDraft(set({ label: " French ", activities: [activity({ target: " Bonjour " })] }));
+
+    expect(draft.ok).toBe(true);
+    if (!draft.ok) return;
+    expect(draft.set.label).toBe("French");
+    expect(draft.set.activities[0]?.target).toBe("Bonjour");
+  });
+
+  it("takes the slug it was given and nothing else from the caller", () => {
+    // The route supplies the slug from the path; a body that could carry its
+    // own is a way to publish French content under the Spanish slug.
+    const draft = readDraft(set());
+
+    expect(draft.ok).toBe(true);
+    if (!draft.ok) return;
+    expect(Object.keys(draft.set).sort()).toEqual(["activities", "code", "label", "slug"]);
+  });
+});
+
+/**
+ * The serving path's own tolerance, which is the opposite posture on purpose:
+ * a bad row costs that row and the language stays up, because the alternative
+ * is a learner staring at an empty screen.
+ */
+describe("what may be served", () => {
+  it("drops an activity with a kind the UI cannot render", () => {
+    /**
+     * src/content/cache.ts has always required one of the three kinds, so a
+     * set carrying `kind: "reppeat"` used to pass the server, be served
+     * happily, and then be discarded by every client's own validation —
+     * whoever published it saw success and no learner ever received it.
+     */
+    const content = readContent({
+      ...set(),
+      version: 1,
+      activities: [activity({ id: 1 }), activity({ id: 2, kind: "reppeat", target: "Bonsoir" })],
+    });
+
+    expect(content?.activities.map((a) => a.id)).toEqual([1]);
+  });
+
+  it("drops an activity whose target is only whitespace", () => {
+    // Speech scored against nothing — the empty-target failure in a disguise.
+    expect(readContent({ ...set(), version: 1, activities: [activity({ target: "  " })] })).toBeNull();
+  });
+
+  it("serves one activity per id, keeping the first", () => {
+    /**
+     * `id` is the React key, the progress key and what the report joins on, so
+     * two rows sharing one silently merge two activities' attempts — a learner
+     * who passes one appears to have passed the other. The publish gate refuses
+     * this outright; this is the document edited straight into the database.
+     */
+    const content = readContent({
+      ...set(),
+      version: 1,
+      activities: [activity({ id: 1, title: "first" }), activity({ id: 1, title: "second" })],
+    });
+
+    expect(content?.activities).toHaveLength(1);
+    expect(content?.activities[0]?.title).toBe("first");
+  });
+});
+
+describe("the version history", () => {
+  it("summarises what is published, newest first", async () => {
+    const db = fakeDb();
+    await publish(db, set(), 1);
+    await publish(db, set({ activities: [activity(), activity({ id: 2, target: "Bonsoir" })] }), 2);
+
+    const versions = await listVersions(db, "fr");
+
+    expect(versions.map((v) => v.version)).toEqual([2, 1]);
+    expect(versions.map((v) => v.activityCount)).toEqual([2, 1]);
+    expect(versions[0]?.publishedAt).toBeInstanceOf(Date);
+  });
+
+  it("has nothing to say about a language nobody has published", async () => {
+    expect(await listVersions(fakeDb(), "de")).toEqual([]);
+  });
+
+  it("reads one named version rather than the newest", async () => {
+    const db = fakeDb();
+    await publish(db, set(), 1);
+    await publish(db, set({ activities: [activity({ target: "Bonsoir" })] }), 2);
+
+    expect((await readVersion(db, "fr", 1))?.activities[0]?.target).toBe("Bonjour");
+    expect(await readVersion(db, "fr", 9)).toBeNull();
+  });
+
+  it("hands back a version that would fail validation, because that is the one to fix", async () => {
+    /**
+     * Deliberately unvalidated. This is what the authoring screen loads into
+     * the editor, and a set that fails validation is precisely the one somebody
+     * needs to open and repair — validating here would hide the broken version
+     * from the only screen that can fix it, which is a database client again.
+     */
+    store = [
+      { ...set(), _id: "fr:1", version: 1, activities: [], publishedAt: new Date() } as ContentDocument,
+    ];
+
+    expect((await readVersion(fakeDb(), "fr", 1))?.activities).toEqual([]);
+    // And the learner's path still refuses it, so nobody is served it.
+    expect(await readLatest("fr")).toBeNull();
   });
 });
