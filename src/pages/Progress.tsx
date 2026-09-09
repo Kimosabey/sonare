@@ -57,14 +57,23 @@ function calendarRows(streak: Streak, today: Date): Array<Array<{ day: string; p
 }
 
 /** A sound's trend, or the honest absence of one. */
-function TrendRow({ trend }: { trend: SkillTrend }) {
+/**
+ * `code` so the syllable is announced in the language it belongs to.
+ *
+ * Today.tsx already tags the identical string; these two did not. For French
+ * or German that means a screen reader applies English phonology to a foreign
+ * syllable, which is WCAG 3.1.2 — but for Hindi it is worse than wrong: an
+ * untagged Devanagari grapheme in an English voice is *skipped*, so a learner
+ * on a screen reader is read a row with a number and no sound in it.
+ */
+function TrendRow({ trend, code }: { trend: SkillTrend; code: string }) {
   const rising = trend.before !== null && trend.now > trend.before;
   const falling = trend.before !== null && trend.now < trend.before;
 
   return (
     <tr>
       <td>
-        <b>{trend.grapheme}</b>
+        <b lang={code}>{trend.grapheme}</b>
       </td>
       <td className="num">{round(trend.now)}</td>
       <td className="num">
@@ -137,7 +146,7 @@ export function Progress() {
             </thead>
             <tbody>
               {trends.map((trend) => (
-                <TrendRow key={trend.grapheme} trend={trend} />
+                <TrendRow key={trend.grapheme} trend={trend} code={language.code} />
               ))}
             </tbody>
           </table>

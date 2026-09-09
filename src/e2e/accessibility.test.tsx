@@ -878,28 +878,34 @@ describe("what is decorative says so", () => {
 });
 
 /**
- * A real defect, pinned rather than described.
+ * Both screens now tag the syllable with the language it belongs to.
  *
- * The same syllable is tagged with the language being taught on Today
- * (`src/pages/Today.tsx:331`) and untagged on the two other screens that
- * render it:
+ * The same syllable was tagged on Today (`src/pages/Today.tsx`) and untagged
+ * on the two other screens that render it — `Progress.tsx` and
+ * `SessionSummary.tsx` — so a screen reader read "jour" in French on the
+ * front door and in English on the screen built specifically for reviewing
+ * sounds. For Hindi it is worse than mispronunciation: an untagged Devanagari
+ * grapheme in an English voice is *skipped*, so the row is read as a number
+ * with no sound named in it (WCAG 3.1.2).
  *
- *   src/pages/Progress.tsx:67   <b>{trend.grapheme}</b>
- *   src/components/SessionSummary.tsx:86   <b>{trend.grapheme}</b>
+ * Progress is asserted below. **The session summary is asserted in
+ * `src/components/SessionSummary.test.tsx` instead, because a journey cannot
+ * reach it** — `trendFor` reports a `before` only once a syllable has more
+ * than RECENT_WINDOW samples with two behind the window, seven in all, and a
+ * stored sample's identity is its timestamp. Every take in a jsdom run lands
+ * in the same millisecond, so twenty takes collapse into one sample,
+ * `improved()` returns nothing, and the list never renders. That file seeds
+ * the history directly, which is the only way to express the case.
  *
- * Progress has `language.code` in scope four lines above the table; the
- * session summary receives the slug and can resolve it the same way every
- * other screen does. So a screen reader reads "jour" in French on the front
- * door and in English on the screen built specifically for reviewing sounds —
- * and for Hindi, where the graphemes are Devanagari, an untagged one is not
- * mispronounced but skipped (WCAG 3.1.2).
- *
- * Marked `.fails` so it records today's behaviour without going green on it,
- * and starts failing the moment either line is fixed — which is the signal to
- * delete it.
+ * Worth recording what that cost: the test that used to live here threw from
+ * its own setup and never reached its assertion — but under `it.fails` that
+ * still counted as a pass. It claimed to pin a missing `lang` attribute and
+ * was really pinning its own inability to get to the screen. **An `it.fails`
+ * that fails for a setup reason is indistinguishable from one that fails for
+ * the asserted reason.** Only fixing the defect tells you which you had.
  */
-describe("a gap in the language tagging", () => {
-  it.fails("tags the syllables on Progress with the language they are in", async () => {
+describe("the language tagging that was missing", () => {
+  it("tags the syllables on Progress with the language they are in", async () => {
     await renderApp(`#/${FRENCH.slug}`);
     press(/^Start$/);
     speak(driver, twoWordTake(41));
@@ -911,25 +917,5 @@ describe("a gap in the language tagging", () => {
     const table = screen.getByRole("columnheader", { name: "Syllable" }).closest("table");
     if (table === null) throw new Error("the sounds table lost its own header");
     expect(within(table).getByText("jour")).toHaveAttribute("lang", FRENCH.code);
-  });
-
-  it.fails("tags the improved syllables in the session summary", async () => {
-    await renderApp(`#/${FRENCH.slug}`);
-    press(/^Start$/);
-    // Enough takes for a syllable to have history either side of the window,
-    // which is what puts a row in the summary's "sounds you have improved".
-    for (let i = 0; i < FRENCH.activities.length; i += 1) {
-      speak(driver, twoWordTake(60 + i));
-      speak(driver, twoWordTake(70 + i));
-      await waitFor(() => expect(nextButton()).not.toBeNull());
-      press(/Next activity|Finish and see report/);
-    }
-    await waitFor(() => expect(screen.getByText("Today’s practice")).toBeInTheDocument());
-
-    const gains = document.querySelector(".session-gains");
-    if (gains === null) throw new Error("no improved sounds to check");
-    for (const node of gains.querySelectorAll("b")) {
-      expect(node).toHaveAttribute("lang", FRENCH.code);
-    }
   });
 });

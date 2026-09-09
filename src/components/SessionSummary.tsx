@@ -19,6 +19,7 @@
 import { Link } from "react-router-dom";
 import { readStreak, daysInLast, practisedToday, type Streak } from "../stores/streakStore.js";
 import { readSkills, weakestSkills, type SkillTrend } from "../stores/skillStore.js";
+import { resolveLanguage } from "../content/resolve.js";
 
 export interface SessionSummaryProps {
   slug: string;
@@ -61,6 +62,13 @@ export function SessionSummary({ slug, learnerName }: SessionSummaryProps) {
    * improved out of the bottom three is exactly the one a learner most wants
    * to hear about.
    */
+  /**
+   * The component is handed a slug, not a language, so the code is resolved
+   * here for the `lang` on each syllable below. Undefined only if the set has
+   * gone away underneath us, in which case an untagged grapheme is the least
+   * of the problems — so it degrades rather than throws.
+   */
+  const code = resolveLanguage(slug)?.code;
   const store = readSkills(slug, learnerName);
   const gains = improved(weakestSkills(store, Number.MAX_SAFE_INTEGER)).slice(0, 3);
 
@@ -83,7 +91,7 @@ export function SessionSummary({ slug, learnerName }: SessionSummaryProps) {
           <ul className="session-gains">
             {gains.map((trend) => (
               <li key={trend.grapheme}>
-                <b>{trend.grapheme}</b> — {round(trend.before)} → {round(trend.now)}
+                <b lang={code}>{trend.grapheme}</b> — {round(trend.before)} → {round(trend.now)}
               </li>
             ))}
           </ul>

@@ -146,6 +146,31 @@ describe("sounds that improved", () => {
     expect(screen.getByText(/22 → 84/)).toBeInTheDocument();
   });
 
+  it("tags each syllable with the language it belongs to", () => {
+    /**
+     * WCAG 3.1.2, and it is not cosmetic. `Today.tsx` already tagged the
+     * identical string; this component and `Progress.tsx` did not. For French
+     * or German an untagged syllable gets English phonology applied to it —
+     * wrong, but audible. For Hindi it is worse: an untagged Devanagari
+     * grapheme in an English voice is *skipped*, so a learner on a screen
+     * reader hears a before-and-after with no sound named in it.
+     *
+     * Asserted here rather than in the app-level journey suite, where it
+     * cannot be reached: `trendFor` needs more than five samples with two
+     * behind the window, and a sample's identity is its timestamp, so takes
+     * performed in a jsdom run land in one millisecond and collapse to a
+     * single sample. `seed()` writes the history directly, which is why this
+     * file can express the case at all.
+     */
+    seed({
+      days: ["2026-09-07"],
+      skills: [["ment", [20, 22, 24, 80, 82, 84, 86, 88]]],
+    });
+    show();
+
+    expect(screen.getByText("ment")).toHaveAttribute("lang", "fr-FR");
+  });
+
   it("claims no improvement on a first session", () => {
     /**
      * The flattering version of the same fabrication as "no change". There is
