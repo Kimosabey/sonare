@@ -139,15 +139,21 @@
   margin: 0 3px;
 }
 
-/* Secondary to the record button, which is the primary action on this screen
-   — listening is preparation, not the task. Outlined rather than filled so it
-   never competes with Start. */
+/* A peer of the record button, not a footnote to it.
+   This was deliberately secondary — outlined on transparent, sitting under
+   the target as a small link-like thing — on the reasoning that listening is
+   preparation and speaking is the task. True of the two verbs, wrong about
+   the two buttons: hearing the phrase is the first half of practising it, and
+   a learner who has to go looking for the model voice mostly does not use it.
+   So: tonal fill rather than transparent, the same tap target and weight as
+   the button beside it, and first in the row. Still not the filled purple —
+   two identical calls to action would make the pair ambiguous rather than
+   ordered. */
 .listen {
-  background: transparent;
+  background: var(--signal-soft);
   color: var(--signal);
   border: 1.5px solid var(--signal);
-  margin-top: 4px;
-  min-height: 44px;
+  min-height: var(--tap);
 }
 .listen:disabled {
   opacity: 0.45;

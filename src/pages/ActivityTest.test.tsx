@@ -124,8 +124,24 @@ vi.mock("../hooks/useCaptureToasts.js", () => ({
 vi.mock("../hooks/useSyllablePlayback.js", () => ({
   useSyllablePlayback: () => ({ playingOffsetTicks: null, play: vi.fn(), available: false }),
 }));
+/**
+ * The model voice, with availability under the test's control.
+ *
+ * `available` is false by default — that is the honest default for jsdom,
+ * which has no speech synthesis, and it is also the case for Hindi on a real
+ * device with no hi-IN voice installed. The tests that are about the control
+ * itself turn it on.
+ */
+const modelSpeak = vi.fn();
+const modelCancel = vi.fn();
+let modelAvailable = false;
 vi.mock("../hooks/useModelSpeech.js", () => ({
-  useModelSpeech: () => ({ speak: vi.fn(), cancel: vi.fn(), speaking: false, available: false }),
+  useModelSpeech: () => ({
+    speak: modelSpeak,
+    cancel: modelCancel,
+    speaking: false,
+    available: modelAvailable,
+  }),
 }));
 vi.mock("../hooks/useWakeLock.js", () => ({ useWakeLock: () => undefined }));
 vi.mock("../components/ToastProvider.js", () => ({
@@ -242,6 +258,9 @@ async function completeSession(): Promise<void> {
 beforeEach(() => {
   scored = null;
   lifecycle = null;
+  modelAvailable = false;
+  modelSpeak.mockClear();
+  modelCancel.mockClear();
   reset.mockClear();
   endSession.mockClear();
   installStorage({ "sonare.learnerName": "Marie" });
@@ -881,7 +900,7 @@ describe("celebration, and the take it must never fire on", () => {
  * stays free to change shape as long as the sequence holds.
  */
 describe("the three states are sequenced, not stacked", () => {
-  const phrase = () => document.querySelector(".prompt");
+  const phrase = () => document.querySelector(".phrase");
   const scoreCard = () => document.querySelector(".overall");
   const meter = () => document.querySelector(".meter");
   const liveRegion = () => document.querySelector("[aria-live='polite']");
@@ -1018,5 +1037,123 @@ describe("the three states are sequenced, not stacked", () => {
     enter("recording");
 
     expect(exitButton()).toBeNull();
+  });
+});
+
+/**
+ * The phrase is the product.
+ *
+ * It was one element among nine, at 22px, with the English instruction above
+ * it in bold and the English translation directly below it — so the two things
+ * competing hardest with the thing being taught were both English. The model
+ * voice, the one control that says what the phrase is *supposed* to sound
+ * like, was a small outlined afterthought under the target.
+ *
+ * Size is a stylesheet fact and jsdom does not apply the stylesheet, so these
+ * pin what a test can actually vouch for and what a reordering would break:
+ * that the phrase is its own element carrying nothing but the target and its
+ * language, that the model voice is a peer of the record button and reached
+ * first, and that the gloss is kept but out of the way.
+ */
+describe("the phrase and the model voice", () => {
+  const phrase = () => document.querySelector(".phrase");
+  const task = () => document.querySelector(".task");
+  const gloss = () => document.querySelector(".gloss");
+  const listen = () => screen.queryByRole("button", { name: /^Listen$|^Stop$/ });
+  const record = () => screen.queryByRole("button", { name: /Start speaking|Listening|Stop recording/i });
+  const actions = () => record()?.closest(".row") ?? null;
+
+  /** True when `a` comes before `b` in the document. */
+  function precedes(a: Element | null, b: Element | null): boolean {
+    if (a === null || b === null) return false;
+    return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  }
+
+  it("gives the target phrase an element of its own, holding only the phrase", async () => {
+    // Nothing English mixed into the same line: a learner's eye has one place
+    // to land, and a screen reader has one node to speak in one voice.
+    await open();
+
+    expect(phrase()?.textContent).toBe(LANGUAGE.activities[0]?.target ?? "");
+  });
+
+  it("tags the phrase with the language being taught, and nothing else", async () => {
+    /**
+     * WCAG 3.1.2, and the one place it is not a formality: without the tag a
+     * screen reader pronounces a French phrase with English phonetics, in a
+     * product whose entire subject is how that phrase should sound. The task
+     * and the gloss are English *about* the phrase — tagging those would make
+     * a reader speak English in a French voice, which is the same bug pointed
+     * the other way.
+     */
+    await open();
+
+    expect(phrase()?.getAttribute("lang")).toBe(LANGUAGE.code);
+    expect(task()?.hasAttribute("lang")).toBe(false);
+    expect(gloss()?.hasAttribute("lang")).toBe(false);
+  });
+
+  it("puts the model voice in the same row as the record button, and first", async () => {
+    /**
+     * Hearing the phrase is the first half of practising it. As a small
+     * outlined control under the target it was something a learner had to
+     * decide to go looking for; as a peer in the action row it is part of the
+     * same gesture, in the order the two are used.
+     */
+    modelAvailable = true;
+    await open();
+
+    expect(listen()).not.toBeNull();
+    expect(listen()?.closest(".row")).toBe(actions());
+    expect(precedes(listen(), record())).toBe(true);
+  });
+
+  it("speaks the target in the target language when it is used", async () => {
+    // The phrase and its locale, not the English prompt — this is the model
+    // pronunciation, so passing the wrong one would demonstrate the wrong
+    // sound with full confidence.
+    modelAvailable = true;
+    await open();
+
+    fireEvent.click(listen()!);
+
+    expect(modelSpeak).toHaveBeenCalledWith(LANGUAGE.activities[0]?.target, LANGUAGE.code);
+  });
+
+  it("disables the model voice while the microphone is open rather than removing it", async () => {
+    /**
+     * Removing it would shift the action row at the exact moment the learner
+     * is about to speak. Disabling is also the safe half of the pair: a phrase
+     * still sounding through the speaker while the mic is live gets captured
+     * into the take and scored as if the learner had said it.
+     */
+    modelAvailable = true;
+    await open();
+
+    enter("recording");
+
+    expect(listen()).toBeDisabled();
+  });
+
+  it("offers no model-voice button at all where there is no voice", async () => {
+    // Hindi on a device with no hi-IN voice. A button that silently does
+    // nothing is worse than no button.
+    await open();
+
+    expect(listen()).toBeNull();
+  });
+
+  it("keeps the English gloss, below the actions", async () => {
+    /**
+     * Kept, because nobody should practise a sentence they cannot translate.
+     * Moved, because directly under the target it was the answer sitting next
+     * to the question — the first thing the eye reached after the phrase was
+     * the English.
+     */
+    await open();
+
+    expect(gloss()?.textContent).toContain(LANGUAGE.activities[0]?.gloss ?? "");
+    expect(precedes(phrase(), actions())).toBe(true);
+    expect(precedes(actions(), gloss())).toBe(true);
   });
 });

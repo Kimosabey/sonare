@@ -599,49 +599,37 @@ export function ActivityTest() {
       </div>
 
       {/*
-        The phrase and everything about it. Shown while the learner is reading
-        it and while they are saying it — the target cannot vanish the moment
-        the microphone opens, because with auto-stop they are still reading it
-        — and replaced by the outcome once there is one.
+        The phrase. Shown while the learner is reading it and while they are
+        saying it — the target cannot vanish the moment the microphone opens,
+        because with auto-stop they are still reading it — and replaced by the
+        outcome once there is one.
       */}
       {phase !== "result" && (
         <>
-          <p className="what" style={{ marginTop: 14, marginBottom: 0 }}>
-            <strong>{activity.prompt}</strong>
-          </p>
+          {/* The task, not the content. It was set in bold above a 22px
+              target, which put the English instruction and the thing being
+              taught at roughly equal weight; there is one subject on this
+              screen and it is the phrase. */}
+          <p className="task">{activity.prompt}</p>
 
-          {/* The one field here genuinely in the language being taught. The
-              prompt above and the gloss below are English instruction *about*
-              it, so they stay untagged — tagging them would have a screen
-              reader speak English in a French voice. WCAG 3.1.2. */}
-          <div className="prompt" lang={activeLanguage.code}>
+          {/*
+            The product, at the size of the product.
+            `.phrase` rather than the shared `.prompt`, which is now the
+            fixture runner's alone: the name was actively confusing — the
+            activity's `prompt` field is the English instruction *above* this —
+            and a diagnostics tool has no reason to render its reference text
+            at 40px.
+
+            The one field here genuinely in the language being taught, so the
+            `lang` tag stays: without it a screen reader says a French phrase
+            in an English voice, in a product whose entire subject is how a
+            phrase should sound (WCAG 3.1.2). The task above and the gloss
+            below are English *about* the phrase and stay untagged — tagging
+            those would make a reader speak English in a French voice.
+          */}
+          <p className="phrase" lang={activeLanguage.code}>
             {activity.target}
-          </div>
-          {model.available && (
-            <button
-              type="button"
-              className="listen"
-              /* Disabled rather than hidden while the mic is live: hiding it
-                 would shift the layout at the exact moment the learner is
-                 about to speak. */
-              disabled={phase === "speaking"}
-              onClick={() =>
-                model.speaking ? model.cancel() : model.speak(activity.target, activeLanguage.code)
-              }
-            >
-              {model.speaking ? "Stop" : "Listen"}
-            </button>
-          )}
-          <p className="hint">&ldquo;{activity.gloss}&rdquo;</p>
-
-          <details>
-            <summary>Why this phrase</summary>
-            <div className="body">
-              <p className="what" style={{ margin: 0 }}>
-                {activity.focus}
-              </p>
-            </div>
-          </details>
+          </p>
         </>
       )}
 
@@ -790,6 +778,30 @@ export function ActivityTest() {
       </p>
 
       <div className="row">
+        {/*
+          Hearing the phrase is the first half of practising it, and it sat
+          below the target as a small outlined afterthought — a learner had to
+          decide to go looking for it. It is a peer of the record button now
+          and it comes first, because that is the order the two are used in.
+
+          Disabled rather than hidden while the mic is live: hiding it would
+          shift the row at the exact moment the learner is about to speak. The
+          effect above also cancels any playback the instant the microphone
+          opens, so the model's voice can never be captured into a take and
+          scored as the learner's own.
+        */}
+        {phase !== "result" && model.available && (
+          <button
+            type="button"
+            className="listen"
+            disabled={phase === "speaking"}
+            onClick={() =>
+              model.speaking ? model.cancel() : model.speak(activity.target, activeLanguage.code)
+            }
+          >
+            {model.speaking ? "Stop" : "Listen"}
+          </button>
+        )}
         <RecordButton
           state={recorder.state}
           onStart={recorder.start}
@@ -816,6 +828,29 @@ export function ActivityTest() {
           </button>
         )}
       </div>
+
+      {/*
+        The English meaning, below the actions and quieter than either.
+        It was directly under the target, at 12px against 22px, which made the
+        first thing a learner's eye landed on after the phrase an English
+        sentence — the answer, next to the question. It is still here because
+        nobody should practise a sentence they cannot translate; it is just no
+        longer in the way of saying it.
+      */}
+      {phase !== "result" && (
+        <>
+          <p className="hint gloss">&ldquo;{activity.gloss}&rdquo;</p>
+
+          <details>
+            <summary>Why this phrase</summary>
+            <div className="body">
+              <p className="what" style={{ margin: 0 }}>
+                {activity.focus}
+              </p>
+            </div>
+          </details>
+        </>
+      )}
 
       {/*
         Only while the microphone is actually open. Both of these used to

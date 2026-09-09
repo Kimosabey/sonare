@@ -1,3 +1,52 @@
+/* ── the phrase ───────────────────────────────────────────────────────────── */
+
+/*
+ * The target phrase is the product, and it was one element among nine at
+ * 22px — the same order of size as the English instruction above it, the
+ * gloss below it, and the panel headings around it. A learner scanning this
+ * screen had no way to tell from typography what it was for.
+ *
+ * `clamp` rather than a fixed size because these are whole sentences in four
+ * languages: "Bonjour" and "Il y a quarante-deux personnes à la réunion" have
+ * to survive the same rule on a 360px phone. The floor is the old 22px plus a
+ * step, the ceiling is where a long French sentence still fits three lines on
+ * a narrow screen, and the middle term lets it grow with the viewport.
+ *
+ * Named `.phrase`, not the shared `.prompt`: that class is the fixture
+ * runner's now. The activity's own `prompt` field is the English instruction
+ * above this one, so the old name pointed at the wrong half of the screen.
+ */
+.phrase {
+  font-size: clamp(26px, 6.5vw, 38px);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: var(--space-1) 0 var(--space-5);
+  /* Avoids a last line carrying one word, which at this size reads as a
+     typesetting mistake. Ignored where unsupported, which costs nothing. */
+  text-wrap: balance;
+}
+
+/* The task above the phrase — what to do, not what to say. Quiet, because
+   the phrase is the subject and this is the label on it. */
+.task {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: var(--space-4) 0 0;
+}
+
+/* The English meaning, below the actions. Italic so it reads as a translation
+   rather than as more instruction, and quiet enough that the eye reaches the
+   phrase and the buttons first. */
+.gloss {
+  font-style: italic;
+  margin-top: var(--space-5);
+}
+
 .steps-track {
   height: 4px;
   background: var(--panel);
