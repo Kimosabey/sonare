@@ -16,7 +16,18 @@
  * will come back.
  *
  * `/metrics` is token-gated, because the counters describe usage volumes and
- * failure rates — not learner content, but not public either.
+ * failure rates — not learner content, but not public either. It also carries
+ * `alerts`: the four thresholds in infra/alerts.ts, evaluated against the same
+ * snapshot served beside them.
+ *
+ * Why the breach state lives here and not on `/readyz`: a firing alert must
+ * never take an instance out of rotation. A high indeterminate rate, a slow
+ * provider, an 80%-spent cap and a fallback backlog are all things an operator
+ * should see, and none of them is a reason to stop sending traffic to a
+ * process that is still scoring — three of the four would be *made worse* by
+ * shifting that traffic onto the remaining instances. Readiness answers
+ * "should traffic come here"; alerts answer "should somebody look". Different
+ * questions, so different endpoints.
  *
  * `/api/v1/health` predates all three and stays as it is. Nothing in the
  * client reads it, but it is a published surface and removing it belongs in a
@@ -24,11 +35,14 @@
  */
 
 import { Router } from "express";
+import type { Response } from "express";
 import { getDb } from "../db.js";
 import { getScoringProvider } from "../services/index.js";
 import { identityConfigured } from "../identity.js";
 import { snapshot } from "../infra/metrics.js";
+import { collectAlerts } from "../infra/alerts.js";
 import { countPending } from "../fallbackLog.js";
+import type { FallbackCollection } from "../fallbackLog.js";
 import { requireDiagnosticsToken } from "./diagnostics.js";
 
 export const healthRouter = Router();
@@ -88,7 +102,7 @@ healthRouter.get("/readyz", (_req, res) => {
 });
 
 /**
- * Counters, latency percentiles and the rates worth alerting on.
+ * Counters, latency percentiles, and the four thresholds evaluated over them.
  *
  * Token-gated with the same token the diagnostics screen uses, and with the
  * same rule: there is no "unset means open".
@@ -104,13 +118,42 @@ healthRouter.get("/metrics", requireDiagnosticsToken, (_req, res) => {
    * ended the outage. This asks the filesystem, so it is true regardless of
    * how many times the process has come and gone.
    *
-   * The one figure here worth alerting on.
+   * The one figure here that means an outage has already happened, which is
+   * why one of the four alert rules watches it.
    */
-  void countPending()
-    .then((fallbackPending) => void res.json({ ...snapshot(), fallbackPending }))
-    .catch(() => {
-      // A metrics endpoint that fails because it could not stat a file is
-      // worse than one missing a field.
-      res.json({ ...snapshot(), fallbackPending: null });
-    });
+  void countPending().then(
+    (fallbackPending) => respondWithMetrics(res, fallbackPending),
+    // A metrics endpoint that fails because it could not stat a file is worse
+    // than one missing a field. Null travels through to the alert rule as
+    // `unknown` rather than as "no backlog", because a directory that cannot
+    // be read is not evidence of an empty one.
+    () => respondWithMetrics(res, null),
+  );
 });
+
+/**
+ * One snapshot, served and evaluated.
+ *
+ * Taken once and handed to both, so the breach state in the response describes
+ * the very figures in the response. Calling `snapshot()` again for the alerts
+ * would let a request that lands mid-attempt report a rate the alerts never
+ * saw — a small window, and a payload nobody could reason from when it hit.
+ */
+function respondWithMetrics(res: Response, fallbackPending: Record<FallbackCollection, number> | null): void {
+  const metrics = snapshot();
+  /**
+   * `collectAlerts` is written not to reject — an unreadable spend figure is
+   * an `unknown` rule rather than a failed response. The rejection handler is
+   * here anyway because the failure it would otherwise produce is the worst
+   * available shape: no `res.json` call at all, so the request hangs until the
+   * caller's own deadline and the only trace is an unhandled rejection.
+   *
+   * `alerts: null` rather than an empty report, for the same reason a null
+   * rate is not a zero one. "Not evaluated" and "nothing firing" must not look
+   * alike, and the counters beside it are still true.
+   */
+  void collectAlerts(metrics, fallbackPending).then(
+    (alerts) => void res.json({ ...metrics, fallbackPending, alerts }),
+    () => void res.json({ ...metrics, fallbackPending, alerts: null }),
+  );
+}

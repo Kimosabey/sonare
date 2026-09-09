@@ -142,12 +142,15 @@ export interface MetricsSnapshot {
   };
   /**
    * The figures worth alerting on, computed here so an alert rule does not
-   * have to know which counters to divide.
+   * have to know which counters to divide. `infra/alerts.ts` is that rule now
+   * — `rates.indeterminate` and `latency.provider.p95` are two of its four
+   * inputs.
    *
    * Null rather than zero where nothing has happened yet: a 0% indeterminate
    * rate on a server that has scored nothing is not good news, and an alert
    * comparing null against a threshold is one that has to be written
-   * deliberately.
+   * deliberately. alerts.ts holds that end of the bargain — a null rate is
+   * `unknown` there, never `ok` and never a breach.
    */
   rates: {
     indeterminate: number | null;
