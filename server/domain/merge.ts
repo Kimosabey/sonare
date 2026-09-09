@@ -83,26 +83,103 @@ export function mergeEntry(mine: ProgressEntry, theirs: ProgressEntry): Progress
 }
 
 /**
+ * Collapses both sides of a merge into one entry per key, symmetrically.
+ *
+ * Each of the three merges below is a keyed union — activity id, grapheme,
+ * timestamp — and each of them used to load `mine` with a plain assignment and
+ * only combine on the `theirs` pass. So a repeated key was folded on one side
+ * and silently last-write-wins on the other, which made every one of them
+ * non-commutative on any input carrying a duplicate: merging `a` into `b`
+ * combined a's repeats and discarded b's, and the other way round did the
+ * reverse. Generated inputs found it immediately (merge.laws.test.ts) — two
+ * entries for one activity produced `attemptsUsed: 2` one way round and `0`
+ * the other, which is a real attempt count vanishing on the arrival order.
+ *
+ * Nothing rules those inputs out. `readProgressState` never deduplicates
+ * `entries` by `activityId`, `readSkill` never deduplicates `samples` by `at`,
+ * and stored state arrives through a `fromDocument` that hands back whatever
+ * the document holds — including a shape written by an older build. Folding
+ * both sides through the same combiner makes the result depend only on the
+ * multiset of entries, which is what the commutativity claim needs.
+ *
+ * `combine(item, item)` on a key's first sighting is deliberate, and it is not
+ * a wasted call. Every combiner here is idempotent, so it is a no-op on an
+ * already-canonical item — and it is the *only* thing that canonicalises a
+ * nested duplicate. A grapheme appearing on one side only was otherwise
+ * passed through untouched, carrying two samples for one timestamp into the
+ * stored document, and re-applying the same push then collapsed them: the
+ * merge was not idempotent, so a retry changed the record. Normalising on
+ * sight is what makes the output a fixpoint whatever the input looked like.
+ */
+function foldByKey<K, V>(into: Map<K, V>, items: readonly V[], keyOf: (item: V) => K, combine: (a: V, b: V) => V): void {
+  for (const item of items) {
+    const key = keyOf(item);
+    into.set(key, combine(into.get(key) ?? item, item));
+  }
+}
+
+/**
+ * The slug both sides are talking about.
+ *
+ * Taking `mine.slug` unconditionally was wrong in one reachable case. Every
+ * store's `fromDocument` yields `""` for a document written before the field
+ * existed (store/progress.ts, store/skills.ts) — deliberately, so an older
+ * shape does not throw — and merging that stored state with a real push then
+ * produced `slug: ""`, which the store wrote straight back into a document
+ * whose `_id` says `{learner}:fr`. One merge was enough to make the field
+ * permanently blank, and a pull then handed the client a language with no
+ * name.
+ *
+ * Deferring to whichever side has one also makes the choice independent of
+ * argument order, which is the property the rest of this file is built on. Two
+ * different non-empty slugs cannot arrive here: the document id is derived
+ * from the slug, so both sides of a merge are by construction the same
+ * language.
+ */
+function slugOf(mine: string, theirs: string): string {
+  return mine.length > 0 ? mine : theirs;
+}
+
+/**
+ * Entries kept, bounding both one push and the stored union.
+ *
+ * `readProgressState` trims an incoming push to this; `mergeProgress` trims
+ * the merged result to the same number, which is what actually bounds the
+ * document — see the note there.
+ */
+const MAX_ENTRIES = 200;
+
+/**
  * Combines a whole language's progress.
  *
  * An activity present on only one side is taken as it is — the other device
  * simply has not seen it, which is not evidence against it.
+ *
+ * Capped, and the cap is not decoration. `readProgressState` bounds one *push*
+ * to MAX_ENTRIES, but the union here is what gets stored, so a client sending
+ * a fresh batch of activity ids each time grew the document without limit —
+ * 200 entries a push, no ceiling, until it met Mongo's 16MB document cap and
+ * the learner's progress stopped saving. `mergeSkills` below already bounded
+ * itself the same way; this one simply did not.
+ *
+ * Trimming the *highest* ids keeps the activities a learner is working through
+ * rather than whichever arrived last, and — being a bounded prefix of a total
+ * order — it leaves the merge commutative: what survives depends on the set of
+ * entries, never on the order they were merged in.
  */
 export function mergeProgress(mine: ProgressState, theirs: ProgressState): ProgressState {
   const byId = new Map<number, ProgressEntry>();
+  const idOf = (entry: ProgressEntry): number => entry.activityId;
 
-  for (const entry of mine.entries) byId.set(entry.activityId, entry);
-  for (const entry of theirs.entries) {
-    const existing = byId.get(entry.activityId);
-    byId.set(entry.activityId, existing === undefined ? entry : mergeEntry(existing, entry));
-  }
+  foldByKey(byId, mine.entries, idOf, mergeEntry);
+  foldByKey(byId, theirs.entries, idOf, mergeEntry);
 
   return {
-    slug: mine.slug,
+    slug: slugOf(mine.slug, theirs.slug),
     // Sorted, so two devices that merged the same facts produce byte-identical
     // documents. Without it the same state has many representations and a
     // "did anything change" check can never be cheap.
-    entries: [...byId.values()].sort((a, b) => a.activityId - b.activityId),
+    entries: [...byId.values()].sort((a, b) => a.activityId - b.activityId).slice(0, MAX_ENTRIES),
   };
 }
 
@@ -144,9 +221,6 @@ const SLUG = /^[a-z]{2,16}$/;
 export function isSlug(value: unknown): value is string {
   return typeof value === "string" && SLUG.test(value);
 }
-
-/** Bounded so one push cannot store an unbounded document. */
-const MAX_ENTRIES = 200;
 
 export function readProgressState(raw: unknown): ProgressState | null {
   if (typeof raw !== "object" || raw === null) return null;
@@ -194,6 +268,27 @@ const MAX_SAMPLES = 20;
 const MAX_GRAPHEMES = 400;
 
 /**
+ * Two reports of one take, reduced to one sample.
+ *
+ * The higher accuracy wins, and the rule has to be about the two *values*
+ * rather than about which argument they arrived in. "First writer wins" was
+ * here instead, described in a comment as commutative because it was
+ * deterministic — which is not the same thing. For a single pair,
+ * `mergeSkill(a, b)` kept 10 and `mergeSkill(b, a)` kept 90, so the accuracy
+ * stored for a sound depended on which device's push reached the server
+ * first: no lost race, no error, and nothing in the data to say a choice had
+ * been made at all.
+ *
+ * A maximum, matching `bestOf` above and the "monotonic maximum" shape this
+ * module is built from. Samples sharing a timestamp are the same take
+ * described twice, so neither number is wrong; a maximum is simply the choice
+ * that does not depend on the order.
+ */
+function higherOf(a: SkillSample, b: SkillSample): SkillSample {
+  return { at: a.at, accuracy: Math.max(a.accuracy, b.accuracy) };
+}
+
+/**
  * Union of two syllables' sample histories.
  *
  * A union keyed on the timestamp, **not** last-write-wins. Under LWW the
@@ -210,13 +305,10 @@ const MAX_GRAPHEMES = 400;
  */
 export function mergeSkill(mine: Skill, theirs: Skill): Skill {
   const byTime = new Map<string, SkillSample>();
-  for (const sample of mine.samples) byTime.set(sample.at, sample);
-  for (const sample of theirs.samples) {
-    // First writer wins on an exact timestamp collision. The values are two
-    // reports of the same take, so either is right, and picking
-    // deterministically is what keeps the merge commutative.
-    if (!byTime.has(sample.at)) byTime.set(sample.at, sample);
-  }
+  const timeOf = (sample: SkillSample): string => sample.at;
+
+  foldByKey(byTime, mine.samples, timeOf, higherOf);
+  foldByKey(byTime, theirs.samples, timeOf, higherOf);
 
   return {
     grapheme: mine.grapheme,
@@ -226,15 +318,13 @@ export function mergeSkill(mine: Skill, theirs: Skill): Skill {
 
 export function mergeSkills(mine: SkillState, theirs: SkillState): SkillState {
   const byGrapheme = new Map<string, Skill>();
+  const graphemeOf = (skill: Skill): string => skill.grapheme;
 
-  for (const skill of mine.skills) byGrapheme.set(skill.grapheme, skill);
-  for (const skill of theirs.skills) {
-    const existing = byGrapheme.get(skill.grapheme);
-    byGrapheme.set(skill.grapheme, existing === undefined ? skill : mergeSkill(existing, skill));
-  }
+  foldByKey(byGrapheme, mine.skills, graphemeOf, mergeSkill);
+  foldByKey(byGrapheme, theirs.skills, graphemeOf, mergeSkill);
 
   return {
-    slug: mine.slug,
+    slug: slugOf(mine.slug, theirs.slug),
     skills: [...byGrapheme.values()]
       .sort((a, b) => (a.grapheme < b.grapheme ? -1 : a.grapheme > b.grapheme ? 1 : 0))
       .slice(0, MAX_GRAPHEMES),

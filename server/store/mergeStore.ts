@@ -28,8 +28,16 @@ import type { Document, Filter, OptionalUnlessRequiredId } from "mongodb";
 import { getDb } from "../db.js";
 import { logger } from "../logger.js";
 
-/** Enough for real contention between one learner's devices, not a spin. */
-const MAX_ATTEMPTS = 4;
+/**
+ * Enough for real contention between one learner's devices, not a spin.
+ *
+ * Exported under a qualified name so the contention tests can drive the
+ * ceiling exactly rather than hard-coding 4 in a second place. Qualified
+ * because `MAX_ATTEMPTS` already means something different on the client — the
+ * three scored tries a learner gets at an activity — and two constants with
+ * one name is how the wrong number ends up in the wrong comparison.
+ */
+export const MERGE_MAX_ATTEMPTS = 4;
 
 /** What every synced document carries, whatever domain it holds. */
 export interface VersionedDocument extends Document {
@@ -69,7 +77,7 @@ export async function mergeAndSave<State>(request: MergeRequest<State>): Promise
   const db = await getDb();
   const collection = db.collection<VersionedDocument>(request.collection);
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt = 0; attempt < MERGE_MAX_ATTEMPTS; attempt += 1) {
     const existing = await collection.findOne({ _id: request.id } as Filter<VersionedDocument>);
 
     if (existing === null) {
@@ -99,7 +107,31 @@ export async function mergeAndSave<State>(request: MergeRequest<State>): Promise
       // The version is the whole guard. Without it this write would discard
       // whatever another writer committed since the read above.
       { _id: request.id, version: existing.version } as Filter<VersionedDocument>,
-      { $set: { ...request.toFields(merged), updatedAt: new Date() }, $inc: { version: 1 } },
+      {
+        $set: {
+          /**
+           * Rewritten on every update, not only on insert.
+           *
+           * `learnerId` is the field `readAllFor` and `deleteAllFor` filter
+           * on, and the document id only *contains* the learner id — nothing
+           * queries it. So a document missing this field is invisible to both:
+           * it would not appear in a pull, and a deletion request would step
+           * straight past it while its `_id` went on naming the learner. That
+           * is the same shape as the rate-limit leak that put learner ids in
+           * document ids and left them behind, and this is one line rather
+           * than a migration.
+           *
+           * Only the insert above set it, so any document written by a build
+           * before the field existed — or by an operator, or by a migration —
+           * stayed unreachable forever. Setting it here means the first merge
+           * after this change repairs it.
+           */
+          learnerId: request.learnerId,
+          ...request.toFields(merged),
+          updatedAt: new Date(),
+        },
+        $inc: { version: 1 },
+      },
     );
 
     if (result.matchedCount === 1) return merged;
@@ -109,7 +141,7 @@ export async function mergeAndSave<State>(request: MergeRequest<State>): Promise
     );
   }
 
-  throw new Error(`${request.collection} merge for ${request.id} lost ${MAX_ATTEMPTS} version races`);
+  throw new Error(`${request.collection} merge for ${request.id} lost ${MERGE_MAX_ATTEMPTS} version races`);
 }
 
 /** Every document belonging to one learner, for a full pull. */
