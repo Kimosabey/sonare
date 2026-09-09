@@ -158,10 +158,40 @@ export async function readAllFor<State>(
   return docs.map(fromDocument);
 }
 
-/** Part of a deletion request. The route owns the whole set of collections. */
+/** So a learner id can never be read as a pattern. */
+function escapeForRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Part of a deletion request. The route owns the whole set of collections.
+ *
+ * **Two passes, by field and by id**, and the second one is not belt and
+ * braces. Every collection reached through this store puts the learner id in
+ * the document key — `{learner}:{slug}`, or the bare id for streaks — while
+ * the filter matched only the `learnerId` *field*. A document holding the id
+ * in its key and not in a field was therefore walked straight past by "delete
+ * my data", with the id still sitting in the key afterwards.
+ *
+ * That is not a hypothetical shape. Until this build only the insert wrote the
+ * field, so anything written by an earlier one lacks it; the update path now
+ * repairs a document on its next merge, but a language a learner has stopped
+ * practising never gets one. It is also exactly the leak the rate limiter
+ * shipped — learner ids in document ids, and a deletion that knew about the
+ * fields — and it was found the same way, by an end-to-end assertion that no
+ * *key* mentions the learner either.
+ *
+ * Anchored on the id and terminated by a separator or the end of the key, so
+ * it can only match this learner's own segment. Two round trips on an
+ * operation that happens once per learner, ever, is not a cost worth reasoning
+ * about; a deletion promise with an asterisk is.
+ */
 export async function deleteAllFor(collectionName: string, learnerId: string): Promise<void> {
   const db = await getDb();
-  await db
-    .collection<VersionedDocument>(collectionName)
-    .deleteMany({ learnerId } as Filter<VersionedDocument>);
+  const collection = db.collection<VersionedDocument>(collectionName);
+
+  await collection.deleteMany({ learnerId } as Filter<VersionedDocument>);
+  await collection.deleteMany({
+    _id: { $regex: `^${escapeForRegex(learnerId)}(:|$)` },
+  } as unknown as Filter<VersionedDocument>);
 }

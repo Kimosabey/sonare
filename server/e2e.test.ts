@@ -43,7 +43,7 @@ vi.mock("./db.js", () => ({
     Promise.resolve({
       collection: (name: string) => ({
         findOne: (f: { _id: string }) => Promise.resolve(structuredClone(store.get(`${name}/${f._id}`) ?? null)),
-        find: (f: { learnerId?: string }) => ({
+        find: (f: Filter) => ({
           sort: () => ({ limit: () => ({ toArray: () => Promise.resolve(collect(name, f)) }) }),
           toArray: () => Promise.resolve(collect(name, f)),
         }),
@@ -58,7 +58,7 @@ vi.mock("./db.js", () => ({
           return Promise.resolve({ acknowledged: true });
         },
         updateOne: (
-          f: { _id: string; version?: number; calls?: { $lt: number } },
+          f: Filter & { _id: string },
           u: Record<string, Record<string, unknown>>,
           o?: { upsert?: boolean },
         ) => {
@@ -67,20 +67,28 @@ vi.mock("./db.js", () => ({
           if (existing === undefined && o?.upsert !== true) {
             return Promise.resolve({ matchedCount: 0, acknowledged: true });
           }
-          if (existing !== undefined && f.version !== undefined && existing.version !== f.version) {
+          // Every other condition on the filter — the version guard, and the
+          // limiter's `hits: { $gt: 0 }` — has to hold too, or a conditional
+          // update becomes an unconditional one.
+          if (existing !== undefined && !matches(existing, f)) {
             return Promise.resolve({ matchedCount: 0, acknowledged: true });
           }
           store.set(key, applyUpdate(existing, f._id, u));
           return Promise.resolve({ matchedCount: 1, acknowledged: true });
         },
-        findOneAndUpdate: (
-          f: { _id: string; calls?: { $lt: number } },
-          u: Record<string, Record<string, unknown>>,
-        ) => {
+        findOneAndUpdate: (f: Filter & { _id: string }, u: Record<string, Record<string, unknown>>) => {
           const key = `${name}/${f._id}`;
           const existing = store.get(key);
-          if (f.calls !== undefined && ((existing?.["calls"] as number) ?? 0) >= f.calls.$lt) {
-            const err = new Error("dup") as Error & { code: number };
+          /**
+           * Mongo's own behaviour for a conditional upsert, which is what the
+           * spend ceiling relies on: when the filter does not match the
+           * document that is there, the upsert falls through to an insert and
+           * collides on `_id`. Expressed through the shared matcher rather
+           * than as a special case for one field name, so the ceiling's guard
+           * is honoured whatever it comes to be phrased as.
+           */
+          if (existing !== undefined && !matches(existing, f)) {
+            const err = new Error("E11000 duplicate key") as Error & { code: number };
             err.code = 11000;
             return Promise.reject(err);
           }
@@ -88,13 +96,13 @@ vi.mock("./db.js", () => ({
           store.set(key, next);
           return Promise.resolve(next);
         },
-        deleteMany: (f: { learnerId: string }) => {
+        deleteMany: (f: Filter) => {
           // Returns deletedCount, as the driver does. Without it the route's
           // reported counts are undefined and vanish from the JSON — which is
           // exactly how the assertion below caught this mock being wrong.
           let deletedCount = 0;
           for (const [k, v] of store) {
-            if (k.startsWith(`${name}/`) && v.learnerId === f.learnerId) {
+            if (k.startsWith(`${name}/`) && matches(v, f)) {
               store.delete(k);
               deletedCount += 1;
             }
@@ -115,9 +123,60 @@ function cryptoId(): string {
   return Math.random().toString(36).slice(2);
 }
 
-function collect(name: string, f: { learnerId?: string }): Doc[] {
+/** What the app actually passes as a query. Nothing else is accepted. */
+type Filter = Record<string, unknown>;
+
+/**
+ * Whether one stored document satisfies a filter.
+ *
+ * Strict on purpose, in both directions: every condition in the filter must
+ * hold, and a condition this does not understand throws instead of being
+ * ignored.
+ *
+ * It used to compare `doc.learnerId` to `filter.learnerId` and consider
+ * nothing else, which made the mock permissive in the one place that matters.
+ * `deleteRateLimitsFor` filters on an anchored `_id` regex, and rate-limit
+ * documents carry no `learnerId` at all, so the comparison was `undefined ===
+ * undefined` — true for every document in the collection. The deletion
+ * therefore appeared to work no matter what: with the regex broken, with the
+ * anchoring dropped, with the whole call removed. It also swept away other
+ * learners' windows, and nothing noticed, because the only assertion about
+ * them was that some other collections still had rows.
+ *
+ * Throwing on an unrecognised condition is the other half. A filter shape
+ * added later — a date range, an `$in` — would otherwise be silently ignored,
+ * and a query meant to select a few documents would match all of them.
+ */
+function matches(doc: Doc, filter: Filter): boolean {
+  for (const [field, condition] of Object.entries(filter)) {
+    const value = doc[field];
+
+    if (typeof condition === "object" && condition !== null) {
+      const ops = condition as { $regex?: unknown; $gt?: unknown; $lt?: unknown };
+
+      if (typeof ops.$regex === "string") {
+        if (typeof value !== "string" || !new RegExp(ops.$regex).test(value)) return false;
+        continue;
+      }
+      if (typeof ops.$gt === "number") {
+        if (typeof value !== "number" || value <= ops.$gt) return false;
+        continue;
+      }
+      if (typeof ops.$lt === "number") {
+        if (typeof value !== "number" || value >= ops.$lt) return false;
+        continue;
+      }
+      throw new Error(`e2e mock: filter on ${field} uses an operator it does not implement`);
+    }
+
+    if (value !== condition) return false;
+  }
+  return true;
+}
+
+function collect(name: string, f: Filter): Doc[] {
   return [...store.entries()]
-    .filter(([k, v]) => k.startsWith(`${name}/`) && (f.learnerId === undefined || v.learnerId === f.learnerId))
+    .filter(([k, v]) => k.startsWith(`${name}/`) && matches(v, f))
     .map(([, v]) => structuredClone(v));
 }
 
@@ -204,6 +263,20 @@ const SECOND_LEARNER = "11111111-2222-4333-8444-555555555555";
 let server: Server;
 let base: string;
 
+/**
+ * The deletion/export contract, taken from the module instance the running app
+ * uses — not from a top-level import.
+ *
+ * `boot()` calls `vi.resetModules()`, so a static import of the same file at
+ * the top of this test would give a *second* instance of it: a different
+ * limiter, a different token layer, and a list that no longer has to be the
+ * one the server is answering from. This project has already had four
+ * assertions pass against the wrong instance that way. Reading it out of
+ * `boot()`'s own import is what makes "the export and the deletion agree" a
+ * claim about the app rather than about a copy of its source.
+ */
+let learnerCollections: readonly string[];
+
 interface Snapshot {
   progress: Array<{ slug: string; entries: Array<{ activityId: number; passed: boolean; bestAccuracy: number | null; attemptsUsed: number }> }>;
   skills: Array<{ slug: string; skills: Array<{ grapheme: string; samples: Array<{ at: string; accuracy: number }> }> }>;
@@ -218,7 +291,9 @@ async function boot(): Promise<Express> {
   const express = (await import("express")).default;
   const { pronunciationRouter } = await import("./routes/pronunciation.js");
   const { diagnosticsRouter } = await import("./routes/diagnostics.js");
-  const { learnersRouter } = await import("./routes/learners.js");
+  const learners = await import("./routes/learners.js");
+  const { learnersRouter } = learners;
+  learnerCollections = learners.LEARNER_COLLECTIONS;
   const { syncRouter } = await import("./routes/sync.js");
   const { nextRouter } = await import("./routes/next.js");
   const { contentRouter } = await import("./routes/content.js");
@@ -617,33 +692,94 @@ describe("serving content", () => {
 });
 
 describe("erasing everything, on request", () => {
-  /** Fills every collection that can hold something about this learner. */
-  async function fillEverything(token: string): Promise<void> {
+  /**
+   * Drives every write path that can attribute something to this learner.
+   *
+   * Through the real endpoints rather than by seeding the store, which is the
+   * whole point: a collection a *route* starts writing gets swept into the
+   * assertions below without anyone remembering to add it here, whereas a
+   * hand-seeded fixture only ever contains what somebody thought of.
+   *
+   * Deliberately more than one of everything, and more than one language. A
+   * deletion filtered by `_id` rather than by learner, or one that stops after
+   * the first document, passes against a single row per collection.
+   */
+  async function fillEverything(token: string): Promise<string> {
+    // Two takes: two attempts, two spend counter increments, and — the part
+    // that matters here — a rate-limit window keyed on the learner rather
+    // than on the address.
     await score(token);
-    await fetch(`${base}/api/v1/diagnostics`, {
+    await score(token);
+
+    for (const code of ["MIC_BLOCKED", "NO_SPEECH_DETECTED"]) {
+      await fetch(`${base}/api/v1/diagnostics`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...client(token) },
+        body: JSON.stringify({ code, domain: "client", message: "no permission" }),
+      });
+    }
+
+    // Two languages, so `progress` and `skills` hold two documents each and a
+    // deletion cannot pass by removing one of them.
+    for (const slug of ["fr", "hi"]) {
+      await pushSync(
+        {
+          progress: [{ slug, entries: [{ activityId: 1, passed: true, bestAccuracy: 88, attemptsUsed: 2, skipped: false, at: "2026-09-07T10:00:00.000Z" }] }],
+          skills: [{ slug, skills: [{ grapheme: "ment", samples: [{ at: "2026-09-07T10:00:00.000Z", accuracy: 61 }] }] }],
+          streak: { days: ["2026-09-07"], longest: 1 },
+        },
+        token,
+      );
+    }
+
+    // A read as well as writes: `requireLearner` refreshes `lastSeenAt` on
+    // every authenticated request, which is itself a write to `learners`.
+    await fetch(`${base}/api/v1/next?slug=fr`, { headers: client(token) });
+
+    // And a rotated token, since a learner who rotates mid-journey must not
+    // end up with a record the deletion cannot reach.
+    const res = await fetch(`${base}/api/v1/learners/rotate`, {
       method: "POST",
       headers: { "content-type": "application/json", ...client(token) },
-      body: JSON.stringify({ code: "MIC_BLOCKED", domain: "client", message: "no permission" }),
+      body: "{}",
     });
-    await pushSync(
-      {
-        progress: [{ slug: "fr", entries: [{ activityId: 1, passed: true, bestAccuracy: 88, attemptsUsed: 2, skipped: false, at: "2026-09-07T10:00:00.000Z" }] }],
-        skills: [{ slug: "fr", skills: [{ grapheme: "ment", samples: [{ at: "2026-09-07T10:00:00.000Z", accuracy: 61 }] }] }],
-        streak: { days: ["2026-09-07"], longest: 1 },
-      },
-      token,
-    );
-    // The scoring and diagnostics writes are fire-and-forget.
-    await new Promise((r) => setTimeout(r, 30));
+    const rotated = ((await res.json()) as { token: string }).token;
+
+    // The scoring, diagnostics and lastSeenAt writes are fire-and-forget.
+    await new Promise((r) => setTimeout(r, 40));
+    return rotated;
   }
 
   /** Every stored document mentioning this learner, by collection. */
   function traceOf(learnerId: string): string[] {
     return [...store.entries()]
-      .filter(([, v]) => JSON.stringify(v).includes(learnerId))
+      .filter(([k, v]) => JSON.stringify(v).includes(learnerId) || k.includes(learnerId))
       .map(([k]) => k.split("/")[0] ?? k)
       .filter((c, i, all) => all.indexOf(c) === i)
       .sort();
+  }
+
+  /** Every stored key mentioning this learner, for naming what survived. */
+  function keysMentioning(learnerId: string): string[] {
+    return [...store.entries()]
+      .filter(([k, v]) => JSON.stringify(v).includes(learnerId) || k.includes(learnerId))
+      .map(([k]) => k)
+      .sort();
+  }
+
+  async function exportOf(token: string): Promise<{
+    collections: Record<string, unknown>;
+    truncated: Record<string, boolean>;
+  }> {
+    const res = await fetch(`${base}/api/v1/learners/me/export`, { headers: client(token) });
+    if (res.status !== 200) throw new Error(`export failed: ${res.status}`);
+    return (await res.json()) as { collections: Record<string, unknown>; truncated: Record<string, boolean> };
+  }
+
+  /** How much a collection holds — a list's length, or 1 for a lone document. */
+  function weight(value: unknown): number {
+    if (value === null || value === undefined) return 0;
+    return Array.isArray(value) ? value.length : 1;
   }
 
   it("leaves nothing behind in any collection", async () => {
@@ -675,10 +811,13 @@ describe("erasing everything, on request", () => {
 
     const res = await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
 
+    // Two of each, because `fillEverything` writes two of each: a count that
+    // is really a boolean cannot show that a deletion reached past the first
+    // document it found.
     expect((await res.json()) as { deleted: boolean; attempts: number; diagnostics: number }).toEqual({
       deleted: true,
-      attempts: 1,
-      diagnostics: 1,
+      attempts: 2,
+      diagnostics: 2,
     });
   });
 
@@ -720,6 +859,259 @@ describe("erasing everything, on request", () => {
 
     expect(second.status).toBe(200);
     expect(traceOf(LEARNER)).toEqual([]);
+  });
+
+  it("holds nothing about a learner outside the collections it declares", async () => {
+    /**
+     * The sweep, in the direction nobody thinks to check.
+     *
+     * `LEARNER_COLLECTIONS` is the contract between the export and the
+     * deletion. It is only worth anything if it is *complete* — a route that
+     * starts attributing data to a learner in a collection nobody added to
+     * that list is invisible to both halves of a data request, and the
+     * rate-limiter shipped exactly that.
+     *
+     * So this compares the declared list against what the app actually wrote,
+     * both ways, with neither side hard-coded here:
+     *
+     *   declared ⊇ observed — a new collection holding learner data fails
+     *     this until it is declared, which is the automatic part.
+     *   declared ⊆ observed — a declared collection that no endpoint fills
+     *     fails this, so the deletion assertions below can never be vacuous
+     *     for a collection that was empty all along.
+     */
+    const token = await register(LEARNER, "Marie");
+    await fillEverything(token);
+
+    expect(traceOf(LEARNER)).toEqual([...learnerCollections].sort());
+  });
+
+  it("exports every collection it will delete, and with something in it", async () => {
+    /**
+     * The other half of the same contract. The route types the export as a
+     * record over `LEARNER_COLLECTIONS`, so a missing key is a compile error
+     * — but a key present and permanently empty is not, and an export that
+     * returns `[]` for a collection full of the learner's records is the more
+     * likely failure. Checked over the real HTTP response, collection for
+     * collection, against the same list the deletion uses.
+     */
+    const token = await register(LEARNER, "Marie");
+    await fillEverything(token);
+
+    const exported = await exportOf(token);
+
+    expect(Object.keys(exported.collections).sort()).toEqual([...learnerCollections].sort());
+    for (const collection of learnerCollections) {
+      expect(weight(exported.collections[collection])).toBeGreaterThan(0);
+    }
+    // And it says whether the two unbounded trails were cut, rather than
+    // handing back a partial copy that looks whole.
+    expect(Object.keys(exported.truncated).sort()).toEqual(["attempts", "diagnostics"]);
+  });
+
+  it("leaves the export empty, collection for collection, once it has deleted", async () => {
+    /**
+     * Absence checked through the learner's own eyes rather than only through
+     * the store. The token survives a deletion by design, so the export is
+     * still reachable — and it must now answer "nothing" for every collection
+     * it was answering for a moment ago.
+     */
+    const token = await register(LEARNER, "Marie");
+    await fillEverything(token);
+    const before = await exportOf(token);
+
+    await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
+    const after = await exportOf(token);
+
+    for (const collection of learnerCollections) {
+      expect(weight(before.collections[collection])).toBeGreaterThan(0);
+      expect(weight(after.collections[collection])).toBe(0);
+    }
+    // And nothing is left in the store under a key that names them either —
+    // the rate-limit leak was a document whose *id* held the learner id and
+    // whose fields did not, so an assertion on fields alone would miss it.
+    expect(keysMentioning(LEARNER)).toEqual([]);
+  });
+
+  it("removes the learner's rate-limit windows and nobody else's", async () => {
+    /**
+     * The named case. `perLearnerScoringLimiter` keys on the learner, so a
+     * window's `_id` is `scoring-learner:{learnerId}:{window}` and the
+     * document has no `learnerId` field at all — which is why the deletion
+     * matches on an anchored `_id` pattern instead.
+     *
+     * Anchored on the separator in both directions, so it can only ever match
+     * the key segment: another learner's windows and the address-keyed
+     * diagnostics windows both have to survive. A deletion that swept the
+     * collection would satisfy "nothing about this learner remains" while
+     * resetting everybody's abuse counters.
+     */
+    const mine = await register(LEARNER);
+    const theirs = await register(SECOND_LEARNER);
+    await fillEverything(mine);
+    await fillEverything(theirs);
+
+    const rateLimitKeys = (): string[] => [...store.keys()].filter((k) => k.startsWith("ratelimits/")).sort();
+    const before = rateLimitKeys();
+    expect(before.some((k) => k.includes(LEARNER))).toBe(true);
+    expect(before.some((k) => k.includes(SECOND_LEARNER))).toBe(true);
+    // The address-keyed windows the diagnostics limiter writes, which belong
+    // to no learner and must not be collateral.
+    const addressKeyed = before.filter((k) => !k.includes(LEARNER) && !k.includes(SECOND_LEARNER));
+    expect(addressKeyed.length).toBeGreaterThan(0);
+
+    await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(mine) });
+
+    const after = rateLimitKeys();
+    expect(after.filter((k) => k.includes(LEARNER))).toEqual([]);
+    expect(after.filter((k) => k.includes(SECOND_LEARNER))).toEqual(
+      before.filter((k) => k.includes(SECOND_LEARNER)),
+    );
+    // A superset, not an exact match: the DELETE request is itself rate
+    // limited, so it opens an address-keyed window of its own. What matters is
+    // that none of the existing ones went away.
+    for (const key of addressKeyed) expect(after).toContain(key);
+  });
+
+  it("erases nobody else, document for document", async () => {
+    /**
+     * Stronger than "the other learner still has some collections". Every
+     * single document that did not mention the deleted learner has to be
+     * exactly where it was — a deletion that over-reaches is a data-loss bug
+     * wearing a privacy feature's clothes, and it would pass any assertion
+     * phrased as "their record still exists".
+     */
+    const mine = await register(LEARNER);
+    const theirs = await register(SECOND_LEARNER);
+    await fillEverything(mine);
+    await fillEverything(theirs);
+
+    const untouched = [...store.entries()]
+      .filter(([k, v]) => !JSON.stringify(v).includes(LEARNER) && !k.includes(LEARNER))
+      .map(([k, v]) => [k, JSON.stringify(v)] as const);
+    expect(untouched.length).toBeGreaterThan(0);
+
+    await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(mine) });
+
+    // Every document that was not about the deleted learner is still there,
+    // byte for byte. Stated as "nothing was removed or altered" rather than
+    // "the store is unchanged", because the DELETE request is itself rate
+    // limited and legitimately opens a window of its own.
+    for (const [key, before] of untouched) {
+      expect(JSON.stringify(store.get(key))).toBe(before);
+    }
+    expect(keysMentioning(LEARNER)).toEqual([]);
+  });
+
+  it("leaves an anonymous take alone, because it belongs to nobody", async () => {
+    /**
+     * The honest limit, asserted rather than only written down. A take made
+     * without a token carries no learner id, so nobody can find it — not us
+     * and not the learner asking. Those expire on the attempts TTL instead.
+     *
+     * Worth pinning because the tempting "fix" is to delete unattributed
+     * attempts along with the learner's, which would erase other people's
+     * anonymous practice on one person's request.
+     */
+    const token = await register(LEARNER);
+    await fillEverything(token);
+    await score();
+    await new Promise((r) => setTimeout(r, 30));
+
+    const anonymous = collect("attempts", {}).filter((doc) => doc["learnerId"] === undefined);
+    expect(anonymous).toHaveLength(1);
+
+    await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
+
+    expect(collect("attempts", {})).toHaveLength(1);
+    expect(collect("attempts", {})[0]?.["learnerId"]).toBeUndefined();
+    // And it mentions nobody, so the sweep above stays true.
+    expect(traceOf(LEARNER)).toEqual([]);
+  });
+
+  it("erases the display name, which is the only thing a person would recognise", async () => {
+    // The learner id is a UUID the client minted; the display name is the one
+    // field here that a human typed about themselves. An assertion that only
+    // looks for the id would pass on a record that still held the name.
+    const token = await register(LEARNER, "Marie-Claire");
+    await fillEverything(token);
+    expect(JSON.stringify([...store.values()])).toContain("Marie-Claire");
+
+    await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
+
+    expect(JSON.stringify([...store.values()])).not.toContain("Marie-Claire");
+  });
+
+  it("erases a learner who rotated their token mid-journey", async () => {
+    // Rotation issues a new token for the same learner. A deletion driven by
+    // the new token has to reach the record the old one created.
+    const original = await register(LEARNER, "Marie");
+    const rotated = await fillEverything(original);
+
+    const res = await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(rotated) });
+
+    expect(res.status).toBe(200);
+    expect(traceOf(LEARNER)).toEqual([]);
+  });
+
+  it("erases a synced document attributed only by its id", async () => {
+    /**
+     * The rate-limit bug class, hunted in the collections that were not the
+     * rate limiter.
+     *
+     * `progress`, `skills` and `streaks` all put the learner id in the
+     * document `_id` — `{learner}:{slug}`, or the bare id for streaks — and
+     * `deleteAllFor` matches on the `learnerId` *field*. So a document holding
+     * the id in its key and not in a field is precisely the shape that a
+     * deletion walks past, and it is the shape a build from before that field
+     * existed wrote. mergeStore now rewrites `learnerId` on every update, so
+     * the next sync repairs such a document; a document never synced again
+     * would never be repaired, and a deletion request is exactly the moment
+     * that stops being hypothetical.
+     */
+    const token = await register(LEARNER, "Marie");
+    await fillEverything(token);
+    // Written straight in, as an older build would have left it: attributable
+    // from its key alone.
+    store.set(`progress/${LEARNER}:de`, {
+      _id: `${LEARNER}:de`,
+      slug: "de",
+      entries: [],
+      version: 1,
+      updatedAt: new Date(),
+    });
+    store.set(`skills/${LEARNER}:de`, {
+      _id: `${LEARNER}:de`,
+      slug: "de",
+      skills: [],
+      version: 1,
+      updatedAt: new Date(),
+    });
+
+    await fetch(`${base}/api/v1/learners/me`, { method: "DELETE", headers: client(token) });
+
+    expect(keysMentioning(LEARNER)).toEqual([]);
+  });
+
+  it("keeps a returning learner's start date, rather than making them look new", async () => {
+    /**
+     * `$setOnInsert` semantics, pinned end to end because they are easy to
+     * get wrong in exactly one direction: applied on every write instead of
+     * only on insert, `createdAt` refreshes and every learner reads as
+     * new — and the mock that stands in for Mongo here has made that mistake
+     * before, which would have made this whole file agree with a broken app.
+     */
+    await register(LEARNER, "Marie");
+    await new Promise((r) => setTimeout(r, 20));
+    const first = store.get(`learners/${LEARNER}`)?.["createdAt"];
+
+    await register(LEARNER, "Marie");
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(first).toBeDefined();
+    expect(store.get(`learners/${LEARNER}`)?.["createdAt"]).toEqual(first);
+    // lastSeenAt is the field that is meant to move.
+    expect(store.get(`learners/${LEARNER}`)?.["lastSeenAt"]).toBeDefined();
   });
 
   it("lets the learner start again afterwards", async () => {

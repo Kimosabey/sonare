@@ -110,11 +110,21 @@ vi.mock("../db.js", () => ({
           store.set(key, structuredClone(next));
           return { matchedCount: 1, acknowledged: true };
         },
-        deleteMany: async (filter: { learnerId: string }) => {
+        deleteMany: async (filter: { learnerId?: string; _id?: { $regex: string } }) => {
           await roundTrip();
           let deletedCount = 0;
           for (const [key, doc] of store) {
-            if (key.startsWith(`${name}/`) && doc.learnerId === filter.learnerId) {
+            if (!key.startsWith(`${name}/`)) continue;
+            /**
+             * Both filter shapes `deleteAllFor` uses, because it makes two
+             * passes: one on the `learnerId` field and one on an anchored
+             * `_id` pattern for documents attributed by their key alone. A
+             * mock that only understood the field would report the second
+             * pass as a no-op and hide whether it works.
+             */
+            const byField = filter.learnerId !== undefined && doc.learnerId === filter.learnerId;
+            const byId = filter._id !== undefined && new RegExp(filter._id.$regex).test(doc._id);
+            if (byField || byId) {
               store.delete(key);
               deletedCount += 1;
             }
@@ -471,6 +481,29 @@ describe("a document written before `learnerId` existed", () => {
     await deleteAllFor("streaks", LEARNER);
 
     expect(store.get(`streaks/${LEARNER}`)).toBeUndefined();
+  });
+
+  it("is erased by a deletion even if nothing ever repairs it", async () => {
+    /**
+     * The repair above only happens on a merge, and a language a learner has
+     * stopped practising never gets one. So a deletion request has to reach a
+     * document that is attributable from its key and nowhere else — the leak
+     * the rate limiter shipped, in the collections that were not the rate
+     * limiter.
+     */
+    const { deleteAllFor } = await load();
+    store.set(`streaks/${LEARNER}`, { _id: LEARNER, days: [day(1)], longest: 1, version: 1 });
+    store.set(`progress/${LEARNER}:de`, { _id: `${LEARNER}:de`, version: 1 });
+    // Another learner's document, to prove the id anchor only matches its own
+    // key segment rather than deleting by prefix wherever it happens to fit.
+    store.set(`progress/${OTHER}:de`, { _id: `${OTHER}:de`, version: 1 });
+
+    await deleteAllFor("streaks", LEARNER);
+    await deleteAllFor("progress", LEARNER);
+
+    expect(store.get(`streaks/${LEARNER}`)).toBeUndefined();
+    expect(store.get(`progress/${LEARNER}:de`)).toBeUndefined();
+    expect(store.get(`progress/${OTHER}:de`)).toBeDefined();
   });
 
   it("does not lose the days that document already held", async () => {
