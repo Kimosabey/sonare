@@ -82,3 +82,27 @@ export async function deleteDiagnosticsFor(learnerId: string): Promise<number> {
   const result = await db.collection("diagnostics").deleteMany({ learnerId });
   return result.deletedCount;
 }
+
+/**
+ * One learner's own diagnostic reports, most recent first.
+ *
+ * The read half of `deleteDiagnosticsFor`. These carry device fingerprints and
+ * failure detail, which is precisely why the learner-id field was added here
+ * at all — a learner who can have them deleted should be able to see them,
+ * and both halves need the same filter to mean the same thing.
+ *
+ * Separate from `listDiagnostics` above for the same reason the attempts
+ * reader is: that one is the internal dashboard's unfiltered view.
+ */
+export async function listDiagnosticsFor(
+  learnerId: string,
+  limit: number,
+): Promise<DiagnosticRecord[]> {
+  const db = await getDb();
+  return db
+    .collection<DiagnosticRecord>("diagnostics")
+    .find({ learnerId })
+    .sort({ at: -1 })
+    .limit(limit)
+    .toArray();
+}

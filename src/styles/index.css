@@ -18,3 +18,7 @@
 @import "./diagnostics.css";
 @import "./motion.css";
 @import "./controls.css";
+/* New rather than extracted, so it has no earlier position to preserve. It
+   declares no animation, so sitting after motion.css costs the kill-switch
+   nothing. */
+@import "./settings.css";

@@ -69,6 +69,23 @@ export function writeProgress(
   }
 }
 
+/**
+ * Removes one language's stored progress, for a deletion request.
+ *
+ * The sibling of `clearSkills` and `clearStreak`, and it lives here for the
+ * reason those live beside their own readers: the key shape is one thing to
+ * remember, and a caller that rebuilt it would silently stop matching the day
+ * `SCHEMA_VERSION` moves. Removing the entry rather than writing an empty one,
+ * because "deleted" and "present but empty" are not the same claim.
+ */
+export function clearProgress(slug: string, learnerName: string | null): void {
+  try {
+    localStorage.removeItem(storageKey(slug, learnerName));
+  } catch {
+    // Best effort — the same tolerance every other access here has.
+  }
+}
+
 function readStored(key: string): PersistedProgress {
   try {
     const raw = localStorage.getItem(key);

@@ -1,0 +1,87 @@
+/* ── the settings screen, and the footer that reaches it ──────────────────
+ *
+ * A new sheet rather than rules bolted into base.css: none of this existed
+ * before, so it has no prior place in the cascade to be put back into, and
+ * index.css's order rule is about not moving what is already there.
+ *
+ * No animations here on purpose. The reduced-motion kill-switch in motion.css
+ * is a blanket `* { animation: none !important }`, which covers anything added
+ * anywhere — but this screen's two actions are irreversible and a deletion
+ * confirmation is the last place that wants decoration.
+ */
+
+.app-footer {
+  padding: 18px 0 6px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+/* Inline-flex with the shared tap floor, so the link is a real target on a
+   phone rather than an 11px line of text to aim a thumb at. */
+.app-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding-right: 8px;
+  color: var(--dim);
+  text-decoration: none;
+}
+
+.app-footer a:hover,
+.app-footer a:focus-visible {
+  color: var(--signal);
+  text-decoration: underline;
+}
+
+/*
+ * The irreversible half, marked as such.
+ *
+ * Styled differently from everything above it because it is the one section on
+ * any screen with no undo behind it. The border is the section boundary the
+ * global `section` rule already draws, recoloured — not an extra box.
+ */
+.danger-zone {
+  border-left: 3px solid var(--fail);
+  padding-left: 14px;
+}
+
+.danger-zone label {
+  color: var(--fail);
+}
+
+/* Keeps the field from spanning a wide desktop column: it holds one short
+   word, and a full-width input invites a sentence. */
+.danger-zone input {
+  max-width: 260px;
+}
+
+/*
+ * Never the same colour as "Practise French".
+ *
+ * A destructive action that looks exactly like every other primary button is
+ * how somebody deletes their record while meaning to press the thing next to
+ * it. Disabled styling comes from the global button rule.
+ */
+button.danger {
+  background: var(--fail);
+  border-color: var(--fail);
+}
+
+button.danger:focus-visible {
+  outline-color: var(--fail);
+}
+
+/* What actually happened, set apart from the controls that caused it. */
+.settings-report {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.settings-report p:last-child {
+  margin-bottom: 0;
+}

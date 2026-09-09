@@ -133,3 +133,26 @@ export async function deleteAttemptsFor(learnerId: string): Promise<number> {
   const result = await db.collection<AttemptRecord>("attempts").deleteMany({ learnerId });
   return result.deletedCount;
 }
+
+/**
+ * One learner's own attempt trail, most recent first.
+ *
+ * The read half of `deleteAttemptsFor`, filtered on the same field for the
+ * same reason: only a record carrying this learner's id can be attributed to
+ * them, so only those are theirs to see. Anonymous takes are unreachable here
+ * exactly as they are unreachable there — the two halves of a data request
+ * have to agree about what "mine" means, or one of them is lying.
+ *
+ * Deliberately a different function from `listAttempts` above, which is the
+ * internal dashboard's unfiltered view. A learner-facing route must not be one
+ * forgotten filter away from handing someone the whole collection.
+ */
+export async function listAttemptsFor(learnerId: string, limit: number): Promise<AttemptRecord[]> {
+  const db = await getDb();
+  return db
+    .collection<AttemptRecord>("attempts")
+    .find({ learnerId })
+    .sort({ at: -1 })
+    .limit(limit)
+    .toArray();
+}

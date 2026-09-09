@@ -4,7 +4,10 @@
  * been made to answer a question they already had. Then the activity test for
  * whichever language is in the URL (:slug), and two internal-only screens
  * reached by typing the URL directly — /diagnostics and /fixture — with no
- * nav link to either anywhere in the product UI. HashRouter specifically:
+ * nav link to either anywhere in the product UI. /settings is the exception
+ * to that: it is learner-facing and carries the export and deletion controls,
+ * so it has a footer link on every screen — a right nobody can find is not
+ * one. HashRouter specifically:
  * URLs stay #/-prefixed exactly as before, which survives a direct visit or
  * refresh through a tunnel (ngrok) with zero server-side rewrite config — a
  * plain BrowserRouter would 404 on a fresh #/diagnostics visit without that
@@ -35,6 +38,12 @@ const Diagnostics = lazy(() =>
 const FixtureRunner = lazy(() =>
   import("./pages/FixtureRunner.js").then((m) => ({ default: m.FixtureRunner })),
 );
+/**
+ * Split for the same reason, and it is learner-facing rather than internal:
+ * exporting or deleting a record is a once-ever visit, so it should not be in
+ * the bundle every learner downloads to say one phrase.
+ */
+const Settings = lazy(() => import("./pages/Settings.js").then((m) => ({ default: m.Settings })));
 import { resolveLanguage, resolveLanguages } from "./content/resolve.js";
 import { useContentSync } from "./content/useContentSync.js";
 
@@ -72,12 +81,14 @@ function Breadcrumb() {
   const isDiagnostics = location.pathname === "/diagnostics";
   const isFixture = location.pathname === "/fixture";
   const isLanguages = location.pathname === "/languages";
+  const isSettings = location.pathname === "/settings";
   const progressMatch = /^\/([a-z]+)\/progress$/.exec(location.pathname);
   const slug = progressMatch?.[1] ?? location.pathname.replace(/^\//, "");
   // getLanguage would return undefined for "languages" anyway, but checking
   // explicitly keeps the crumb from depending on no language ever being
   // slugged "languages".
-  const language = !isDiagnostics && !isFixture && !isLanguages ? resolveLanguage(slug) : undefined;
+  const language =
+    !isDiagnostics && !isFixture && !isLanguages && !isSettings ? resolveLanguage(slug) : undefined;
   const onProgress = progressMatch !== null && language !== undefined;
 
   return (
@@ -99,6 +110,12 @@ function Breadcrumb() {
         <>
           <span aria-hidden="true">›</span>
           <span>Languages</span>
+        </>
+      )}
+      {isSettings && (
+        <>
+          <span aria-hidden="true">›</span>
+          <span>Settings</span>
         </>
       )}
       {language && (
@@ -170,7 +187,9 @@ function Header() {
         : `${language.label} speech activity`
       : location.pathname === "/languages"
         ? "Choose a language"
-        : "Today";
+        : location.pathname === "/settings"
+          ? "Settings"
+          : "Today";
 
   return (
     <>
@@ -242,10 +261,25 @@ function Shell() {
           <Route path="/:slug/progress" element={<Progress />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/fixture" element={<FixtureRunner />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/:slug" element={<ActivityTestRoute />} />
         </Routes>
         </ScreenTransition>
       </Suspense>
+
+      {/*
+        The only way to Settings, and the reason it is here rather than on one
+        screen: exporting or deleting a record is a right, and a right reached
+        by typing a URL is one only a developer has. The breadcrumb cannot
+        carry it — that is hidden on the front door, which is where a learner
+        who wants to leave actually starts.
+
+        Outside <Suspense> and after the routes, so it neither participates in
+        a lazy screen's fallback nor sits inside any screen's layout.
+      */}
+      <footer className="app-footer">
+        <Link to="/settings">Your data</Link>
+      </footer>
     </div>
   );
 }

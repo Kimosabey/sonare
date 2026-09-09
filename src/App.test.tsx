@@ -51,6 +51,7 @@ vi.mock("./pages/ActivityTest.js", () => ({
 }));
 vi.mock("./pages/Diagnostics.js", () => ({ Diagnostics: () => <p>diagnostics screen</p> }));
 vi.mock("./pages/FixtureRunner.js", () => ({ FixtureRunner: () => <p>fixture screen</p> }));
+vi.mock("./pages/Settings.js", () => ({ Settings: () => <p>settings screen</p> }));
 
 async function visit(hash: string) {
   window.location.hash = hash;
@@ -253,6 +254,55 @@ describe("the header", () => {
     await visit("#/languages");
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Choose a language");
+  });
+});
+
+describe("reaching the export and deletion controls", () => {
+  it("routes /settings to the settings screen", async () => {
+    await visit("#/settings");
+
+    expect(await screen.findByText("settings screen")).toBeInTheDocument();
+  });
+
+  it("links to it from every screen, including the front door", async () => {
+    /**
+     * The reason this link exists at all. `DELETE /api/v1/learners/me` erased a
+     * learner across every collection and reported what it removed, and
+     * nothing in the product called it — a right only a developer can exercise
+     * is not a right.
+     *
+     * The breadcrumb cannot carry it: that is hidden on "/", which is exactly
+     * where a learner who wants to leave starts. So it is checked on the front
+     * door first.
+     */
+    await visit("#/");
+
+    expect(screen.getByRole("link", { name: "Your data" })).toHaveAttribute("href", "#/settings");
+
+    cleanup();
+    vi.resetModules();
+    const slug = LANGUAGES[0]?.slug ?? "french";
+    await visit(`#/${slug}`);
+    expect(screen.getByRole("link", { name: "Your data" })).toBeInTheDocument();
+  });
+
+  it("names the screen rather than falling back to the home heading", async () => {
+    // "Today" over the deletion controls would tell a learner they are
+    // somewhere they are not.
+    await visit("#/settings");
+    await screen.findByText("settings screen");
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Settings");
+    expect(screen.getByLabelText("Breadcrumb")).toHaveTextContent("Settings");
+  });
+
+  it("does not mark it internal, because it is the learner's own screen", async () => {
+    // Unlike /diagnostics and /fixture, this one is for the learner.
+    await visit("#/settings");
+    await screen.findByText("settings screen");
+
+    expect(screen.queryByText("Sonare · internal diagnostics")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Switch language")).not.toBeInTheDocument();
   });
 });
 

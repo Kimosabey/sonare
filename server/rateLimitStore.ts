@@ -23,7 +23,8 @@ import type { Store, ClientRateLimitInfo, Options } from "express-rate-limit";
 import { getDb } from "./db.js";
 import { logger } from "./logger.js";
 
-interface WindowDocument {
+/** Exported because `listRateLimitsFor` returns these to a learner's export. */
+export interface WindowDocument {
   _id: string;
   hits: number;
   expiresAt: Date;
@@ -197,6 +198,37 @@ export async function deleteRateLimitsFor(learnerId: string): Promise<number> {
   } catch (err) {
     logger.error({ err }, "[ratelimit] failed to clear a learner's windows");
     return 0;
+  }
+}
+
+/**
+ * A learner's rate-limit windows, for an export.
+ *
+ * The read half of `deleteRateLimitsFor`, and it exists for the same reason
+ * that function does. Once a limiter keys on the learner, this collection
+ * holds documents whose ids contain their id — so it is part of what is held
+ * about them, and an export that skipped it would cover less than the deletion
+ * next to it does. Export and delete disagreeing about what "everything" means
+ * is how one of the two quietly becomes theatre.
+ *
+ * Same anchored `_id` pattern, so it can only ever match this learner's own
+ * key segment, and the same scan, which is fine for the same reason: a data
+ * request is rare and this collection is swept continuously by its TTL.
+ *
+ * Returns `[]` rather than throwing when Mongo is unreachable, matching the
+ * delete. These are minutes-old abuse counters, and failing a learner's whole
+ * export over them would be the wrong trade.
+ */
+export async function listRateLimitsFor(learnerId: string): Promise<WindowDocument[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .collection<WindowDocument>("ratelimits")
+      .find({ _id: { $regex: `:${escapeForRegex(learnerId)}:` } })
+      .toArray();
+  } catch (err) {
+    logger.error({ err }, "[ratelimit] failed to read a learner's windows");
+    return [];
   }
 }
 
