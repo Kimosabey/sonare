@@ -13,15 +13,24 @@
  * that would make a forgotten env var the difference between this being
  * internal-only and being a public export of every learner's data. Set
  * DIAGNOSTICS_TOKEN in .env for local dev too; it's one line.
+ *
+ * Both of those reads take `?learnerId=` to narrow to one person, which is
+ * the question a support ticket actually asks. It is strictly less data per
+ * response than the unfiltered read already served and sits behind exactly
+ * the same requireDiagnosticsToken gate — no second auth scheme, no separate
+ * route, nothing reachable that this token could not already reach. What is
+ * new is the ability to *ask about a named person*, which is both the point
+ * and the reason it stays token-only.
  */
 
 import { timingSafeEqual } from "node:crypto";
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { recordDiagnostic, listDiagnostics } from "../diagnostics.js";
+import { recordDiagnostic, listDiagnostics, listDiagnosticsFor } from "../diagnostics.js";
 import { learnerIdFrom, optionalLearner } from "../middleware/identity.js";
-import { listAttempts } from "../attempts.js";
+import { isLearnerId } from "../identity.js";
+import { listAttempts, listAttemptsFor } from "../attempts.js";
 import { getSpendReport } from "../spend.js";
 import { diagnosticsLimiter } from "../rateLimit.js";
 import { logger } from "../logger.js";
@@ -53,6 +62,48 @@ function parseLimit(raw: unknown, fallback: number): number {
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.min(n, MAX_LIST_LIMIT);
+}
+
+/**
+ * Absent, one learner, or refuse the request.
+ *
+ * There is deliberately no fourth case where a `learnerId` we could not make
+ * sense of is dropped and the unfiltered read runs instead. A responder who
+ * asked about one person and silently got back *everyone* is the worst
+ * available outcome: it widens the response rather than narrowing it, and it
+ * hands them another learner's failures to draw a conclusion about this one
+ * from. Narrowing endpoints must never fail open, so an unusable value is a
+ * 400 and the store is never touched.
+ *
+ * `isLearnerId` does the checking rather than a `typeof === "string"` test,
+ * because it is the same predicate identity.ts applies before signing an id
+ * and it rejects two separate shapes of trouble at once:
+ *
+ *  - **Not a string.** `?learnerId=a&learnerId=b` parses to `["a","b"]` on
+ *    this Express version. As a Mongo filter that matches nothing and would
+ *    report "no records" for a learner who has plenty — a wrong answer that
+ *    reads like a finding. Bracket notation (`?learnerId[$ne]=x`) is inert
+ *    under Express 5's default `simple` query parser, which returns
+ *    `undefined` for it, but it parses to `{ $ne: "x" }` the moment anyone
+ *    sets `query parser` to `extended` — and `{ learnerId: { $ne: "x" } }` is
+ *    every learner *but* one, out of an endpoint whose entire purpose is
+ *    narrowing to a single one. The guard does not depend on which parser is
+ *    configured.
+ *  - **Not a learner id.** A UUID shape means a typo, a truncated paste or a
+ *    display name typed into the box gets told so, instead of coming back as
+ *    a confident empty result.
+ */
+type LearnerFilter = { ok: true; learnerId: string | null } | { ok: false };
+
+function parseLearnerFilter(raw: unknown): LearnerFilter {
+  if (raw === undefined) return { ok: true, learnerId: null };
+  if (isLearnerId(raw)) return { ok: true, learnerId: raw };
+  return { ok: false };
+}
+
+/** The one refusal shape both reads share. */
+function rejectLearnerId(res: Response): void {
+  res.status(400).json({ error: "learnerId must be a learner id" });
 }
 
 /**
@@ -123,7 +174,12 @@ diagnosticsRouter.post("/diagnostics", optionalLearner, (req: Request, res: Resp
 
 diagnosticsRouter.get("/diagnostics", requireDiagnosticsToken, (req: Request, res: Response) => {
   const limit = parseLimit(req.query.limit, 50);
-  listDiagnostics(limit)
+  const learner = parseLearnerFilter(req.query.learnerId);
+  if (!learner.ok) return rejectLearnerId(res);
+
+  const read =
+    learner.learnerId === null ? listDiagnostics(limit) : listDiagnosticsFor(learner.learnerId, limit);
+  read
     .then((records) => res.json({ records }))
     .catch((err: unknown) => {
       logger.error({ err }, "[diagnostics] list failed");
@@ -148,7 +204,11 @@ diagnosticsRouter.get("/spend", requireDiagnosticsToken, (_req: Request, res: Re
 
 diagnosticsRouter.get("/attempts", requireDiagnosticsToken, (req: Request, res: Response) => {
   const limit = parseLimit(req.query.limit, 50);
-  listAttempts(limit)
+  const learner = parseLearnerFilter(req.query.learnerId);
+  if (!learner.ok) return rejectLearnerId(res);
+
+  const read = learner.learnerId === null ? listAttempts(limit) : listAttemptsFor(learner.learnerId, limit);
+  read
     .then((records) => res.json({ records }))
     .catch((err: unknown) => {
       logger.error({ err }, "[attempts] list failed");

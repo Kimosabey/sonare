@@ -7,6 +7,18 @@
  * Token-gated server-side when DIAGNOSTICS_TOKEN is set (server/routes/
  * diagnostics.ts) — pass it once as #/diagnostics?token=... and it's
  * remembered in localStorage from then on, so you don't retype it every visit.
+ *
+ * Every table below is cross-everyone, which is what the "Learner lookup"
+ * section exists to fix: a ticket says "it never hears me" and names one
+ * person, and a most-recent-50-across-all-learners view cannot answer that
+ * however long you stare at it.
+ *
+ * That panel is deliberately the narrowest view on the page. It shows when,
+ * what failed, and the capture signals — and it does NOT show the target
+ * phrase or what the learner was heard saying, because neither of those
+ * separates a dead microphone from a dead provider, which is the only
+ * judgment it exists to support. No audio is stored anywhere and nothing
+ * here changes that.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -25,6 +37,9 @@ interface AttemptRecord {
   sessionId?: string;
   activityId?: number;
   learnerName?: string;
+  /** The signed, anonymous id — the only field that identifies one learner
+      reliably, and so the only thing the lookup below can key on. */
+  learnerId?: string;
   referenceText: string;
   language: string;
   /**
@@ -45,12 +60,17 @@ interface DiagnosticRecord {
   sessionId?: string;
   activityId?: number;
   learnerName?: string;
+  learnerId?: string;
   code: string;
   domain: string;
   context?: unknown;
 }
 
 const POLL_MS = 4000;
+
+/** The server's own MAX_LIST_LIMIT. One learner's whole recent trail rather
+    than a window of it, since the point is not to miss the failure. */
+const LOOKUP_LIMIT = 200;
 
 function extractUa(deviceContext: unknown): string | null {
   if (typeof deviceContext !== "object" || deviceContext === null) return null;
@@ -236,6 +256,202 @@ function computeAggregates(attempts: AttemptRecord[], diagnostics: DiagnosticRec
   };
 }
 
+/**
+ * The distinction a support responder cannot currently make, and the whole
+ * reason the lookup exists.
+ *
+ * Of 139 real stored attempts, 10 came back indeterminate: 7 were the
+ * recording itself — no speech in it — and 3 were the provider cancelling.
+ * Those need opposite replies, "check your microphone" versus "that one was
+ * on us", and both render identically as "unclear" in the attempts table. A
+ * responder who cannot tell them apart for one named learner cannot answer
+ * the ticket at all.
+ *
+ * "network" stays its own verdict rather than being folded into either: a
+ * failed upload is neither a bad recording nor a bad scorer, and telling
+ * someone to check their mic over a dropped connection is exactly the wrong
+ * answer, arrived at confidently.
+ */
+export type CaptureVerdict = "scored" | "capture" | "provider" | "network" | "other";
+
+export const VERDICT_LABEL: Record<CaptureVerdict, string> = {
+  scored: "scored",
+  capture: "capture — no speech to score",
+  provider: "provider failed",
+  network: "network",
+  other: "other",
+};
+
+/**
+ * Matches the capture-side `reason` strings server/services/azureSpeech.ts
+ * actually produces — "no speech recognised in the recording" and "no speech
+ * found to assess — every word was omitted". Everything else indeterminate is
+ * the provider: it cancelled, or sent back something unusable.
+ *
+ * The raw reason is rendered in its own column beside the verdict, so a new
+ * reason string this pattern has not learned yet stays readable next to its
+ * (wrong) label rather than being quietly mislabelled with nothing left on
+ * screen to show it happened.
+ */
+const CAPTURE_REASON = /no speech|no audio|silence|every word was omitted/i;
+
+export function classifyIndeterminate(reason: string): CaptureVerdict {
+  return CAPTURE_REASON.test(reason) ? "capture" : "provider";
+}
+
+/**
+ * Diagnostics carry server/errors.ts's domain taxonomy. "client" is the
+ * capture side (PERMISSION_DENIED, NO_AUDIO_ENERGY, SNR_TOO_LOW,
+ * MISSING_AUDIO, AUDIO_TOO_SHORT…); server, provider and model are all "it
+ * arrived and we failed it" from a responder's point of view.
+ */
+export function classifyDiagnostic(domain: string): CaptureVerdict {
+  if (domain === "client") return "capture";
+  if (domain === "network") return "network";
+  if (domain === "server" || domain === "provider" || domain === "model") return "provider";
+  // An unrecognised domain must not be quietly filed as a mic problem.
+  return "other";
+}
+
+export interface LookupRow {
+  key: string;
+  at: string;
+  /** Which collection this came from, i.e. whether it reached scoring. */
+  kind: "attempt" | "error";
+  verdict: CaptureVerdict;
+  /** A reason, an error code, or a score — never the spoken phrase. */
+  detail: string;
+  sessionId?: string;
+  activityId?: number;
+  /** Recorded length, attempts only. A 0.3s take is its own diagnosis. */
+  seconds: number | null;
+  deviceContext: unknown;
+}
+
+export interface LearnerLookup {
+  rows: LookupRow[];
+  counts: Record<CaptureVerdict, number>;
+  total: number;
+}
+
+/**
+ * Merges one learner's attempts and diagnostics into a single time-ordered
+ * story.
+ *
+ * Both sides are required. A capture failure that never reached the server
+ * exists only as a diagnostic; an indeterminate take exists only as an
+ * attempt. Reading either alone shows half the timeline, and half a timeline
+ * is what makes a wrong conclusion look well-evidenced.
+ */
+export function buildLearnerLookup(
+  attempts: AttemptRecord[],
+  diagnostics: DiagnosticRecord[],
+): LearnerLookup {
+  const rows: LookupRow[] = [];
+  const counts: Record<CaptureVerdict, number> = {
+    scored: 0,
+    capture: 0,
+    provider: 0,
+    network: 0,
+    other: 0,
+  };
+
+  attempts.forEach((a, i) => {
+    const verdict: CaptureVerdict = a.result.indeterminate
+      ? classifyIndeterminate(a.result.reason)
+      : "scored";
+    counts[verdict] += 1;
+    rows.push({
+      key: `a${i}`,
+      at: a.at,
+      kind: "attempt",
+      verdict,
+      detail: a.result.indeterminate ? a.result.reason : `score ${Math.round(a.result.accuracy)}`,
+      ...(a.sessionId ? { sessionId: a.sessionId } : {}),
+      ...(a.activityId !== undefined ? { activityId: a.activityId } : {}),
+      // `audio` is optional in the data, not just in the type — a record
+      // replayed from the fallback log may not carry it. Null, so the row
+      // shows a dash rather than claiming a zero-second recording.
+      seconds: typeof a.audio?.seconds === "number" ? a.audio.seconds : null,
+      deviceContext: a.deviceContext,
+    });
+  });
+
+  diagnostics.forEach((d, i) => {
+    // A latency ping fires on every scoring call, so left in it would
+    // outnumber every real row here and bury the failure the responder came
+    // to find. The same exclusion computeAggregates() already makes.
+    if (d.code === SCORE_TIMING_CODE) return;
+    const verdict = classifyDiagnostic(d.domain);
+    counts[verdict] += 1;
+    rows.push({
+      key: `d${i}`,
+      at: d.at,
+      kind: "error",
+      verdict,
+      detail: d.code,
+      ...(d.sessionId ? { sessionId: d.sessionId } : {}),
+      ...(d.activityId !== undefined ? { activityId: d.activityId } : {}),
+      seconds: null,
+      deviceContext: d.context,
+    });
+  });
+
+  // `at` is an ISO string on both sides, so lexicographic ordering is already
+  // chronological — no Date parsing needed to interleave the two lists.
+  rows.sort((x, y) => (x.at < y.at ? 1 : x.at > y.at ? -1 : 0));
+
+  return { rows, counts, total: rows.length };
+}
+
+export interface LearnerChip {
+  learnerId: string;
+  /** Whatever they typed on the language picker, if anything. */
+  name: string | null;
+}
+
+/**
+ * The learners present in whatever the live poll has already loaded, offered
+ * as one-click chips.
+ *
+ * Discovery matters as much as the query here: the lookup keys on a UUID, and
+ * nobody is going to read one off a support ticket. Clicking a chip is how a
+ * responder gets from a name to the right id — including when two learners
+ * typed the same name, which is the case a name-keyed lookup would silently
+ * merge and this one keeps as two chips.
+ */
+export function knownLearners(attempts: AttemptRecord[], diagnostics: DiagnosticRecord[]): LearnerChip[] {
+  const byId = new Map<string, string | null>();
+  const note = (learnerId: string | undefined, name: string | undefined) => {
+    if (!learnerId) return;
+    // First name wins, but never let a later anonymous record erase one.
+    const existing = byId.get(learnerId);
+    byId.set(learnerId, existing ?? name ?? null);
+  };
+  for (const a of attempts) note(a.learnerId, a.learnerName);
+  for (const d of diagnostics) note(d.learnerId, d.learnerName);
+
+  return Array.from(byId.entries())
+    .map(([learnerId, name]) => ({ learnerId, name }))
+    .sort((x, y) => (x.name ?? "").localeCompare(y.name ?? "") || x.learnerId.localeCompare(y.learnerId));
+}
+
+/**
+ * Records in the snapshot that no lookup can ever reach.
+ *
+ * Scoring works without an identity on purpose, so an unregistered learner's
+ * failures carry no `learnerId` and belong to nobody findable. Saying how
+ * many there are is the difference between a responder concluding "she has no
+ * failures" and "her failures may not be attributable" — the second is true
+ * and the first is what an unlabelled empty result implies.
+ */
+export function unattributedCount(attempts: AttemptRecord[], diagnostics: DiagnosticRecord[]): number {
+  return (
+    attempts.filter((a) => !a.learnerId).length +
+    diagnostics.filter((d) => !d.learnerId && d.code !== SCORE_TIMING_CODE).length
+  );
+}
+
 function RankedBars({ rows }: { rows: RankedRow[] }) {
   if (rows.length === 0) return <p className="what">No data yet.</p>;
   const max = Math.max(1, ...rows.map((r) => r.count));
@@ -286,6 +502,18 @@ export function Diagnostics() {
   const [error, setError] = useState<string | null>(null);
   const [lastPolledAt, setLastPolledAt] = useState<Date | null>(null);
   const [pollCount, setPollCount] = useState(0);
+
+  // `idInput` is what is typed; `lookupId` is what has been submitted, and
+  // only the second reaches the server — so a responder mid-paste does not
+  // fire a query per keystroke against a named person's records.
+  const [idInput, setIdInput] = useState("");
+  const [lookupId, setLookupId] = useState<string | null>(null);
+  const [lookupData, setLookupData] = useState<{
+    attempts: AttemptRecord[];
+    diagnostics: DiagnosticRecord[];
+  } | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupPending, setLookupPending] = useState(false);
 
   // A token in the URL wins and is remembered; otherwise fall back to
   // whatever was remembered from a previous visit. Neither may exist if
@@ -355,8 +583,84 @@ export function Diagnostics() {
     };
   }, [token]);
 
+  /**
+   * A one-shot fetch, deliberately not folded into the 4s poll.
+   *
+   * A lookup answers one ticket. Re-pulling one named person's whole trail
+   * every four seconds for as long as the tab happens to be open is more of
+   * their data moving around, and sitting in more memory, than the question
+   * needs — and the answer does not change while you read it.
+   *
+   * `lookupId` lives in component state and stays out of the URL: a
+   * shareable link to one learner's failures puts them into browser history,
+   * the referrer and every pasted link, which the token already in that URL
+   * does nothing to justify.
+   */
+  useEffect(() => {
+    if (!lookupId) {
+      setLookupData(null);
+      setLookupError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const headers: HeadersInit = token ? { "x-diagnostics-token": token } : {};
+    const query = `learnerId=${encodeURIComponent(lookupId)}&limit=${LOOKUP_LIMIT}`;
+    setLookupPending(true);
+
+    const run = async () => {
+      try {
+        const [attemptsRes, diagnosticsRes] = await Promise.all([
+          fetch(`/api/v1/attempts?${query}`, { headers }),
+          fetch(`/api/v1/diagnostics?${query}`, { headers }),
+        ]);
+        if (cancelled) return;
+
+        if (attemptsRes.status === 401 || diagnosticsRes.status === 401) {
+          setLookupData(null);
+          setLookupError("This server requires a diagnostics token. Add ?token=... to the URL once.");
+          return;
+        }
+        // The server refuses anything that is not a learner id rather than
+        // falling back to an unfiltered read, so say which it was — a
+        // responder who pasted a display name needs to know that, not an
+        // empty table that looks like an answer.
+        if (attemptsRes.status === 400 || diagnosticsRes.status === 400) {
+          setLookupData(null);
+          setLookupError("That is not a learner id. Pick a learner below rather than typing a name.");
+          return;
+        }
+        if (!attemptsRes.ok || !diagnosticsRes.ok) throw new Error("request failed");
+
+        const attemptsBody = (await attemptsRes.json()) as { records: AttemptRecord[] };
+        const diagnosticsBody = (await diagnosticsRes.json()) as { records: DiagnosticRecord[] };
+        if (cancelled) return;
+        setLookupData({ attempts: attemptsBody.records, diagnostics: diagnosticsBody.records });
+        setLookupError(null);
+      } catch {
+        if (!cancelled) {
+          setLookupData(null);
+          setLookupError("Couldn’t reach the diagnostics API — is the server (and MongoDB) up?");
+        }
+      } finally {
+        if (!cancelled) setLookupPending(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, lookupId]);
+
   const stats = useMemo(() => computeAggregates(attempts, diagnostics), [attempts, diagnostics]);
   const scoredTotal = stats.passCount + stats.warnCount + stats.failCount;
+  const learners = useMemo(() => knownLearners(attempts, diagnostics), [attempts, diagnostics]);
+  const unattributed = useMemo(() => unattributedCount(attempts, diagnostics), [attempts, diagnostics]);
+  const lookup = useMemo(
+    () => (lookupData ? buildLearnerLookup(lookupData.attempts, lookupData.diagnostics) : null),
+    [lookupData],
+  );
 
   return (
     <>
@@ -375,6 +679,175 @@ export function Diagnostics() {
             Polling every {POLL_MS / 1000}s
             {lastPolledAt && <> · last updated {lastPolledAt.toLocaleTimeString()}</>}
           </p>
+        )}
+      </section>
+
+      <section>
+        <h2>Learner lookup</h2>
+        <p className="what">
+          One ticket, one person. Keyed on the learner id rather than the name — two learners can
+          type the same name, and merging their trails is how a responder ends up confidently
+          blaming the wrong microphone.
+        </p>
+
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setLookupId(idInput.trim() || null);
+          }}
+        >
+          <input
+            aria-label="Learner id"
+            placeholder="Learner id"
+            value={idInput}
+            onChange={(e) => setIdInput(e.target.value)}
+            style={{ flex: "1 1 240px", width: "auto" }}
+          />
+          <button type="submit" disabled={idInput.trim() === ""}>
+            Look up
+          </button>
+          {lookupId !== null && (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                setIdInput("");
+                setLookupId(null);
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </form>
+
+        {learners.length > 0 && (
+          <>
+            <label>Learners in the loaded snapshot</label>
+            <div className="row" style={{ marginTop: 0 }}>
+              {learners.map((l) => (
+                <button
+                  key={l.learnerId}
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    setIdInput(l.learnerId);
+                    setLookupId(l.learnerId);
+                  }}
+                >
+                  {l.name ?? "(no name)"} · {l.learnerId.slice(0, 8)}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {unattributed > 0 && (
+          <p className="hint">
+            {unattributed} of the loaded records carry no learner id and no lookup can reach them.
+            Scoring works without registering on purpose, so those failures belong to nobody
+            findable — an empty result here means “not attributable”, not “nothing went wrong”.
+          </p>
+        )}
+
+        {lookupError && (
+          <p className="what" style={{ color: "var(--fail)", marginTop: 12 }}>
+            {lookupError}
+          </p>
+        )}
+
+        {lookupId !== null && !lookupError && (
+          <>
+            <label>
+              {lookupId.slice(0, 8)}
+              {lookupPending ? " · loading…" : ""}
+            </label>
+            {lookup === null ? null : lookup.total === 0 ? (
+              <p className="what">
+                No records for that learner in the last {LOOKUP_LIMIT}. Either nothing has failed
+                for them, or their records predate the retention window.
+              </p>
+            ) : (
+              <>
+                <div className="overall">
+                  <div>
+                    <div className="n">{lookup.total}</div>
+                    <div className="l">records</div>
+                  </div>
+                  <div>
+                    <div className="n">{lookup.counts.scored}</div>
+                    <div className="l">scored</div>
+                  </div>
+                  <div>
+                    <div className="n">{lookup.counts.capture}</div>
+                    <div className="l">capture</div>
+                  </div>
+                  <div>
+                    <div className="n">{lookup.counts.provider}</div>
+                    <div className="l">provider</div>
+                  </div>
+                </div>
+
+                <p className="hint">
+                  <strong>Capture</strong> means the recording had no speech in it — muted or
+                  blocked mic, or nothing said. The answer is about their device.{" "}
+                  <strong>Provider</strong> means the recording reached the scorer and the scorer
+                  failed or cancelled. The answer is “that one was on us”.
+                  {(lookup.counts.network > 0 || lookup.counts.other > 0) && (
+                    <>
+                      {" "}
+                      Also {lookup.counts.network} network and {lookup.counts.other} unclassified,
+                      neither of which is a microphone problem.
+                    </>
+                  )}
+                </p>
+
+                <div className="scroll-x">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>At</th>
+                        {/* Whether this failure ever reached a scoring call —
+                            an "error" row often never left the device. */}
+                        <th>Record</th>
+                        <th>Verdict</th>
+                        <th>Detail</th>
+                        <th>Session</th>
+                        <th className="num">Activity</th>
+                        <th>Device</th>
+                        <th>Mic ID</th>
+                        <th>DSP granted</th>
+                        <th className="num">SNR dB</th>
+                        <th>Auto-stop</th>
+                        <th className="num">Recorded (s)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lookup.rows.map((r) => {
+                        const cap = captureSignals(r.deviceContext);
+                        return (
+                          <tr key={r.key}>
+                            <td>{formatAt(r.at)}</td>
+                            <td>{r.kind}</td>
+                            <td>{VERDICT_LABEL[r.verdict]}</td>
+                            <td>{r.detail}</td>
+                            <td>{shortSessionId(r.sessionId)}</td>
+                            <td className="num">{r.activityId ?? "—"}</td>
+                            <td>{shortUserAgent(r.deviceContext)}</td>
+                            <td>{shortDeviceId(r.deviceContext)}</td>
+                            <td>{cap.granted}</td>
+                            <td className="num">{cap.snrDb}</td>
+                            <td>{cap.autoStopped}</td>
+                            <td className="num">{secondsOrDash(r.seconds ?? undefined)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </>
         )}
       </section>
 

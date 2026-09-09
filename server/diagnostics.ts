@@ -76,28 +76,33 @@ export async function listDiagnostics(limit: number): Promise<DiagnosticRecord[]
   return db.collection<DiagnosticRecord>("diagnostics").find({}).sort({ at: -1 }).limit(limit).toArray();
 }
 
-/** Erases one learner's diagnostic reports. Part of a deletion request. */
-export async function deleteDiagnosticsFor(learnerId: string): Promise<number> {
-  const db = await getDb();
-  const result = await db.collection("diagnostics").deleteMany({ learnerId });
-  return result.deletedCount;
-}
-
 /**
- * One learner's own diagnostic reports, most recent first.
+ * One learner's most recent diagnostic reports.
  *
- * The read half of `deleteDiagnosticsFor`. These carry device fingerprints and
- * failure detail, which is precisely why the learner-id field was added here
- * at all — a learner who can have them deleted should be able to see them,
- * and both halves need the same filter to mean the same thing.
+ * The other half of a per-learner lookup, and not optional: a capture failure
+ * that never reached scoring exists only here, while an indeterminate take
+ * exists only in attempts. A responder reading either list alone sees half
+ * the timeline — and half a timeline is what makes a wrong conclusion look
+ * well-evidenced.
  *
- * Separate from `listDiagnostics` above for the same reason the attempts
- * reader is: that one is the internal dashboard's unfiltered view.
+ * Keyed on `learnerId` for the reasons listAttemptsFor() gives, and reaching
+ * only records that carry one.
+ *
+ * Index note, and the one asymmetry worth knowing: `attempts` has
+ * `{ learnerId: 1, at: -1 }` in db.ts and this collection has nothing on
+ * `learnerId` — only `{ at: -1 }`, `{ sessionId: 1 }` and the TTL. So Mongo
+ * walks `{ at: -1 }` newest-first and filters as it goes, which `limit`
+ * bounds. Fine at this collection's size under a 90-day TTL, and a matching
+ * `{ learnerId: 1, at: -1 }` here is the index it really wants if that stops
+ * being true — a db.ts decision, deliberately not made from this file.
+ *
+ * Serves two callers. It is also the read half of `deleteDiagnosticsFor`:
+ * these records carry device fingerprints and failure detail, which is why
+ * the learner-id field is here at all, and a learner who can have them
+ * deleted should be able to see them. Both halves need the same filter to
+ * mean the same thing.
  */
-export async function listDiagnosticsFor(
-  learnerId: string,
-  limit: number,
-): Promise<DiagnosticRecord[]> {
+export async function listDiagnosticsFor(learnerId: string, limit: number): Promise<DiagnosticRecord[]> {
   const db = await getDb();
   return db
     .collection<DiagnosticRecord>("diagnostics")
@@ -105,4 +110,11 @@ export async function listDiagnosticsFor(
     .sort({ at: -1 })
     .limit(limit)
     .toArray();
+}
+
+/** Erases one learner's diagnostic reports. Part of a deletion request. */
+export async function deleteDiagnosticsFor(learnerId: string): Promise<number> {
+  const db = await getDb();
+  const result = await db.collection("diagnostics").deleteMany({ learnerId });
+  return result.deletedCount;
 }
