@@ -13,6 +13,20 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.{ts,tsx}", "server/**/*.test.ts"],
+    /**
+     * `scripts/` is here for the tests that cannot live anywhere else.
+     *
+     * Three of them need Node's own APIs — `Buffer` to hand hostile bytes to
+     * the WAV header parser, `node:fs` to read the stylesheet and the built
+     * bundle, `node:child_process` to run the real build. `src/` is
+     * typechecked by tsconfig.json, which has no Node types on purpose: a
+     * `src/` file that can `import "node:fs"` is a `src/` file that can reach
+     * the filesystem, and that is a boundary worth keeping. tsconfig.scripts.json
+     * covers `scripts/**` and does have them.
+     *
+     * The alternative was to leave the perf budgets and the parser fuzz as
+     * scripts nobody runs, which is the same as not having them.
+     */
+    include: ["src/**/*.test.{ts,tsx}", "server/**/*.test.ts", "scripts/**/*.test.ts"],
   },
 });
