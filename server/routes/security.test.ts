@@ -1145,17 +1145,16 @@ describe("malformed and oversized bodies", () => {
    * (`typeof req.body === "object" && req.body !== null ? … : {}`), and
    * `diagnostics.ts` gets it for free from `safeParse`.
    *
-   * Written with `it.fails` rather than weakened to assert the 500: the
-   * expectation below is the correct one, so the day somebody guards those two
-   * reads this test goes red and is promoted to a plain `it`. Verified in both
-   * directions — with the `content.ts` guard applied to these two handlers,
-   * both cases here go green (sync answers 200 for an empty push, learners a
-   * 400 for a missing id) and the `it.fails` is what fails.
+   * **Fixed, and these are now plain assertions.** Both handlers guard the
+   * read the way `content.ts` does, so sync answers 200 for an empty push and
+   * learners a 400 for a missing id. Kept as tests rather than deleted with
+   * the bug: the guard is one line and easy to lose, and the thing being
+   * protected is an unauthenticated 500 carrying absolute source paths.
    *
    * Deliberately "not a server error" rather than "exactly 400", because
    * which 4xx is right differs per route and is not the part that is broken.
    */
-  it.fails.each([
+  it.each([
     ["/api/v1/sync", "POST"],
     ["/api/v1/learners", "POST"],
   ])("does not answer a 5xx for a body express.json() never parsed on %s", async (path, method) => {
@@ -1168,9 +1167,9 @@ describe("malformed and oversized bodies", () => {
     expect(res.status).toBeLessThan(500);
   });
 
-  it.fails("never returns a stack trace or a source path to the caller", async () => {
-    // Same defect, and the half that matters for R2. The response body carries
-    // the exception message, the file, the line, and every frame above it.
+  it("never returns a stack trace or a source path to the caller", async () => {
+    // The half that matters for R2. Before the guard, the response body
+    // carried the exception message, the file, the line, and every frame.
     const res = await fetch(at("/api/v1/sync"), {
       method: "POST",
       headers: { "content-type": "text/plain", ...client(tokenFor(A)) },

@@ -100,7 +100,18 @@ syncRouter.post("/sync", diagnosticsLimiter, requireLearner, (req, res) => {
   if (learnerId === null) return;
 
   increment("sync.push");
-  const body = req.body as { progress?: unknown; skills?: unknown; streak?: unknown };
+  /**
+   * Guarded, not cast. `express.json()` leaves `req.body` undefined for any
+   * content type it does not parse, so `body.progress` on a `text/plain` POST
+   * threw a TypeError out of the handler — and with no error middleware,
+   * Express answered 500 with the exception message and every stack frame,
+   * absolute paths included. R2 says no branch of an error response includes
+   * internal detail; this was the one path that bypassed every handler that
+   * honours it. A client sending the wrong content type is also a 4xx, not a
+   * server fault.
+   */
+  const body: { progress?: unknown; skills?: unknown; streak?: unknown } =
+    typeof req.body === "object" && req.body !== null ? req.body : {};
 
   const progress = Array.isArray(body.progress)
     ? body.progress

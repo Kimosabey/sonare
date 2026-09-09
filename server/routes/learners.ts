@@ -79,7 +79,15 @@ export const EXPORT_MAX_RECORDS = 2000;
  * would be a third budget to reason about for no gain.
  */
 learnersRouter.post("/learners", diagnosticsLimiter, (req, res) => {
-  const body = req.body as { learnerId?: unknown; displayName?: unknown; locale?: unknown };
+  /**
+   * Guarded, not cast — see the same fix in sync.ts. `express.json()` leaves
+   * `req.body` undefined for a content type it does not parse, so reading
+   * `body.learnerId` threw out of the handler and Express answered 500 with a
+   * stack trace. Unauthenticated, on the one route that exists to be called
+   * before a learner has any credential at all.
+   */
+  const body: { learnerId?: unknown; displayName?: unknown; locale?: unknown } =
+    typeof req.body === "object" && req.body !== null ? req.body : {};
 
   // Validated here as well as inside issueToken. The token layer refuses to
   // sign a bad id, but this returns the right error to the right party — a
