@@ -124,18 +124,43 @@ export const DEFAULT_MODEL_ID = "eleven_v3";
 /**
  * ElevenLabs' documented sample voice ("Rachel").
  *
- * **A placeholder, not a recommendation.** The account has 202 voices and
- * choosing one per language is the owner's call, not this file's — a voice is
- * the accent a learner will imitate, which is exactly the variable this
- * product measures. This one is chosen because it is the id in ElevenLabs' own
- * quickstart, so it is guaranteed to resolve and is obviously a default rather
- * than a decision. It is an English-first voice; `eleven_v3` will speak other
- * languages with it, with an English speaker's accent.
+ * The last resort, and deliberately an obvious one.
  *
- * Set a real voice per language **without a code edit** via
- * `ELEVENLABS_VOICE_IDS` (see `voiceIdFor`).
+ * Reached only for a language with no voice chosen for it. It is an
+ * English-first voice, so `eleven_v3` will speak other languages with an
+ * English speaker's accent — which is why `synthesise` refuses rather than
+ * uses it for a language absent from OWNER_VOICE_IDS. A voice is the accent a
+ * learner will imitate, and that is precisely the variable this product
+ * measures; guessing one is worse than having none.
  */
 export const PLACEHOLDER_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+
+/**
+ * The voices the owner picked, per language.
+ *
+ * Supplied by the account holder on 9 Sep 2026, from their own ElevenLabs
+ * library — not chosen here. A voice is the accent a learner will imitate, so
+ * this is a judgement about the language, made by someone who speaks it.
+ * `ELEVENLABS_VOICE_IDS` still overrides any of them without a code edit.
+ *
+ * **`hi-IN` is deliberately absent.** No Hindi voice was supplied, and no
+ * other entry here is a substitute — Aisiri is Kannada, and a Kannada voice
+ * reading Devanagari is a different language, not an accent. So Hindi falls
+ * back to the platform synthesiser, exactly as it does today. That is the
+ * honest outcome and it is also the gap worth closing first, because Hindi is
+ * the language where the platform is most often missing a voice altogether.
+ *
+ * An alternative French male voice, Sebastien (`BUJMBsQ3Oq4cEeWSb48y`), was
+ * also supplied; set `ELEVENLABS_VOICE_IDS=fr-FR:BUJMBsQ3Oq4cEeWSb48y` to use
+ * it rather than editing this table.
+ */
+export const OWNER_VOICE_IDS: Readonly<Record<string, string>> = {
+  "fr-FR": "vTGV06pygfwa2WhLDZFp", // French Darling
+  "es-ES": "tXgbXPnsMpKXkuTgvE3h", // Spanish Voice
+  "de-DE": "rKiu7lQ4c5P3az3745s3", // Benjamin
+  "en-US": "jB2lPb5DhAX6l1TLkKXy", // Sophia — the fixture runner's locale
+  "kn-IN": "2SDH0owxS12R2YMgMNoG", // Aisiri, friendly Kannada
+};
 
 /** ISO 639-1 base of a BCP-47 locale: "hi-IN" -> "hi". */
 function baseLanguage(locale: string): string {
@@ -193,11 +218,40 @@ export function voiceIdFor(locale: string): string {
     byLocale.set(key.trim().toLowerCase(), value.trim());
   }
 
+  const owner =
+    OWNER_VOICE_IDS[wanted] ??
+    Object.entries(OWNER_VOICE_IDS).find(([k]) => baseLanguage(k) === base)?.[1];
+
+  /**
+   * Precedence, and the reason for it: a per-locale env entry is the most
+   * specific statement of intent, then a global env override, then the
+   * owner's table, then the placeholder.
+   *
+   * The global `ELEVENLABS_VOICE_ID` deliberately beats OWNER_VOICE_IDS.
+   * It means "one voice for every language", and a setting that silently
+   * loses to a table in the source is a setting that looks broken — the
+   * worse failure of the two, because nothing reports it.
+   */
   return (
     byLocale.get(wanted) ??
     byLocale.get(base) ??
-    (process.env.ELEVENLABS_VOICE_ID?.trim() || PLACEHOLDER_VOICE_ID)
+    (process.env.ELEVENLABS_VOICE_ID?.trim() || undefined) ??
+    owner ??
+    PLACEHOLDER_VOICE_ID
   );
+}
+
+/**
+ * Whether a voice was actually *chosen* for this locale, as opposed to being
+ * the English placeholder standing in.
+ *
+ * Kept separate from `voiceIdFor` so a caller can decline rather than
+ * synthesise a language in the wrong accent. The placeholder resolves so that
+ * a deliberate `ELEVENLABS_VOICE_ID` still works for a one-off; it must not
+ * become the accent a whole language is taught in.
+ */
+export function hasChosenVoice(locale: string): boolean {
+  return voiceIdFor(locale) !== PLACEHOLDER_VOICE_ID;
 }
 
 /** Whether `model` declares `locale`'s language. The only authority on this. */

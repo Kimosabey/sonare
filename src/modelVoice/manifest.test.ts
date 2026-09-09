@@ -223,8 +223,12 @@ describe("turning character times into word times", () => {
      * `3 * 0.1` is 0.30000000000000004, so the assertion failed while the
      * code under test was correct.
      */
+    // `wordStartSeconds` returns null when the entries and the tokens
+    // disagree about the text, so narrow before indexing — an emoji is exactly
+    // the input that would make that mismatch plausible.
+    expect(starts).not.toBeNull();
     expect(starts).toEqual([phrase.startSeconds[0], phrase.startSeconds[3]]);
-    expect(starts[1]).not.toBe(phrase.startSeconds[4]);
+    expect(starts?.[1]).not.toBe(phrase.startSeconds[4]);
   });
 
   it("survives leading whitespace without claiming the phrase starts at zero", () => {

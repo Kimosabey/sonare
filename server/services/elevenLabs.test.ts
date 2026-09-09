@@ -24,10 +24,12 @@ import {
   AUDIO_CONTENT_TYPE,
   AUDIO_EXTENSION,
   DEFAULT_MODEL_ID,
+  OWNER_VOICE_IDS,
   PLACEHOLDER_VOICE_ID,
   apiKey,
   declaredLanguageCount,
   declaresLanguage,
+  hasChosenVoice,
   modelId,
   synthesise,
   voiceIdFor,
@@ -167,10 +169,27 @@ describe("the model", () => {
 });
 
 describe("the voice", () => {
-  it("is a documented placeholder with nothing configured", () => {
-    // 202 voices exist on the account and choosing one per language is the
-    // owner's call. This is deliberately obviously a default.
-    expect(voiceIdFor("fr-FR")).toBe(PLACEHOLDER_VOICE_ID);
+  it("uses the voice the owner chose for a language they chose one for", () => {
+    // Supplied from the account holder's own library, per language, because a
+    // voice is the accent a learner will imitate.
+    expect(voiceIdFor("fr-FR")).toBe(OWNER_VOICE_IDS["fr-FR"]);
+    expect(voiceIdFor("kn-IN")).toBe(OWNER_VOICE_IDS["kn-IN"]);
+    expect(hasChosenVoice("fr-FR")).toBe(true);
+  });
+
+  it("reaches the placeholder only for a language with no voice chosen", () => {
+    /**
+     * `hi-IN` is the live instance of this, not a hypothetical: no Hindi voice
+     * was supplied, and nothing else in the table substitutes — Aisiri is
+     * Kannada, and a Kannada voice reading Devanagari is a different
+     * language rather than an accent.
+     *
+     * The assertion pairs the id with `hasChosenVoice` being false, because
+     * the id alone resolving is exactly what would let an English voice
+     * become the accent Hindi is taught in.
+     */
+    expect(voiceIdFor("hi-IN")).toBe(PLACEHOLDER_VOICE_ID);
+    expect(hasChosenVoice("hi-IN")).toBe(false);
   });
 
   it("takes a per-locale mapping from the environment", () => {
