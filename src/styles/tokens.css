@@ -7,6 +7,11 @@
    light background — and Lingotran defines no amber/warning token at all. */
 
 :root {
+  /* Which way the browser's own chrome should go. A token rather than a bare
+     `color-scheme` declaration so that the two theme blocks at the bottom of
+     this file stay pure token redefinitions — see the note down there. */
+  --scheme: light;
+
   /* ══ depth ═══════════════════════════════════════════════════════════════
    *
    * Three planes, named by how far from the reader they sit: --ground is the
@@ -33,8 +38,14 @@
   /* Not a surface, and the distinction matters: a knob has to be *found*
      against the track it rides on, where a card only has to sit behind its
      own text. Lumping it in with --surface would read correctly here and
-     leave it invisible the moment the surfaces move. */
+     leave it invisible the moment the surfaces move.
+
+     Two values because the switch has two tracks under it and no single
+     colour clears both once the surfaces move. Here they are the same white,
+     so the switch is unchanged; the pair is what makes it survive a theme.
+     See the dark palette below for the measurement that forces it. */
   --knob: #ffffff;
+  --knob-on: #ffffff;
 
   /* What goes on top of a filled semantic colour (--signal, --fail) rather
      than on a surface. White reads on both here — 12.42:1 on --signal,
@@ -48,6 +59,12 @@
   --tint-lilac: rgba(240, 230, 255, 0.85);
   --tint-violet-faint: rgba(65, 0, 154, 0.035);
   --ink: #1a0b2e; /* Ink Deep */
+  /* A secondary ink, between --ink and --dim: stronger than "muted" but not
+     the full weight of body text. Defined but not yet used — migrating any
+     of --dim's 32 sites onto it would change the light theme, which is a
+     separate decision from having the step exist. 10.32:1 on --ground,
+     10.64:1 on --surface, 8.85:1 on --panel. */
+  --ink-2: #443a52;
   --rule: #dddddd; /* Border */
   --dim: #666666; /* Muted */
   --signal: #41009a; /* Brand Purple */
@@ -222,6 +239,200 @@
   --bp-phone: 460px;
   --bp-tablet: 620px;
 
+  /* ══ the dark palette ════════════════════════════════════════════════════
+   *
+   * PENDING THE BRAND OWNER'S SIGN-OFF. This activity ships under the
+   * Lingotran brand and carries its palette deliberately (see the top of
+   * this file), and Lingotran defines no dark palette — it does not even
+   * define an amber, which is why --warn had to be derived locally. So every
+   * value here is derived from the brand violet and measured rather than
+   * taken from a guideline that exists. It is a proposal with numbers
+   * attached, not a fait accompli.
+   *
+   * Values live here, in the bare :root, and the two theme blocks below only
+   * point at them. Two reasons. First, the rule that no colour may have its
+   * only definition inside a media or [data-theme] block is then satisfied
+   * by construction — there is not one colour literal in either block, so
+   * there is nothing for a "system" visitor with no attribute stamped to be
+   * missing. Second, plain CSS cannot share a declaration block between a
+   * media query and an attribute selector, so the alternative is writing
+   * thirty hex values twice and hoping the two copies stay equal.
+   *
+   * The grounds are violet-tinted rather than neutral grey, mirroring how
+   * --ground is a tinted near-white rather than #fff: the same brand hue
+   * carried through the dark end.
+   *
+   * Contrast, measured against BOTH dark surfaces (--surface / --panel),
+   * because --panel is the darker of the two and the one carrying the most
+   * secondary text:
+   *   --ink     14.94 / 13.34      --pass    8.02 / 7.16
+   *   --ink-2    9.75 /  8.71      --warn    7.66 / 6.84
+   *   --dim      5.78 /  5.16      --fail    7.54 / 6.73
+   *   --signal   6.54 /  5.84
+   *
+   * --dim earns a note. #8a8098 was the obvious candidate and is rejected:
+   * it clears AA on --surface at 4.53:1 and FAILS on --panel at 4.04:1. It
+   * would have looked right in every screenshot and been unreadable on the
+   * one component carrying the most secondary text. #9c93ab is the value
+   * that clears both. Do not re-lighten it by eye.
+   */
+  --dark-ground: #14101c;
+  --dark-surface: #1f1a2b;
+  --dark-panel: #2a2140;
+
+  /* The knob measurement that forces --knob/--knob-on to be two tokens.
+     Unchecked the track is --panel, checked it is --signal, and in dark
+     those sit on opposite sides of the midpoint: a near-white knob is
+     13.34:1 on the panel but 2.29:1 on the violet, and a near-black knob is
+     7.24:1 on the violet but 1.24:1 on the panel. Neither value can do both
+     jobs, so the knob flips with the track. */
+  --dark-knob: #f3effa;
+  --dark-knob-on: #14101c;
+
+  /* White on a light-violet fill is 2.59:1. Text on an accent has to follow
+     the fill's lightness, so here it goes dark: 7.24:1 on --signal, 8.35:1
+     on --fail. */
+  --dark-on-accent: #14101c;
+
+  --dark-ink: #f3effa;
+  --dark-ink-2: #c9c1d8;
+  --dark-rule: #362d4a;
+  --dark-dim: #9c93ab;
+  --dark-signal: #b38cff;
+  --dark-signal-soft: #2a2140;
+
+  /* The same three tiers as the light palette, inverted: -soft is now the
+     darkest and -line the lightest, because on a dark ground a tint gets
+     *further* from the surface by getting lighter. The status colour on its
+     own tints: pass on -soft 6.30; warn on -soft 6.67, on -fill 5.55; fail
+     on -soft 7.06, on -fill 5.90. All clear AA — including --fail on
+     --fail-fill, which is the pair that falls short at 4.31:1 in light. */
+  --dark-pass: #4cc79b;
+  --dark-pass-soft: #17352b;
+  --dark-pass-line: #2f6553;
+  --dark-warn: #e0a34a;
+  --dark-warn-soft: #33260f;
+  --dark-warn-fill: #443215;
+  --dark-warn-line: #6d4f22;
+  --dark-fail: #ff8a9b;
+  --dark-fail-soft: #361a21;
+  --dark-fail-fill: #4a2430;
+  --dark-fail-line: #6e343f;
+
+  /* The wash has to be restated, not merely darkened. --tint-lilac is a
+     near-white at 85% opacity: left alone on a dark ground it paints an
+     almost-white bloom across the top-right corner — the single worst thing
+     a naive theme swap does here. Replaced by a muted violet, and the other
+     two flipped from darkening the ground to lifting it. Checked
+     composited, since text sits over these: at the bloom's densest the
+     ground reaches #291d41, where --ink is 13.76:1 and --dim 5.33:1. */
+  --dark-tint-violet: rgba(179, 140, 255, 0.07);
+  --dark-tint-lilac: rgba(90, 60, 150, 0.3);
+  --dark-tint-violet-faint: rgba(179, 140, 255, 0.045);
+
+  /* Same geometry, different ink. Both light shadows are a desaturated navy
+     at 18-30%, which is tuned for a near-white backdrop and simply does not
+     read on near-black. Black at roughly double the alpha does. */
+  --dark-elev-1: 0 1px 3px rgb(0 0 0 / 60%);
+  --dark-elev-2: 0 8px 28px rgb(0 0 0 / 55%);
+
+  --dark-signal-rgb: 179 140 255;
+  --dark-fail-rgb: 255 138 155;
+}
+
+/* ══ theme selection ═══════════════════════════════════════════════════════
+ *
+ * Three states, because "follow the system" stamps no attribute at all:
+ *
+ *   1. bare :root above         the complete light palette, always present
+ *   2. prefers-color-scheme     a dark OS with no explicit choice made
+ *   3. [data-theme="dark"]      an explicit choice
+ *
+ * State 2 is guarded with :not([data-theme="light"]) so that choosing light
+ * on a dark OS wins; state 3 is a separate block so choosing dark on a light
+ * OS wins too. Without both guards the toggle only works in one direction.
+ *
+ * Both blocks contain nothing but indirections into the --dark-* values in
+ * :root. They must stay in lockstep, which is why they sit adjacent: a diff
+ * that touches one and not the other is meant to be obvious on sight.
+ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --ground: var(--dark-ground);
+    --surface: var(--dark-surface);
+    --panel: var(--dark-panel);
+    --knob: var(--dark-knob);
+    --knob-on: var(--dark-knob-on);
+    --on-accent: var(--dark-on-accent);
+    --ink: var(--dark-ink);
+    --ink-2: var(--dark-ink-2);
+    --rule: var(--dark-rule);
+    --dim: var(--dark-dim);
+    --signal: var(--dark-signal);
+    --signal-soft: var(--dark-signal-soft);
+    --pass: var(--dark-pass);
+    --pass-soft: var(--dark-pass-soft);
+    --pass-line: var(--dark-pass-line);
+    --warn: var(--dark-warn);
+    --warn-soft: var(--dark-warn-soft);
+    --warn-fill: var(--dark-warn-fill);
+    --warn-line: var(--dark-warn-line);
+    --fail: var(--dark-fail);
+    --fail-soft: var(--dark-fail-soft);
+    --fail-fill: var(--dark-fail-fill);
+    --fail-line: var(--dark-fail-line);
+    --tint-violet: var(--dark-tint-violet);
+    --tint-lilac: var(--dark-tint-lilac);
+    --tint-violet-faint: var(--dark-tint-violet-faint);
+    --elev-1: var(--dark-elev-1);
+    --elev-2: var(--dark-elev-2);
+    --signal-rgb: var(--dark-signal-rgb);
+    --fail-rgb: var(--dark-fail-rgb);
+  }
+}
+
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --ground: var(--dark-ground);
+  --surface: var(--dark-surface);
+  --panel: var(--dark-panel);
+  --knob: var(--dark-knob);
+  --knob-on: var(--dark-knob-on);
+  --on-accent: var(--dark-on-accent);
+  --ink: var(--dark-ink);
+  --ink-2: var(--dark-ink-2);
+  --rule: var(--dark-rule);
+  --dim: var(--dark-dim);
+  --signal: var(--dark-signal);
+  --signal-soft: var(--dark-signal-soft);
+  --pass: var(--dark-pass);
+  --pass-soft: var(--dark-pass-soft);
+  --pass-line: var(--dark-pass-line);
+  --warn: var(--dark-warn);
+  --warn-soft: var(--dark-warn-soft);
+  --warn-fill: var(--dark-warn-fill);
+  --warn-line: var(--dark-warn-line);
+  --fail: var(--dark-fail);
+  --fail-soft: var(--dark-fail-soft);
+  --fail-fill: var(--dark-fail-fill);
+  --fail-line: var(--dark-fail-line);
+  --tint-violet: var(--dark-tint-violet);
+  --tint-lilac: var(--dark-tint-lilac);
+  --tint-violet-faint: var(--dark-tint-violet-faint);
+  --elev-1: var(--dark-elev-1);
+  --elev-2: var(--dark-elev-2);
+  --signal-rgb: var(--dark-signal-rgb);
+  --fail-rgb: var(--dark-fail-rgb);
+}
+
+/* Tells the browser which way its own chrome should go — the select popup,
+   the form-control defaults, the canvas behind an overscroll. Driven from a
+   token so the theme blocks above stay pure token redefinitions rather than
+   growing a second, differently-shaped switch. */
+:root {
+  color-scheme: var(--scheme);
 }
 
 * {

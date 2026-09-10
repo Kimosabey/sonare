@@ -7,10 +7,14 @@ html::-webkit-scrollbar {
 
 body {
   margin: 0;
-  /* Three soft radials over the near-white base: violet from the top-left,
-     lilac bloom top-right, a faint lift from below. `fixed` so the wash
-     belongs to the viewport and doesn't slide around under a scrolling
-     report. Paint-only — no layout, no compositing cost per frame. */
+  /* Three soft radials over the base: violet from the top-left, a bloom
+     top-right, a faint lift from below. `fixed` so the wash belongs to the
+     viewport and doesn't slide around under a scrolling report. Paint-only —
+     no layout, no compositing cost per frame.
+
+     The background is set explicitly, from a token, rather than left to the
+     UA: a transparent body borrows whatever ground the host paints, which in
+     dark mode means the wash and the cards float on someone else's colour. */
   background-color: var(--ground);
   color: var(--ink);
   font-family: var(--sans);
