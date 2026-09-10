@@ -222,13 +222,18 @@
 }
 
 .lang-card-label {
+  /* OFF THE TYPE SCALE, deliberately: 19px sits in the one real gap in it.
+     --text-md is 16.5px (−2.5px) and --text-lg is 23px (+4px), so there is no
+     step within half a pixel and both candidates are a visible resize of the
+     language picker's primary label. The scale has seven steps because that
+     covered the drifted clusters; this value was never part of one. */
   font-size: 19px;
   font-weight: 800;
 }
 
 .lang-card-count {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--dim);
@@ -260,7 +265,7 @@
 }
 
 .today-stats dt {
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--dim);
@@ -269,7 +274,10 @@
 
 .today-stats dd {
   margin: 0;
-  font-size: 24px;
+  /* Was 24px. Down a pixel onto the step h1 and .overall .n already sit on,
+     so the three "big number or heading" sizes in the app are one value.
+     tabular-nums and line-height are unchanged, so the tile geometry holds. */
+  font-size: var(--text-lg);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
@@ -278,7 +286,7 @@
 
 .today-stats dd small {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 400;
   color: var(--dim);
   margin-top: 2px;
@@ -286,7 +294,7 @@
 }
 
 .today-heading {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--dim);

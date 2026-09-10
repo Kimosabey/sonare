@@ -176,16 +176,35 @@
   /* ══ scale ═══════════════════════════════════════════════════════════════
    *
    * Colour above was already tokenised. Space, radius, type and the tap floor
-   * were not, and had drifted: 19 distinct font sizes across ~45 declarations,
-   * with 9/9.5/10/10.5 all doing one job and 14/14.5/15 all doing another. A
+   * were not, and had drifted: re-measured at the point of migration, 19
+   * distinct font sizes across 61 declarations (the "~45" this comment used to
+   * estimate was low), with 9/9.5/10/10.5 all doing one job and 14/14.5/15
+   * all doing another. A
    * half-pixel difference is invisible on screen and expensive in a
    * stylesheet, because every new rule has to guess which of four values it
    * belongs with.
    *
-   * These are the scale. New rules use them; the existing literals are being
-   * migrated deliberately rather than in one sweep, since collapsing forty
-   * declarations at once reflows a working product faster than it can be
-   * looked at.
+   * These are the scale, and the migration onto them is now done. It ran
+   * cluster by cluster rather than in one sweep — 61 declarations at once
+   * reflows a working product faster than it can be looked at — and it landed
+   * as: 28 declarations onto the step they already equalled (no rendered
+   * change at all), 22 moved by half a pixel, 8 moved by a full pixel, and 3
+   * left as literals because they are not text. Each of those three carries
+   * its reason at the point of use, marked OFF THE TYPE SCALE:
+   * .breadcrumb-lang-caret (9px, a ▾ icon), .lang-card-label (19px, the one
+   * real gap in the scale) and .toast-close (24px, a × icon).
+   *
+   * src/styles/scale.test.ts holds the line: it fails on any new font-size
+   * literal that is not one of those three. Without it the drift comes back
+   * one rule at a time, which is how it got to 19 distinct values.
+   *
+   * Two sizes here are load-bearing beyond their role name:
+   *   --text-md  must stay >= 16px. iOS Safari zooms the viewport when a
+   *              focused input is under 16px, and input/select/textarea use
+   *              this step. 16.5px clears the floor; 15px would not.
+   *   --text-lg  is coupled to .sk-bar's hand-computed 25px height in
+   *              report.css, which holds the score card's shape while the
+   *              provider answers.
    */
 
   /* Space, on a 4px base. Two half-steps because 2px and 6px both do real
