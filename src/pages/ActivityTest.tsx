@@ -748,12 +748,11 @@ export function ActivityTest() {
 
       {phase === "result" && current?.passed && (
         <div
-          className={`verdict v-warn pass-banner${celebration && celebration.kind !== "pass" ? " pass-banner-celebrate" : ""}`}
-          style={{ borderColor: "#b4dbcb", background: "#e7f3ee" }}
+          className={`verdict v-pass pass-banner${celebration && celebration.kind !== "pass" ? " pass-banner-celebrate" : ""}`}
           role="status"
           aria-live="polite"
         >
-          <div className="tag" style={{ color: "var(--pass)" }}>
+          <div className="tag">
             {celebration?.kind === "firstTry" ? "FIRST TRY!" : celebration?.kind === "personalBest" ? "NEW BEST!" : "PASSED"}
           </div>
           <div>

@@ -427,7 +427,7 @@ button.sy {
 }
 
 .v-warn {
-  border-color: #ead2a4;
+  border-color: var(--warn-line);
   background: var(--warn-soft);
 }
 .v-warn .tag {
@@ -435,11 +435,27 @@ button.sy {
 }
 
 .v-fail {
-  border-color: #eec0c7;
+  border-color: var(--fail-line);
   background: var(--fail-soft);
 }
 .v-fail .tag {
   color: var(--fail);
+}
+
+/* The pass variant of the same banner. It existed already, but only as an
+   inline style on a `.v-warn` element in ActivityTest.tsx — and the two
+   literals it patched in were the last two orphan pastels in the codebase,
+   the only ones living outside src/styles/ where no amount of palette work
+   would ever have reached them. The class name was also wrong in a way
+   nothing could catch: a passed activity rendered under the warn verdict's
+   name, correct on screen purely because every visible property had been
+   overridden inline. Same shape as the two above, so it belongs here. */
+.v-pass {
+  border-color: var(--pass-line);
+  background: var(--pass-soft);
+}
+.v-pass .tag {
+  color: var(--pass);
 }
 
 /* A lighter-weight <details> than the global one (which is a full bordered
@@ -494,8 +510,8 @@ button.sy {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--pass);
-  background: #e7f3ee;
-  border: 1px solid #b4dbcb;
+  background: var(--pass-soft);
+  border: 1px solid var(--pass-line);
   border-radius: 999px;
   padding: 5px 14px;
   animation: rise-in-cta var(--dur-standard) var(--ease) both;

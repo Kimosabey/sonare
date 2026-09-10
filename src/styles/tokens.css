@@ -52,15 +52,52 @@
   --dim: #666666; /* Muted */
   --signal: #41009a; /* Brand Purple */
   --signal-soft: #f0e6ff; /* Lilac */
+  /* ── the three tiers below each status colour ─────────────────────────────
+   *
+   * Each of pass/warn/fail needs more than one tint, and the extra ones were
+   * being written as literals — six pastels scattered across two sheets and
+   * one inline React style, duplicating this palette by hand. Measured, they
+   * are not arbitrary: they sort into three clean bands by luminance, and the
+   * band decides what they can be used for.
+   *
+   *   -soft  Y≈.85-.90   the palest wash. Large areas (a verdict banner, a
+   *                      toast body), and a small disc sitting on --surface.
+   *   -fill  Y≈.72-.82   a step deeper. Only for a disc sitting on a -soft
+   *                      wash, where -soft would vanish into its own ground.
+   *   -line  Y≈.60-.66   the border that pairs with -soft. Never a fill.
+   *
+   * That is why warn and fail have all three and pass and signal have two:
+   * the success and info toasts leave their bodies at --surface, so their
+   * icon discs use -soft directly; the warn and error toasts tint their
+   * bodies, so their discs need the deeper -fill to stay discs. --signal-soft
+   * is this system's -soft tier under a different (older) name.
+   *
+   * Contrast of the status colour on its own tints, all ≥ 4.5:1 except one:
+   *   pass on -soft 4.64   warn on -soft 5.80 / -fill 5.28
+   *   fail on -soft 5.00   fail on -fill 4.31  <- below AA, see note
+   *
+   * The --fail-fill shortfall is pre-existing and is folded here unchanged
+   * rather than quietly corrected: --fail on it carries the 15px/700 "×" in
+   * the error toast's icon disc at 4.31:1, short of the 4.5:1 floor for text
+   * that size. Fixing it means changing a shipped brand tint, which is the
+   * owner's call and the same call that produced --warn below. Flagged with
+   * the number rather than adjusted by eye.
+   */
   --pass: #1b7a5a;
+  --pass-soft: #e7f3ee;
+  --pass-line: #b4dbcb;
   /* #b26a00 (the original neutral amber) measured ~3.5:1 on --panel/--warn-soft
      — below the 4.5:1 AA floor for the small mono text it's used as (verdict
      tags, phoneme scores, toast icons). Same hue (~36°), darkened until it
      clears AA with margin (~5.3:1 on --panel, ~5.8:1 on --warn-soft). */
   --warn: #8a5200;
   --warn-soft: #fcf3e3;
+  --warn-fill: #f7e8cb;
+  --warn-line: #ead2a4;
   --fail: #c0273c;
   --fail-soft: #fbe9ec;
+  --fail-fill: #f7d5da;
+  --fail-line: #eec0c7;
 
   /* ══ elevation ═══════════════════════════════════════════════════════════
    *

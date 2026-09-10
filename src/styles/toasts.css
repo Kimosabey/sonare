@@ -53,15 +53,15 @@
   color: var(--signal);
 }
 .toast-success .toast-icon {
-  background: #e7f3ee;
+  background: var(--pass-soft);
   color: var(--pass);
 }
 .toast-warn .toast-icon {
-  background: #f7e8cb;
+  background: var(--warn-fill);
   color: var(--warn);
 }
 .toast-error .toast-icon {
-  background: #f7d5da;
+  background: var(--fail-fill);
   color: var(--fail);
 }
 
