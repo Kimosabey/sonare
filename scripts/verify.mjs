@@ -250,15 +250,103 @@ forbid({
     });
   }
 
+  /**
+   * Which class names are actually rendered as targets, read from the JSX
+   * rather than guessed from the name.
+   *
+   * The first attempt at this treated any selector containing "switch" as
+   * interactive, and immediately flagged `.switch-thumb` — a decorative
+   * `<span>` inside the button, 21px by design and correctly so. A name is not
+   * evidence. The component tree is: a class is a target if it appears on a
+   * `<button>`, `<a>`, `<select>`, `<input>`, `<textarea>`, `<summary>`, or on
+   * anything carrying an interactive `role`.
+   *
+   * Same shape as the band rule below, which reads the band list from the
+   * source that defines it instead of keeping a second copy that can drift.
+   */
+  const INTERACTIVE_TAGS = /^(?:button|a|select|input|textarea|summary)$/i;
+  const INTERACTIVE_ROLES = /^(?:switch|button|tab|link|checkbox|radio|menuitem|option)$/i;
+  const targetClasses = new Set();
+
+  for (const file of walk("src").filter((f) => /\.[jt]sx$/.test(f))) {
+    const src = readFileSync(join(ROOT, file), "utf8");
+    // Each JSX opening tag, with its attributes, however they are ordered.
+    for (const tag of src.matchAll(/<([A-Za-z][\w.]*)((?:[^>"'{}]|"[^"]*"|'[^']*'|\{[^{}]*\})*)>/g)) {
+      const name = tag[1];
+      const attrs = tag[2] ?? "";
+      const role = /\brole=["']([^"']+)["']/.exec(attrs);
+      const isTarget = INTERACTIVE_TAGS.test(name) || (role !== null && INTERACTIVE_ROLES.test(role[1]));
+      if (!isTarget) continue;
+
+      // Only literal className strings — a computed one cannot be read here,
+      // and a guess would put us back to matching on names.
+      const cls = /\bclassName=["']([^"']+)["']/.exec(attrs);
+      if (cls) for (const token of cls[1].split(/\s+/)) if (token) targetClasses.add(token);
+    }
+  }
+
+  /**
+   * Whether a CSS selector addresses something the JSX renders as a target.
+   *
+   * Tested against the **subject** — the rightmost compound — because that is
+   * what a rule actually styles. Checking the whole string instead flagged
+   * `.listening i { width: 8px }`: `.listening` is a target, but the rule
+   * styles the 8px `<i>` inside it, which nobody taps. A selector list is
+   * split first, since each part has its own subject.
+   */
+  const addressesTarget = (selector) =>
+    selector.split(",").some((part) => {
+      const subject = part.trim().split(/[\s>+~]+/).filter(Boolean).pop() ?? "";
+      if (subject === "" || subject.includes("::")) return false;
+      if (/\[role=/.test(subject)) return true;
+      if (/^(?:button|a|select|input|textarea|summary)(?:[.:[]|$)/i.test(subject)) return true;
+      for (const cls of targetClasses) if (subject.includes(`.${cls}`)) return true;
+      return false;
+    });
+
   for (const sheet of sheets) {
+    let selector = "";
     readFileSync(join(ROOT, sheet), "utf8")
       .split("\n")
       .forEach((line, i) => {
-        const m = /min-(?:height|width):\s*(\d+)px/.exec(line);
+        // Track the selector this declaration belongs to. Enough for this
+        // stylesheet, which is hand-written, one selector per line before `{`.
+        if (line.includes("{")) selector = line.slice(0, line.indexOf("{")).trim();
+
+        const min = /min-(?:height|width):\s*(\d+)px/.exec(line);
         // min-width is also used for table overflow, which is not a target —
         // only flag it under 44 when it is plausibly one, i.e. small.
-        if (m && Number(m[1]) < 44 && Number(m[1]) > 0) {
+        if (min && Number(min[1]) < 44 && Number(min[1]) > 0) {
           hits.push({ file: sheet, line: i + 1, text: line.trim().slice(0, 100) });
+          return;
+        }
+
+        /**
+         * The half this rule was missing.
+         *
+         * `.switch-track` declared `width: 46px; height: 27px` on a real
+         * `<button role="switch">` and this check never saw it, because it
+         * only ever read `min-height`/`min-width`. The rule permitted exactly
+         * the thing it exists to stop — worse than not having it, since a
+         * green check is taken as evidence.
+         *
+         * Pseudo-element rules are excluded: `::before` is never a hit target
+         * of its own, and its host selector is checked on its own line. That
+         * is what lets a control keep a small *painted* part while the button
+         * itself clears the floor.
+         */
+        const plain = /(?:^|[;{\s])(?:height|width):\s*(\d+(?:\.\d+)?)px/.exec(line);
+        if (
+          plain &&
+          Number(plain[1]) < 44 &&
+          Number(plain[1]) > 0 &&
+          addressesTarget(selector)
+        ) {
+          hits.push({
+            file: sheet,
+            line: i + 1,
+            text: `${selector} { ${line.trim().slice(0, 70)}`,
+          });
         }
       });
   }

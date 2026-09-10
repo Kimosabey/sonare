@@ -33,39 +33,60 @@
 }
 
 .switch-track {
+  /**
+   * A 44px target that still looks like a 27px pill.
+   *
+   * The track used to *be* the pill: `height: 27px`, painted directly. That is
+   * below the `--tap` floor on a real `<button role="switch">`, and NFR-03
+   * could not see it — the check reads `min-height`/`min-width` and this
+   * declared plain `height`, so the rule permitted precisely the thing it
+   * exists to stop. That blind spot is closed in scripts/verify.mjs alongside
+   * this change; a rule with a hole in it is worse than the number suggests,
+   * because it buys confidence it has not earned.
+   *
+   * So the button is now a transparent 46x44 flex box and `::before` paints
+   * the pill at its original geometry, vertically centred. Same pixels, a hit
+   * area that clears the floor — rather than growing the pill and changing
+   * what the control looks like.
+   */
+  position: relative;
   flex: none;
   width: 46px;
-  /*
-   * KNOWN, PRE-EXISTING, AND NOT FIXED HERE: 27px is below the 44px --tap
-   * floor, and this is a <button role="switch"> — a real target.
-   *
-   * It is invisible to the NFR-03 check in scripts/verify.mjs, which reads
-   * `min-height` and `min-width` and never plain `height`. So the rule is not
-   * being dodged deliberately; the checker simply cannot see this shape.
-   *
-   * Left alone rather than corrected because the fix is a visual change to a
-   * shipped control, not a stylesheet tidy: the track is a specific 46x27
-   * pill and growing it to 44px tall changes what the switch looks like. The
-   * label beside it is a <label htmlFor> that does clear 44px through its own
-   * padding, so the control is operable — it is the track itself that is
-   * small. Recorded here, at the value, because before this it was recorded
-   * nowhere at all.
-   */
-  height: 27px;
-  border-radius: 14px;
-  border: 1px solid var(--rule);
-  background: var(--panel);
-  padding: 2px;
+  min-height: var(--tap);
+  border: 0;
+  background: none;
+  padding: 0;
   display: flex;
   justify-content: flex-start;
   align-items: center;
   cursor: pointer;
+}
+
+/**
+ * The pill. Every value here moved from the rule above unchanged — height,
+ * radius, border, background and the transition — so the painted result is
+ * the same 46x27 it always was.
+ */
+.switch-track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 27px;
+  border-radius: 14px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
   transition: background 0.14s;
 }
 
-.switch-track[aria-checked="true"] {
+.switch-track[aria-checked="true"]::before {
   background: var(--signal);
   border-color: var(--signal);
+}
+
+.switch-track[aria-checked="true"] {
   justify-content: flex-end;
 }
 
@@ -75,6 +96,14 @@
 }
 
 .switch-thumb {
+  /**
+   * `position: relative` because `::before` above is positioned and would
+   * otherwise paint over a static flex sibling — the knob would vanish behind
+   * the pill. `margin: 0 3px` reproduces the inset the track's own
+   * `padding: 2px` plus its 1px border used to provide.
+   */
+  position: relative;
+  margin: 0 3px;
   width: 21px;
   height: 21px;
   border-radius: 50%;
