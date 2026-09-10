@@ -1,8 +1,9 @@
 /* ── the content authoring screen ─────────────────────────────────────────
  *
- * A new sheet rather than rules added to content.css: that one holds the
- * shared table and scroll rules this screen reuses, and index.css's ordering
- * rule is about not moving what already has a place in the cascade.
+ * One screen's own rules. The table and scroll rules this screen reuses are
+ * in components/table.css, which is imported ahead of every screen sheet — so
+ * the overrides below (`.authoring-field > .hint`, the narrow id field) act on
+ * a component that is already in the cascade rather than racing it.
  *
  * No animations here on purpose. The reduced-motion kill-switch in motion.css
  * is a blanket `* { animation: none !important }` and covers anything added

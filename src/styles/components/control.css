@@ -1,0 +1,151 @@
+/* ── controls ─────────────────────────────────────────────────────────────
+ *
+ * The two controls the app has beyond a plain button: a switch and a
+ * segmented toggle. Both are rendered by src/components/CaptureSettings.tsx,
+ * which appears on the activity screen AND on Settings — so both are shared,
+ * and neither was filed as such.
+ *
+ * The switch came from controls.css, a sheet whose name promised this layer
+ * and delivered the switch plus one screen's interim-feedback panel. That
+ * panel is the activity screen's and stays behind in interim.css; this is the
+ * half that was actually shared.
+ *
+ * The segmented toggle came from diagnostics.css, where nothing used it: the
+ * class appears only in CaptureSettings. That is the clearest single instance
+ * of the problem this directory exists to fix — a shared control filed under
+ * the screen someone happened to be building when they wrote it.
+ *
+ * Both moved unchanged.
+ */
+
+/* ── switch ──────────────────────────────────────────────────────────────── */
+
+.switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.switch:last-of-type {
+  border-bottom: none;
+}
+
+.switch-track {
+  flex: none;
+  width: 46px;
+  /*
+   * KNOWN, PRE-EXISTING, AND NOT FIXED HERE: 27px is below the 44px --tap
+   * floor, and this is a <button role="switch"> — a real target.
+   *
+   * It is invisible to the NFR-03 check in scripts/verify.mjs, which reads
+   * `min-height` and `min-width` and never plain `height`. So the rule is not
+   * being dodged deliberately; the checker simply cannot see this shape.
+   *
+   * Left alone rather than corrected because the fix is a visual change to a
+   * shipped control, not a stylesheet tidy: the track is a specific 46x27
+   * pill and growing it to 44px tall changes what the switch looks like. The
+   * label beside it is a <label htmlFor> that does clear 44px through its own
+   * padding, so the control is operable — it is the track itself that is
+   * small. Recorded here, at the value, because before this it was recorded
+   * nowhere at all.
+   */
+  height: 27px;
+  border-radius: 14px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  padding: 2px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.14s;
+}
+
+.switch-track[aria-checked="true"] {
+  background: var(--signal);
+  border-color: var(--signal);
+  justify-content: flex-end;
+}
+
+.switch-track:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.switch-thumb {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: var(--knob);
+  box-shadow: var(--elev-1);
+}
+
+/* The knob flips with the track it is riding on. In light both values are
+   the same white and this rule changes nothing; in dark the unchecked track
+   is --panel and the checked one is --signal, which sit on opposite sides of
+   the midpoint, so one colour cannot be found on both (13.34:1 vs 2.29:1 for
+   a near-white knob). Written here as a normal rule rather than inside the
+   dark block, so the theme stays a set of token values and this stays a
+   statement about how a switch works. */
+.switch-track[aria-checked="true"] .switch-thumb {
+  background: var(--knob-on);
+}
+
+.switch-text {
+  display: block;
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+.switch-label {
+  display: block;
+  font-size: var(--text-base);
+  font-weight: 560;
+  color: var(--ink);
+}
+
+.switch-desc {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--dim);
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+/* ── segmented toggle ────────────────────────────────────────────────────── */
+
+.modes {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.modes button {
+  border: none;
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 9px 14px;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+.modes button + button {
+  border-left: 1px solid var(--rule);
+}
+
+.modes button[aria-pressed="true"] {
+  background: var(--signal);
+  color: var(--on-accent);
+}

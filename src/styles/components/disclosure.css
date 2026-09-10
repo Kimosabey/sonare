@@ -1,0 +1,70 @@
+/* ── disclosures ──────────────────────────────────────────────────────────
+ *
+ * `<details>`/`<summary>`, and the lighter variant that sits inside an
+ * already-bordered box.
+ *
+ * Six components put real content behind a disclosure — CaptureSettings,
+ * DeviceMetaPanel, DebugPanel, ErrorBoundary, Authoring and ActivityTest — so
+ * the base pair was already shared; it just lived in content.css. The
+ * `.error-details` variant came from report.css, which is the sheet the
+ * variant was *used* from least: ErrorBoundary is the app-wide error boundary,
+ * not part of the report.
+ *
+ * Both moved unchanged. `.error-details summary` (0,1,1) and
+ * `.error-details[open] summary` (0,2,1) outrank the bare `summary` (0,0,1)
+ * and `details[open] summary` (0,1,2) on specificity, so keeping the two in
+ * one file makes the override visible instead of relying on which sheet
+ * happened to be imported later.
+ */
+
+details {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--surface);
+  margin-top: 14px;
+}
+
+summary {
+  cursor: pointer;
+  padding: 11px 14px;
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 600;
+}
+
+details[open] summary {
+  border-bottom: 1px solid var(--rule);
+}
+
+details .body {
+  padding: 4px 14px 14px;
+}
+
+/* A lighter-weight <details> than the one above (which is a full bordered
+   card) — this sits inside an already-bordered verdict banner, so it only
+   needs to be a small, unobtrusive disclosure, not another box. */
+.error-details {
+  margin-top: 6px;
+}
+.error-details summary {
+  padding: 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.error-details[open] summary {
+  border-bottom: none;
+  margin-bottom: 4px;
+}
+.error-details .hint {
+  margin-top: 0;
+}

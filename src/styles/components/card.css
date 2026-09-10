@@ -1,0 +1,84 @@
+/* ── the tappable card, and the grid it sits in ───────────────────────────
+ *
+ * Moved out of activity.css, which is the one screen that does NOT use it:
+ * `.lang-card` and its grid are rendered by LanguagePicker and by Today, and
+ * `.resume-card` only by Today. A card is the primary tap on both of those
+ * screens, so it had drifted into a sheet named for a third one purely
+ * because the language picker was built alongside the activity.
+ *
+ * Moved unchanged, including the 460px breakpoint, which has to travel with
+ * `.lang-grid`: the media rule and the base rule both set
+ * grid-template-columns at the same specificity, so they are only correct in
+ * this order. Splitting them across two sheets is the kind of break that
+ * looks fine until someone reorders an import.
+ */
+
+.lang-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+@media (min-width: 460px) {
+  .lang-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.lang-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  min-height: 44px;
+  border: 1.5px solid var(--rule);
+  border-radius: 14px;
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--ink);
+  transition:
+    border-color var(--dur-quick) var(--ease),
+    transform var(--dur-quick) var(--ease),
+    background var(--dur-quick) var(--ease);
+  animation: rise-in var(--dur-standard) var(--ease) both;
+}
+
+/* The tint is the hover/focus affordance; the shared ring in base.css draws
+   the focus indicator itself, so this only has to say "warm up", not "you are
+   here". */
+.lang-card:hover,
+.lang-card:focus-visible {
+  border-color: var(--signal);
+  background: var(--signal-soft);
+}
+
+.lang-card:active {
+  transform: scale(0.98);
+}
+
+.lang-card-label {
+  /* OFF THE TYPE SCALE, deliberately: 19px sits in the one real gap in it.
+     --text-md is 16.5px (−2.5px) and --text-lg is 23px (+4px), so there is no
+     step within half a pixel and both candidates are a visible resize of the
+     language picker's primary label. The scale has seven steps because that
+     covered the drifted clusters; this value was never part of one. */
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.lang-card-count {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* The resume card is the tap the learner came to make, so it reads first and
+   largest. Same object as .lang-card, lifted rather than restyled. */
+.resume-card {
+  border-color: var(--signal);
+  border-width: 2px;
+  margin-bottom: 20px;
+}

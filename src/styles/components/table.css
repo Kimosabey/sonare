@@ -1,0 +1,56 @@
+/* ── data tables ──────────────────────────────────────────────────────────
+ *
+ * Extracted from content.css unchanged. Five screens render a table —
+ * Diagnostics, Authoring, Progress, Settings and the fixture runner, plus
+ * DeviceMetaPanel, DebugPanel and ActivityReport — and `td.num` alone appears
+ * on four of them. It was never a content-screen concern; content.css had
+ * simply become the sheet with no screen in its name, which is a different
+ * thing from being a component layer.
+ *
+ * `.scroll-x` belongs with the table rather than with layout: the page body
+ * must never scroll sideways (on a phone that makes the whole layout feel
+ * broken), so wide content scrolls inside its own box. The `min-width` on the
+ * table is what forces that, and the two only make sense together — which is
+ * also why NFR-03's tap-floor check in scripts/verify.mjs ignores `min-width`
+ * over 44px: this is the declaration that would otherwise trip it.
+ */
+
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+}
+
+.scroll-x table {
+  min-width: 460px;
+  margin-top: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  margin-top: 10px;
+}
+
+th {
+  text-align: left;
+  color: var(--dim);
+  font-weight: 600;
+  border-bottom: 1.5px solid var(--ink);
+  padding: 6px 5px;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+td {
+  border-bottom: 1px solid var(--rule);
+  padding: 6px 5px;
+}
+
+td.num {
+  text-align: right;
+  font-weight: 600;
+}

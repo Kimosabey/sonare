@@ -50,8 +50,8 @@ function parseScale(): Map<string, number> {
  */
 const ALLOWED_LITERALS: Record<string, number> = {
   "base.css:.breadcrumb-lang-caret": 9,
-  "activity.css:.lang-card-label": 19,
-  "toasts.css:.toast-close": 24,
+  "components/card.css:.lang-card-label": 19,
+  "components/toast.css:.toast-close": 24,
 };
 
 describe("the sheets are actually being read", () => {
@@ -95,9 +95,9 @@ describe("font sizes come from the scale", () => {
       .map((d) => `${d.sheet} -> ${d.value}`);
 
     expect(literals.sort()).toEqual([
-      "activity.css -> 19px",
       "base.css -> 9px",
-      "toasts.css -> 24px",
+      "components/card.css -> 19px",
+      "components/toast.css -> 24px",
     ]);
   });
 
@@ -118,6 +118,7 @@ describe("font sizes come from the scale", () => {
     for (const key of Object.keys(ALLOWED_LITERALS)) {
       const [sheet, selector] = key.split(":");
       const source = sheets[`./${sheet}`] ?? "";
+      expect(source, `${sheet} not found in the glob`).not.toBe("");
       const rule = source.slice(source.indexOf(`${selector} {`));
       const block = rule.slice(0, rule.indexOf("}"));
       expect(block, `${key} has no OFF THE TYPE SCALE note`).toContain("OFF THE TYPE SCALE");
@@ -147,8 +148,8 @@ describe("font sizes come from the scale", () => {
 describe("the two load-bearing steps keep their constraints", () => {
   /**
    * iOS Safari zooms the viewport when a focused form control's text is under
-   * 16px. input/select (base.css) and textarea (content.css) all sit on
-   * --text-md, so the floor is a property of the token, not of those rules.
+   * 16px. input, select and textarea all sit on --text-md, so the floor is a
+   * property of the token rather than of those three rules.
    */
   test("--text-md clears the 16px iOS zoom floor", () => {
     const md = parseScale().get("--text-md");
@@ -159,11 +160,12 @@ describe("the two load-bearing steps keep their constraints", () => {
   test("the form controls that need that floor are on --text-md", () => {
     // If one of them moves off the token, the floor above stops protecting it
     // and this says so rather than leaving the guarantee half-true.
+    // Both live in base.css now: D6 moved textarea up beside the other two
+    // form-control defaults, so the floor covers one place rather than two.
     const base = sheets["./base.css"] ?? "";
-    const content = sheets["./content.css"] ?? "";
     const inputRule = base.slice(base.indexOf("input,\nselect {"));
     expect(inputRule.slice(0, inputRule.indexOf("}"))).toContain("font-size: var(--text-md)");
-    const textareaRule = content.slice(content.indexOf("textarea {"));
+    const textareaRule = base.slice(base.indexOf("textarea {"));
     expect(textareaRule.slice(0, textareaRule.indexOf("}"))).toContain("font-size: var(--text-md)");
   });
 

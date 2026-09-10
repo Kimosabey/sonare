@@ -24,28 +24,6 @@
   letter-spacing: -0.01em;
 }
 
-/*
- * The streak, in front of the learner while they can still add to it rather
- * than only on the report once the session is over.
- *
- * Purple, not green or amber: this is a count of days shown up, not a verdict
- * on anything. streakStore's `recordPractice` takes no score by signature, so
- * there is deliberately no colour here that could read as pass or fail.
- */
-.streak-chip {
-  flex: none;
-  margin: 0;
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  font-family: var(--mono);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--signal);
-  white-space: nowrap;
-}
 
 /* ── the phrase ───────────────────────────────────────────────────────────── */
 
@@ -86,7 +64,8 @@
  *
  * Purple, deliberately not green/amber/red: this is a position in a sentence,
  * not a judgement on it, and every other coloured text on this screen is a
- * verdict. The same reasoning as the streak chip above.
+ * verdict. The same reasoning as the streak chip, which is now in
+ * components/chip.css.
  *
  * A static state change, on purpose. The reduced-motion kill-switch is a
  * blanket `* { animation: none !important; transition: none !important }`, so
@@ -178,76 +157,9 @@
   transform: scale(1.35);
 }
 
-/* ── language picker ─────────────────────────────────────────────────────── */
-
-.lang-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-@media (min-width: 460px) {
-  .lang-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.lang-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 18px 20px;
-  min-height: 44px;
-  border: 1.5px solid var(--rule);
-  border-radius: 14px;
-  background: var(--surface);
-  text-decoration: none;
-  color: var(--ink);
-  transition:
-    border-color var(--dur-quick) var(--ease),
-    transform var(--dur-quick) var(--ease),
-    background var(--dur-quick) var(--ease);
-  animation: rise-in var(--dur-standard) var(--ease) both;
-}
-
-.lang-card:hover,
-.lang-card:focus-visible {
-  border-color: var(--signal);
-  background: var(--signal-soft);
-}
-
-.lang-card:active {
-  transform: scale(0.98);
-}
-
-.lang-card-label {
-  /* OFF THE TYPE SCALE, deliberately: 19px sits in the one real gap in it.
-     --text-md is 16.5px (−2.5px) and --text-lg is 23px (+4px), so there is no
-     step within half a pixel and both candidates are a visible resize of the
-     language picker's primary label. The scale has seven steps because that
-     covered the drifted clusters; this value was never part of one. */
-  font-size: 19px;
-  font-weight: 800;
-}
-
-.lang-card-count {
-  font-family: var(--mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
 
 /* ── today ────────────────────────────────────────────────────────────────── */
 
-/* The resume card is the tap the learner came to make, so it reads first and
-   largest. Same object as .lang-card, lifted rather than restyled. */
-.resume-card {
-  border-color: var(--signal);
-  border-width: 2px;
-  margin-bottom: 20px;
-}
 
 .today-stats {
   display: grid;

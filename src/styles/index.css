@@ -1,27 +1,62 @@
 /* The stylesheet, in cascade order.
  *
- * Split out of a single 1734-line styles.css. The order of these imports is
- * load-bearing — it is the original file's order, and the cascade depends on
- * it, so a new sheet goes where its rules used to sit rather than at the end.
+ * Three layers, and the order between them is the whole point:
+ *
+ *   tokens        the palette, the scale, the theme switch
+ *   base          global element defaults and the app shell
+ *   components/   things more than one screen renders
+ *   screens       what is genuinely one screen's own
+ *
+ * Components before screens, so that a screen can override a component at
+ * equal specificity and win. That is the direction overrides actually go —
+ * a screen adjusting a shared chip — and with the old ordering it was luck
+ * whether it worked, because "shared" and "screen" were interleaved.
+ *
+ * ── on replacing the old rule ──────────────────────────────────────────────
+ *
+ * This file used to say the order was load-bearing because it was the original
+ * 1734-line styles.css's order, and that a new sheet should go where its rules
+ * used to sit. That was the right rule while the split was in progress: it
+ * made the extraction provably behaviour-preserving at a point when nobody had
+ * checked what actually depended on the order.
+ *
+ * It is not a description of anything now. The rules it protected have since
+ * been read: the only order-sensitive pairs in the whole stylesheet are ones
+ * that tie on specificity AND set a property in common, and after this
+ * reorganisation there is not one such pair whose relative order has changed.
+ * That was checked pairwise across all 300-odd rules rather than assumed —
+ * see the D6 commit message. Sheets are grouped by what they are now, and
+ * src/styles/layers.test.ts holds the layering so it cannot quietly rot back.
  *
  * tokens must stay first: everything else reads its custom properties.
- * motion is the global prefers-reduced-motion kill-switch and sits where it
- * sat before, after the animations it switches off. */
+ * motion is the global prefers-reduced-motion kill-switch and stays after the
+ * animations it switches off.
+ */
 
 @import "./tokens.css";
 @import "./base.css";
+
+/* ── components ─────────────────────────────────────────────────────────────
+   Shared by more than one screen. Each sheet's header says which screens, and
+   where the rules were before — every one of them was filed under a screen,
+   and three were filed under a screen that does not use them. */
+@import "./components/table.css";
+@import "./components/disclosure.css";
+@import "./components/text.css";
+@import "./components/card.css";
+@import "./components/chip.css";
+@import "./components/control.css";
+@import "./components/meter.css";
+@import "./components/toast.css";
+
+/* ── screens ────────────────────────────────────────────────────────────────
+   What is left is what is actually one screen's. report.css was the largest
+   sheet in the tree and is now a third smaller; content.css is gone entirely,
+   because nothing in it was content-specific. */
 @import "./activity.css";
-@import "./meter.css";
 @import "./report.css";
-@import "./content.css";
-@import "./toasts.css";
 @import "./diagnostics.css";
 @import "./motion.css";
-@import "./controls.css";
-/* New rather than extracted, so it has no earlier position to preserve. It
-   declares no animation, so sitting after motion.css costs the kill-switch
-   nothing. */
+@import "./interim.css";
 @import "./settings.css";
-/* Same reasoning, and it reuses content.css's table rules above rather than
-   restating them. Declares no animation either. */
 @import "./authoring.css";

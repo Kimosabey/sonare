@@ -306,6 +306,34 @@ select {
   color: var(--ink);
 }
 
+/*
+ * The third form control, now beside the other two.
+ *
+ * It was the last rule in content.css, four sheets later in the cascade, for
+ * no reason except that the export box was built with the fixture runner.
+ * Moving an element-level rule earlier is safe by construction: a class
+ * selector outranks a type selector whatever the order, and no other rule in
+ * the tree selects `textarea` at all — so there is nothing this can now lose
+ * to that it previously beat.
+ *
+ * Kept as its own rule rather than folded into the list above, because the
+ * font-family genuinely differs: an export field is mono, a name field is not.
+ */
+textarea {
+  width: 100%;
+  font-family: var(--mono);
+  /* Same 16px floor as input/select above: iOS Safari zooms the viewport on
+     focus for anything under it, which on the fixture runner meant tapping the
+     export box mid-session threw the layout around. --text-md is 16.5px and
+     clears the floor. Larger mono in an export field costs nothing — it is
+     more legible, not less. */
+  font-size: var(--text-md);
+  padding: 10px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  resize: vertical;
+}
+
 .half {
   display: grid;
   grid-template-columns: 1fr 1fr;

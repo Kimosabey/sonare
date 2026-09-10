@@ -1,0 +1,50 @@
+
+/* ── interim feedback ─────────────────────────────────────────────────────── */
+
+.interim {
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--signal);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  background: var(--signal-soft);
+}
+
+.interim-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.interim-time {
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+
+.interim-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface);
+  overflow: hidden;
+  margin-top: 10px;
+  border: 1px solid var(--rule);
+}
+
+.interim-bar i {
+  display: block;
+  height: 100%;
+  background: var(--warn);
+  transition: width 0.1s linear;
+}
+
+.interim-note {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 6px;
+}

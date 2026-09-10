@@ -1,0 +1,62 @@
+/* ── shared text roles ────────────────────────────────────────────────────
+ *
+ * `.hint` is the most widely used class in the app: eight screens and nine
+ * more components, seventeen files in total. It was in content.css. Its
+ * emphatic sibling `.hint-strong` and the visually-hidden utility `.sr-only`
+ * were in report.css, which is the one sheet neither of them is specific to —
+ * `.sr-only` is used by WordChips and SyllableChips, and `.hint-strong` by
+ * ScoreCard.
+ *
+ * All three moved unchanged.
+ */
+
+.hint {
+  font-size: var(--text-sm);
+  color: var(--dim);
+  margin-top: 8px;
+}
+
+/* An inline text action inside a line of prose, not a standalone control —
+   the base button rule's padding/border would turn "Not you?" into a pill
+   floating mid-sentence. */
+.hint button {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: inherit;
+  font-weight: 700;
+  color: var(--signal);
+  text-decoration: underline;
+}
+
+.hint button:active:not(:disabled) {
+  transform: none;
+}
+
+/*
+ * The one line on an indeterminate verdict that changes what the learner does
+ * next — that the take did not cost them an attempt. It sits among hints, so
+ * without weight it reads as the same aside as the provider's error text it
+ * was promoted above.
+ */
+.hint-strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* Not display:none, which would also remove it from the accessibility tree —
+   staying in that tree while out of the layout is the entire point. The
+   syllable chips use it to trade a terse visible label ("2nd 70") for one
+   sentence read aloud. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
