@@ -38,6 +38,8 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { resolveLanguages } from "../content/resolve.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
+import { useTheme } from "../hooks/useTheme.js";
+import { THEMES, type Theme } from "../lib/theme.js";
 import { clearProgress, readProgress } from "../hooks/useProgressPersistence.js";
 import { clearLearnerId, readLearnerId } from "../lib/learnerId.js";
 import { clearSkills, readSkills } from "../stores/skillStore.js";
@@ -52,6 +54,25 @@ import { clearToken, ensureToken } from "../sync/tokenStore.js";
  * not typing it in a specific case.
  */
 const CONFIRM_WORD = "DELETE";
+
+/**
+ * What each theme is called on screen.
+ *
+ * "System" rather than "Auto": it names where the setting comes from, which is
+ * the thing a learner needs in order to know why the app is dark when they did
+ * not ask for it. "Auto" describes a behaviour and leaves the cause a mystery.
+ */
+const THEME_LABELS: Record<Theme, string> = {
+  system: "System",
+  light: "Light",
+  dark: "Dark",
+};
+
+const THEME_EXPLANATIONS: Record<Theme, string> = {
+  system: "Follows your device's appearance setting.",
+  light: "Always light, whatever your device is set to.",
+  dark: "Always dark, whatever your device is set to.",
+};
 
 /** What the server returned. Read defensively — it crossed a network. */
 interface ExportPayload {
@@ -182,6 +203,7 @@ async function userMessageFrom(response: Response, fallback: string): Promise<st
 
 export function Settings() {
   const [learnerName] = useLearnerName();
+  const [theme, setTheme] = useTheme();
   const [busy, setBusy] = useState<"none" | "export" | "delete">("none");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<ActionError | null>(null);
@@ -320,6 +342,46 @@ export function Settings() {
 
   return (
     <>
+      <section>
+        <h2>Appearance</h2>
+        <p className="what">
+          The dark palette is measured against both dark surfaces, so text stays readable on
+          the panels that carry the most of it.
+        </p>
+
+        {/*
+          A plain element wired up with aria-labelledby rather than a <label
+          htmlFor>: this heads a group of three buttons, and a label
+          associates its text with one element and renames it — which is how
+          the middle sensitivity button in CaptureSettings lost its own
+          accessible name. Same reasoning, same shape. See base.css.
+        */}
+        <span className="field-label" id="theme-heading">
+          Theme
+        </span>
+        <div className="modes" role="group" aria-labelledby="theme-heading">
+          {THEMES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              /*
+                aria-pressed, matching the sensitivity toggle: three buttons of
+                which exactly one is on. A radiogroup would also be defensible
+                and would need arrow-key handling to be correct — pressed
+                buttons are what this app already uses and already styles.
+              */
+              aria-pressed={theme === option}
+              onClick={() => setTheme(option)}
+            >
+              {THEME_LABELS[option]}
+            </button>
+          ))}
+        </div>
+
+        {/* Says what the current choice means, so "System" is not a mystery. */}
+        <p className="hint">{THEME_EXPLANATIONS[theme]}</p>
+      </section>
+
       <section>
         <h2>Export your data</h2>
         <p className="what">

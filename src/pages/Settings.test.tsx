@@ -467,3 +467,125 @@ describe("with no identity available", () => {
     expect(store.has(`sonare.streak.v1.${LEARNER}`)).toBe(true);
   });
 });
+
+describe("the theme control", () => {
+  /**
+   * Nothing stamped `data-theme` before this: tokens.css had a complete
+   * measured dark palette and the only way to reach it was to change the
+   * operating system's own appearance setting.
+   *
+   * These run against the real document, so `data-theme` is cleaned off the
+   * root between them — a leaked attribute would let the next test's assertion
+   * pass for the wrong reason.
+   */
+  afterEach(() => {
+    document.documentElement.removeAttribute("data-theme");
+  });
+
+  it("offers three states, not two", () => {
+    view();
+    for (const name of ["System", "Light", "Dark"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
+  });
+
+  it("starts on system when nothing is stored, and stamps nothing", () => {
+    view();
+    expect(screen.getByRole("button", { name: "System" })).toHaveAttribute("aria-pressed", "true");
+    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+  });
+
+  it("stamps the root and remembers the choice", () => {
+    view();
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    expect(store.get("sonare.theme")).toBe("dark");
+    expect(screen.getByRole("button", { name: "Dark" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "System" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("reads the stored choice back on load", () => {
+    installStorage({ "sonare.learnerName": LEARNER, "sonare.theme": "dark" });
+    view();
+    // The control has to agree with the document the inline script already
+    // stamped; a control showing "System" over a dark page would be reporting
+    // a state the app is not in.
+    expect(screen.getByRole("button", { name: "Dark" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  /**
+   * The state that is an absence. Choosing light on a dark OS has to win,
+   * which is why the media block is guarded with :not([data-theme="light"]) —
+   * so "light" is stamped, and only "system" is unstamped.
+   */
+  it("unstamps the root when going back to system", () => {
+    installStorage({ "sonare.learnerName": LEARNER, "sonare.theme": "dark" });
+    view();
+
+    fireEvent.click(screen.getByRole("button", { name: "System" }));
+    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+    expect(store.get("sonare.theme")).toBe("system");
+  });
+
+  it("stamps light explicitly, so choosing light on a dark OS wins", () => {
+    view();
+    fireEvent.click(screen.getByRole("button", { name: "Light" }));
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  });
+
+  it("explains what the current choice does", () => {
+    view();
+    expect(screen.getByText("Follows your device's appearance setting.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+    expect(screen.getByText("Always dark, whatever your device is set to.")).toBeInTheDocument();
+  });
+
+  it("names the group without renaming one of its buttons", () => {
+    /**
+     * A <label htmlFor> heading a group of three would associate its text with
+     * one of them and rename it, which is how CaptureSettings' middle
+     * sensitivity button lost its own accessible name. The heading is a plain
+     * element wired up with aria-labelledby instead.
+     */
+    view();
+    expect(screen.getByRole("group", { name: "Theme" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Light" })).toBeInTheDocument();
+  });
+
+  it("still renders, and still switches, when storage is unavailable", () => {
+    /**
+     * jsdom's own localStorage is a bare object with no methods, and a real
+     * browser throws in private mode. Either way the screen has to render as a
+     * learner with no stored preference — and the choice must still apply for
+     * the rest of the visit, because the document write does not depend on
+     * storage succeeding.
+     */
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: () => {
+          throw new DOMException("The operation is insecure.", "SecurityError");
+        },
+        setItem: () => {
+          throw new DOMException("The operation is insecure.", "SecurityError");
+        },
+      },
+    });
+
+    view();
+    expect(screen.getByRole("button", { name: "System" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    expect(screen.getByRole("button", { name: "Dark" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("does not disturb the destructive controls", () => {
+    // The appearance section sits above the delete section. A learner
+    // switching theme must not arm anything below it.
+    view();
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+    expect(screen.getByRole("button", { name: "Delete everything" })).toBeDisabled();
+  });
+});

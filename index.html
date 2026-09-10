@@ -11,6 +11,35 @@
       rel="stylesheet"
     />
     <title>Lingotran — Sonare speech activity</title>
+    <!--
+      Stamps the stored theme before the first paint.
+
+      Synchronous and inline in <head> on purpose. The app's stylesheet is a
+      render-blocking <link> in a production build, so the browser has the
+      light palette in hand well before a deferred module script runs — a
+      learner who chose dark would get a white flash on every single load.
+      Nothing can be imported here, so this is deliberately the smallest
+      possible duplicate of src/lib/theme.ts: the same key, the same two
+      stamped values, and the same rule that "system" stamps nothing.
+
+      src/lib/theme.test.ts reads this file and asserts the key and the values
+      match that module, so the copy cannot drift.
+
+      The try/catch is not decoration. localStorage throws outright in a
+      private window and where site data is blocked, and an uncaught throw
+      here runs during head parsing — which would take the whole page down
+      before the app had a chance to load, to remember a colour.
+    -->
+    <script>
+      try {
+        var sonareTheme = localStorage.getItem("sonare.theme");
+        if (sonareTheme === "light" || sonareTheme === "dark") {
+          document.documentElement.setAttribute("data-theme", sonareTheme);
+        }
+      } catch (ignored) {
+        /* No stored preference available: fall through to the OS setting. */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
