@@ -137,9 +137,23 @@
 .trajectory-step.hi { color: var(--pass); }
 .trajectory-step.mid { color: var(--warn); }
 .trajectory-step.lo { color: var(--fail); }
-.trajectory-step.dim { color: var(--faint, var(--dim)); font-weight: 400; }
+/* These two read `var(--faint, var(--dim))` and `var(--rule-strong,
+   var(--dim))`. Neither --faint nor --rule-strong was defined anywhere in the
+   stylesheet, so both had always resolved to the fallback — the names were
+   aspirational, and the only thing they achieved was costing a reader a grep
+   to discover that the token they had just seen used does not exist.
+
+   Resolved to --dim rather than defined, which is the choice that changes no
+   pixel in either theme. Defining them would have altered the light theme on
+   the strength of two names nobody had measured, and this file already carries
+   the precedent for the other answer: --ink-2 is a real, measured step that is
+   deliberately unused, because "the step should exist" and "these sites should
+   move onto it" are separate decisions. If a fainter ink or a stronger rule is
+   wanted, it gets derived and measured in tokens.css the way --warn and
+   --ink-2 were, not asserted by a fallback in a screen sheet. */
+.trajectory-step.dim { color: var(--dim); font-weight: 400; }
 .trajectory-arrow {
-  color: var(--rule-strong, var(--dim));
+  color: var(--dim);
   margin: 0 3px;
 }
 

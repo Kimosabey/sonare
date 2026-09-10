@@ -131,6 +131,40 @@
   --elev-1: 0 1px 3px rgb(22 32 43 / 30%);
   --elev-2: 0 8px 28px rgb(22 32 43 / 18%);
 
+  /* ══ focus ════════════════════════════════════════════════════════════════
+   *
+   * One treatment, for every interactive role. `:focus-visible` reached only
+   * 3 of the 13 sheets before this, which meant most controls fell back to
+   * whatever ring the UA happened to draw — thirteen different answers to the
+   * same question — and one control, the breadcrumb language select, set
+   * `outline: none` with nothing in its place and was simply invisible to a
+   * keyboard.
+   *
+   * Note what this is NOT: there is no --dark-focus-ring, and neither theme
+   * block below mentions focus. The ring is defined in terms of --signal
+   * rather than as a colour, and custom-property substitution is lazy — so it
+   * resolves to whichever --signal is in force at the element that uses it.
+   * A composite token spelt this way needs no dark counterpart at all, which
+   * is one fewer pair that can fall out of lockstep.
+   *
+   * --signal against the surfaces a ring is actually seen on, all far above
+   * the 3:1 WCAG 1.4.11 floor for a non-text indicator:
+   *   light  on --ground  12.04    dark  on --ground  7.24
+   *          on --surface  12.42          on --surface 6.54
+   *          on --panel    10.33          on --panel   5.84
+   *
+   * settings.css overrides the colour to --fail for the delete-my-record
+   * button, so that pair is measured too: 5.66 / 5.84 light on
+   * --ground / --surface, 8.35 / 7.54 dark. Also clear.
+   *
+   * The 2px offset is load-bearing rather than decorative: the primary button
+   * is filled with --signal, so a --signal ring drawn *on* it would vanish.
+   * Offset puts it outside the border, on the ground, where the numbers above
+   * are the ones that apply.
+   */
+  --focus-ring: 2px solid var(--signal);
+  --focus-offset: 2px;
+
   /* ══ ring channels ═══════════════════════════════════════════════════════
    *
    * The other six box-shadows are not elevation — they are the expanding

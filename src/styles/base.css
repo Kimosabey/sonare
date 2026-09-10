@@ -145,10 +145,15 @@ header::after {
   cursor: pointer;
 }
 
+/* The tinted ground is the hover affordance and stays on focus too. What is
+   gone is the `outline: none` that used to sit here: it suppressed the UA's
+   ring and put nothing in its place, so tabbing to the language select moved
+   focus somewhere invisible. This was the one control in the app with no focus
+   indicator at all rather than an inconsistent one. The shared ring below now
+   applies to it like every other control. */
 .breadcrumb-lang-wrap select.breadcrumb-lang:hover,
 .breadcrumb-lang-wrap select.breadcrumb-lang:focus-visible {
   background: var(--panel);
-  outline: none;
 }
 
 .breadcrumb-lang-caret {
@@ -244,6 +249,25 @@ h2 {
   color: var(--dim);
   font-size: var(--text-sm);
   margin: 0 0 12px;
+}
+
+/*
+ * Quieter than body text — the counterpart to `.gain`.
+ *
+ * This had no standalone rule. `.trajectory-step.dim` existed in report.css
+ * and nothing else did, so five uses of `className="dim"` across App.tsx,
+ * Progress.tsx, Today.tsx and ActivityReport.tsx rendered at full --ink: an
+ * em-dash placeholder for "no data", a "not enough history" aside, a Suspense
+ * fallback, and the falling half of a trend pair whose rising half (`.gain`,
+ * green) was styled. The pair read as "improved" versus "improved", which is
+ * worse than unstyled — the distinction the markup was making disappeared.
+ *
+ * Here rather than beside `.gain` in activity.css because it is not an
+ * activity-screen thing: App.tsx's route fallback uses it, and base.css is
+ * the global layer.
+ */
+.dim {
+  color: var(--dim);
 }
 
 /*
@@ -352,16 +376,56 @@ button.rec {
    script moves focus to a heading or region, so these use plain `:focus` —
    otherwise the focus move is silent for a sighted keyboard user, who then
    cannot tell where they now are. They are tabIndex -1, so this can only ever
-   appear as a result of the move, never from tabbing. */
+   appear as a result of the move, never from tabbing.
+
+   Wider offset than the shared ring below, deliberately: what gets focused
+   this way is a heading or a whole region, and a ring tight against a block
+   of text reads as a box around the text rather than as "you are here". */
 [tabindex="-1"]:focus {
-  outline: 2px solid var(--signal);
+  outline: var(--focus-ring);
   outline-offset: 4px;
   border-radius: 4px;
 }
 
-button:focus-visible {
-  outline: 2px solid var(--signal);
-  outline-offset: 2px;
+/* ── the focus ring ───────────────────────────────────────────────────────────
+ *
+ * One treatment, every interactive role. This used to be `button` alone, plus
+ * two anchors that changed colour and nothing else, plus a select that set
+ * `outline: none` — so most controls showed whichever ring their browser felt
+ * like drawing, the anchors relied on colour alone (WCAG 1.4.1), and the
+ * language select showed nothing at all.
+ *
+ * The selector list is the same set of roles that src/e2e/accessibility.test.tsx
+ * calls INTERACTIVE — "everything that takes a pointer or a keypress". That
+ * file states in its own header that it is blind to this: "a rule that removed
+ * every focus ring in the product would not disturb one assertion here (WCAG
+ * 2.4.7)". src/styles/focus.test.ts is what checks it, and it reads the role
+ * list out of that file rather than keeping a second copy.
+ *
+ * The ARIA-role selectors match nothing today — role="switch" in this app is
+ * on a real <button>, so `button` already covers it. They are here because the
+ * cost of a div-with-a-role appearing later and silently having no ring is
+ * much higher than the cost of five unmatched selectors now.
+ *
+ * Colour, width and offset all come from tokens, so the ring follows the
+ * theme; see the focus block in tokens.css for the contrast measurements on
+ * both ends of the palette.
+ */
+a[href]:focus-visible,
+button:focus-visible,
+input:not([type="hidden"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[role="switch"]:focus-visible,
+[role="checkbox"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .prompt {
