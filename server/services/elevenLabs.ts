@@ -400,10 +400,21 @@ export async function synthesise(request: SynthesisRequest): Promise<Synthesis |
    * and only shipped the `hasChosenVoice` predicate, which is the more
    * embarrassing half: the guard was documented, agreed with, and absent.
    *
-   * An explicit `request.voiceId` bypasses this, because naming a voice at
-   * the call site is a decision rather than a default falling through.
+   * Keyed on the **effective** voice, not on whether a caller passed one.
+   *
+   * The first version of this guard asked `request.voiceId === undefined`,
+   * and it did not hold: `modelVoice/cache.ts` resolves `voiceIdFor()` itself
+   * and passes the result along, so a default arrived looking exactly like a
+   * deliberate choice and the guard stepped aside. Ten Hindi phrases were
+   * generated in the placeholder's English accent before anything noticed —
+   * one commit after a message claiming this was prevented.
+   *
+   * Asking about the resolved voice instead cannot be defeated by an
+   * intermediate layer, which is the property that was actually wanted. A
+   * caller who genuinely wants a specific voice names a specific voice; the
+   * placeholder is by definition the absence of that.
    */
-  if (request.voiceId === undefined && !hasChosenVoice(request.language)) {
+  if (voice === PLACEHOLDER_VOICE_ID) {
     logger.warn(
       { language: request.language, placeholder: PLACEHOLDER_VOICE_ID },
       "[elevenLabs] no voice chosen for this language — refusing rather than teaching it in the placeholder's accent. Set ELEVENLABS_VOICE_IDS or add it to OWNER_VOICE_IDS.",

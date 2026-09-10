@@ -259,6 +259,30 @@ describe("the chosen-voice guard", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("still refuses when the placeholder is handed to it explicitly", async () => {
+    /**
+     * The bypass that defeated the first version of this guard, pinned.
+     *
+     * `modelVoice/cache.ts` resolves `voiceIdFor()` itself and passes the
+     * result along, so a default arrived indistinguishable from a deliberate
+     * choice. Asking `request.voiceId === undefined` therefore stepped aside
+     * and ten Hindi phrases were synthesised in an English accent. The guard
+     * now asks about the *effective* voice, which no intermediate layer can
+     * launder.
+     */
+    const { impl, calls } = stubFetch(alignedBody("नमस्ते"));
+
+    const result = await synthesise({
+      text: "नमस्ते",
+      language: "hi-IN",
+      voiceId: PLACEHOLDER_VOICE_ID,
+      fetchImpl: impl,
+    });
+
+    expect(result).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
   it("honours an explicitly named voice for that same language", async () => {
     // Naming a voice at the call site is a decision, not a default falling
     // through — so the guard must not block a deliberate one-off.

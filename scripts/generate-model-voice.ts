@@ -164,7 +164,14 @@ async function main(): Promise<void> {
   }
 
   console.log("");
-  report(await fillCache(sets, { prune: !keepStale }));
+  /**
+   * `speakable`, not `sets`. `fillCache` resolves the voice per language and
+   * passes it to `synthesise`, so handing it a language with no chosen voice
+   * once produced ten Hindi phrases in the placeholder's English accent — the
+   * plan said "skip: hi-IN" while the run generated it anyway, because only
+   * the printing had been filtered.
+   */
+  report(await fillCache(speakable, { prune: !keepStale }));
 }
 
 await main();
