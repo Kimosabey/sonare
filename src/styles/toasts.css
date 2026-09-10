@@ -30,8 +30,8 @@
   border-radius: 10px;
   border: 1px solid var(--rule);
   border-left-width: 6px;
-  background: #fff;
-  box-shadow: 0 8px 28px rgb(22 32 43 / 18%);
+  background: var(--surface);
+  box-shadow: var(--elev-2);
   font-size: 16px;
   animation: toast-in 0.18s ease-out;
 }

@@ -11,7 +11,7 @@
 .modes button {
   border: none;
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
   color: var(--dim);
   font-family: var(--mono);
   font-size: 11px;
@@ -28,7 +28,7 @@
 
 .modes button[aria-pressed="true"] {
   background: var(--signal);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .listening {

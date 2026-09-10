@@ -2,7 +2,7 @@
   height: 36px;
   border: 1px solid var(--rule);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   margin: 14px 0;
   position: relative;
   overflow: hidden;
@@ -74,9 +74,9 @@
 @keyframes meter-hot-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(192, 39, 60, 0.28);
+    box-shadow: 0 0 0 0 rgb(var(--fail-rgb) / 28%);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(192, 39, 60, 0);
+    box-shadow: 0 0 0 4px rgb(var(--fail-rgb) / 0%);
   }
 }

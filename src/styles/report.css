@@ -16,7 +16,7 @@
 }
 
 .overall div {
-  background: #fff;
+  background: var(--surface);
   padding: 13px 10px;
   text-align: center;
   animation: rise-in var(--dur-standard) var(--ease) both;
@@ -187,13 +187,13 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: 0 0 0 0 rgb(65 0 154 / 22%);
+  box-shadow: 0 0 0 0 rgb(var(--signal-rgb) / 22%);
   animation: sy-sound 700ms var(--ease) infinite;
   pointer-events: none;
 }
 @keyframes sy-sound {
   to {
-    box-shadow: 0 0 0 8px rgb(65 0 154 / 0%);
+    box-shadow: 0 0 0 8px rgb(var(--signal-rgb) / 0%);
   }
 }
 
@@ -228,7 +228,7 @@
   padding: 11px 12px;
   min-height: 44px;
   cursor: pointer;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   font-size: 15px;
   font-weight: 400;
@@ -334,7 +334,7 @@
   border: 1px solid var(--rule);
   border-bottom-width: 3px;
   border-radius: var(--radius-lg);
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   font-family: var(--sans);
   font-size: 14px;

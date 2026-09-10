@@ -43,8 +43,8 @@
   width: 21px;
   height: 21px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgb(22 32 43 / 30%);
+  background: var(--knob);
+  box-shadow: var(--elev-1);
 }
 
 .switch-text {
@@ -99,7 +99,7 @@
 .interim-bar {
   height: 5px;
   border-radius: 3px;
-  background: #fff;
+  background: var(--surface);
   overflow: hidden;
   margin-top: 10px;
   border: 1px solid var(--rule);

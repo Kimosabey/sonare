@@ -11,7 +11,7 @@ body {
      lilac bloom top-right, a faint lift from below. `fixed` so the wash
      belongs to the viewport and doesn't slide around under a scrolling
      report. Paint-only — no layout, no compositing cost per frame. */
-  background-color: var(--paper);
+  background-color: var(--ground);
   color: var(--ink);
   font-family: var(--sans);
   font-size: 15px;
@@ -264,7 +264,7 @@ select {
   padding: 10px 12px;
   border: 1px solid var(--rule);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
 }
 
@@ -296,7 +296,7 @@ button {
   border-radius: 10px;
   border: 1.5px solid var(--signal);
   background: var(--signal);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
   transition: transform var(--dur-quick) var(--ease);
 }
@@ -326,10 +326,10 @@ button.rec {
 @keyframes rec-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgb(192 39 60 / 35%);
+    box-shadow: 0 0 0 0 rgb(var(--fail-rgb) / 35%);
   }
   50% {
-    box-shadow: 0 0 0 10px rgb(192 39 60 / 0%);
+    box-shadow: 0 0 0 10px rgb(var(--fail-rgb) / 0%);
   }
 }
 

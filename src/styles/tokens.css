@@ -7,20 +7,46 @@
    light background — and Lingotran defines no amber/warning token at all. */
 
 :root {
-  /* Near-white, with a whisper of the brand violet rather than the old warm
-     cream (#faf6f0). The cream was doing real work — it was the only thing
-     separating the ground from the 12 #fff card surfaces layered on it — so
-     going whiter would normally flatten the hierarchy. Two things hold it
-     together instead: every one of those surfaces carries a --rule border,
-     and the tint gradients below give the ground colour variation a flat
-     white cannot. */
-  --paper: #fcfbfe;
+  /* ══ depth ═══════════════════════════════════════════════════════════════
+   *
+   * Three planes, named by how far from the reader they sit: --ground is the
+   * page, --surface is a card standing on it, --panel is a tinted region
+   * inside or beside a card. Colour was already tokenised here; *depth* was
+   * not, and that asymmetry was the load-bearing gap. --ground existed (as
+   * --paper), but the twelve things standing on it were the literal `#fff`
+   * this comment used to merely count — so any change to the ground repainted
+   * the backdrop and left every card behind at a fixed white. That is the
+   * single reason a theme could not be swapped, and naming the middle plane
+   * is what fixes it.
+   *
+   * Near-white rather than the old warm cream (#faf6f0). The cream was doing
+   * real work — it was the only thing separating the ground from the surfaces
+   * layered on it — so going whiter would normally flatten the hierarchy. Two
+   * things hold it together instead: every one of those surfaces carries a
+   * --rule border, and the tint gradients below give the ground colour
+   * variation a flat white cannot.
+   */
+  --ground: #fcfbfe;
+  --surface: #ffffff;
+  --panel: #f0e6ff; /* Lilac */
+
+  /* Not a surface, and the distinction matters: a knob has to be *found*
+     against the track it rides on, where a card only has to sit behind its
+     own text. Lumping it in with --surface would read correctly here and
+     leave it invisible the moment the surfaces move. */
+  --knob: #ffffff;
+
+  /* What goes on top of a filled semantic colour (--signal, --fail) rather
+     than on a surface. White reads on both here — 12.42:1 on --signal,
+     5.84:1 on --fail — but "white" is the wrong name for it: the value has
+     to follow the fill's lightness, not stay white. */
+  --on-accent: #ffffff;
+
   /* The tint wash. Kept as tokens so the gradient stack below reads as one
      decision, and so an accent change is one line, not three. */
   --tint-violet: rgba(65, 0, 154, 0.055);
   --tint-lilac: rgba(240, 230, 255, 0.85);
   --tint-violet-faint: rgba(65, 0, 154, 0.035);
-  --panel: #f0e6ff; /* Lilac */
   --ink: #1a0b2e; /* Ink Deep */
   --rule: #dddddd; /* Border */
   --dim: #666666; /* Muted */
@@ -35,6 +61,38 @@
   --warn-soft: #fcf3e3;
   --fail: #c0273c;
   --fail-soft: #fbe9ec;
+
+  /* ══ elevation ═══════════════════════════════════════════════════════════
+   *
+   * Two steps, because the stylesheet only ever had two real shadows: a 1px
+   * seat under the switch knob and a 28px lift under a toast. They were
+   * hand-rolled at the point of use, which reads as a preference and is
+   * actually a dependency — both are tuned to a near-white backdrop, and a
+   * shadow tuned for white is invisible on near-black. Tokenised, the tuning
+   * lives in one place that a theme can restate.
+   *
+   * The geometry (offset/blur/spread) is the shape of the object and stays
+   * fixed across themes; only the ink changes.
+   */
+  --elev-1: 0 1px 3px rgb(22 32 43 / 30%);
+  --elev-2: 0 8px 28px rgb(22 32 43 / 18%);
+
+  /* ══ ring channels ═══════════════════════════════════════════════════════
+   *
+   * The other six box-shadows are not elevation — they are the expanding
+   * rings of the three attention pulses (mic live, meter overdriven,
+   * syllable playing), and each was written as a literal duplicate of the
+   * semantic colour it belongs to: rgb(192 39 60) is --fail, rgb(65 0 154)
+   * is --signal. A palette change missed all six silently.
+   *
+   * Held as bare channels rather than colours because each pulse needs the
+   * same hue at two different alphas within one @keyframes, and the build
+   * targets Safari 15 / Chrome 90 (vite.config.ts) where color-mix() does
+   * not exist. `rgb(var(--fail-rgb) / 28%)` is the portable spelling and
+   * resolves byte-identically to what was there.
+   */
+  --signal-rgb: 65 0 154;
+  --fail-rgb: 192 39 60;
   /**
    * Nunito covers Latin, Latin-Ext, Cyrillic and Greek — and no Devanagari.
    * Every Hindi prompt therefore fell past it to whatever system font the
