@@ -112,6 +112,42 @@ function isDuplicateKey(err: unknown): boolean {
  * not a ceiling. The cost of being wrong in this direction is a learner told
  * to try again shortly; in the other direction it is an unbounded bill.
  */
+/**
+ * Hands back a reservation the provider never spent.
+ *
+ * `withDailyCap` must reserve *before* calling the provider — reserving after
+ * would let N concurrent requests each pass an un-incremented check and
+ * overshoot the cap by N, which is the whole reason the reservation exists.
+ * But the provider can then decline without making a billable call: an open
+ * circuit breaker refuses at the top of `AzureSpeech.score`, before any
+ * request leaves the machine.
+ *
+ * Measured before this existed: **203 reservations for 6 provider calls and 0
+ * billable seconds.** A sustained outage burnt the entire 2000-call day and
+ * then told every learner scoring had reached its daily limit — having spent
+ * nothing at all. The ceiling exists to bound a bill; it was bounding
+ * availability instead.
+ *
+ * Deliberately floored at zero and deliberately not an error path: a refund
+ * that fails leaves the day counted slightly high, which errs toward spending
+ * less than the cap allows. That is the safe direction for a ceiling, and it
+ * is the reason this returns void and only logs — a caller must never be able
+ * to fail a learner's take because a refund did not land.
+ */
+export async function releaseScoringCall(when: Date = new Date()): Promise<void> {
+  const day = utcDay(when);
+  try {
+    const db = await getDb();
+    await db
+      .collection<CounterDocument>("counters")
+      // `calls: { $gt: 0 }` so a refund can never drive the day negative and
+      // hand out an allowance nobody reserved.
+      .updateOne({ _id: counterId(day), calls: { $gt: 0 } }, { $inc: { calls: -1 } });
+  } catch (err) {
+    logger.warn({ err, day }, "[counters] could not return an unspent reservation — the day stays counted");
+  }
+}
+
 export async function reserveScoringCall(cap: number, when: Date = new Date()): Promise<Reservation> {
   // A cap of zero means no scoring, matching the existing `count >= cap`
   // behaviour. Checked before the query because an upsert against a filter

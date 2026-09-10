@@ -209,6 +209,13 @@ export class AzureSpeechProvider implements ScoringProvider {
         domain: "provider",
         message: `circuit open after ${this.consecutiveFailures} consecutive Azure failures`,
         userMessage: "Scoring is temporarily unavailable. Please try again in a moment.",
+        /**
+         * Nothing left the machine on this path — the refusal happens before
+         * the SDK is touched, so the caller's reservation is unspent and
+         * `withDailyCap` gives it back. Without this an outage consumed the
+         * whole day's allowance at 203 reservations per 6 real calls.
+         */
+        providerNotCalled: true,
       });
     }
 

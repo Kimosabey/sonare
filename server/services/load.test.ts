@@ -1137,19 +1137,26 @@ describe("the circuit breaker under a flood", () => {
     expect(sdkCalls).toBe(callsBeforeFlood);
 
     /**
-     * And the cost that is *not* zero, pinned so it cannot change quietly.
+     * And the cost, which this test was written to expose and now guards.
      *
-     * `withDailyCap` reserves against the shared daily counter before it calls
-     * the provider (services/index.ts), and the breaker refuses inside the
-     * provider — so every one of those 203 refused requests still claimed a
-     * day's worth of allowance for a call that never happened. Six provider
-     * calls, 203 charges. This is a real defect, reported rather than smoothed
-     * over, and this assertion is what makes it visible.
+     * As first measured this read `FAILURES_TO_OPEN + 200` — **203 charges
+     * against 6 provider calls and 0 billable seconds.** `withDailyCap`
+     * reserves before calling the provider (it must: reserving afterwards
+     * would let concurrent requests overshoot the cap), and the breaker
+     * refuses *inside* the provider, so every absorbed request claimed a
+     * day's allowance for a call that never happened. A sustained outage
+     * burnt the whole 2000-call day and then told learners scoring had
+     * reached its daily limit — the ceiling bounding availability instead of
+     * a bill.
+     *
+     * Now the breaker's refusal carries `providerNotCalled` and the
+     * reservation is handed back, so the day is charged only for calls that
+     * actually left the machine: three, one per failed call the breaker
+     * counted. The 200 it absorbed cost nothing.
      */
-    expect(spendCounter()?.calls).toBe(FAILURES_TO_OPEN + 200);
-    // Zero billable seconds against 203 charges: the field is only there
-    // because reserveScoringCall's `$setOnInsert` created it, and nothing ever
-    // recorded an outcome because nothing ever reached the provider.
+    expect(spendCounter()?.calls).toBe(FAILURES_TO_OPEN);
+    // Still zero billable seconds — nothing reached the vendor — but now the
+    // charge count agrees with that instead of contradicting it.
     expect(spendCounter()?.billableSeconds).toBe(0);
   });
 

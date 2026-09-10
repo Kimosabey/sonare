@@ -8,7 +8,7 @@ import { logger } from "../logger.js";
 import { AzureSpeechProvider } from "./azureSpeech.js";
 import type { PronunciationResult, ScoringProvider } from "./types.js";
 import { numberFromEnv } from "../env.js";
-import { reserveScoringCall } from "../counters.js";
+import { releaseScoringCall, reserveScoringCall } from "../counters.js";
 import { increment } from "../infra/metrics.js";
 
 let cached: ScoringProvider | null = null;
@@ -98,7 +98,36 @@ function withDailyCap(provider: ScoringProvider): ScoringProvider {
         // Keep the local figure in step, so a mid-day outage does not hand out
         // a second full allowance on top of what has already been spent.
         localCount = Math.max(localCount, reservation.calls);
-        return provider.score(wav, referenceText, language);
+        try {
+          return await provider.score(wav, referenceText, language);
+        } catch (err) {
+          /**
+           * Give the reservation back when nothing was spent.
+           *
+           * The reservation has to come first — reserving after the call would
+           * let N concurrent requests each pass an un-incremented check and
+           * overshoot the cap by N. But the provider can refuse without
+           * spending anything: an open breaker declines at the top of
+           * `score()`, before the SDK is touched.
+           *
+           * Measured before this: **203 reservations for 6 provider calls and
+           * 0 billable seconds.** A sustained outage burnt the whole day and
+           * then told every learner scoring had hit its daily limit, having
+           * spent nothing. The ceiling was bounding availability rather than a
+           * bill.
+           *
+           * Keyed on the error's own `providerNotCalled` and never on the
+           * code: `PROVIDER_UNAVAILABLE` is raised from a dozen places, some
+           * of them after a call that was genuinely paid for. Anything that
+           * cannot prove it was free stays counted, which errs toward
+           * spending less than the cap allows — the safe direction here.
+           */
+          if (err instanceof AppError && err.providerNotCalled) {
+            await releaseScoringCall();
+            localCount = Math.max(0, localCount - 1);
+          }
+          throw err;
+        }
       }
 
       if (reservation.reason === "at-cap") throw atCap();

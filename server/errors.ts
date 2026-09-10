@@ -33,14 +33,29 @@ export class AppError extends Error implements TypedError {
   readonly domain: ErrorDomain;
   readonly userMessage: string;
   readonly status: number;
+  /**
+   * True when the failure happened *before* anything reached the provider, so
+   * nothing was spent and no paid call was made.
+   *
+   * Narrow on purpose. `PROVIDER_UNAVAILABLE` is raised from a dozen places,
+   * several of them after a real request has already been paid for, so the
+   * code alone cannot answer "was this billable?" — and the one caller that
+   * needs the answer is returning money. Set it only where you can see that
+   * no request left the machine.
+   *
+   * Absent means "assume it was spent", which is the safe default for a
+   * spend ceiling: it over-counts rather than handing out an allowance twice.
+   */
+  readonly providerNotCalled: boolean;
 
-  constructor(init: TypedError & { status?: number }) {
+  constructor(init: TypedError & { status?: number; providerNotCalled?: boolean }) {
     super(init.message);
     this.name = "AppError";
     this.code = init.code;
     this.domain = init.domain;
     this.userMessage = init.userMessage;
     this.status = init.status ?? (init.domain === "client" ? 400 : 502);
+    this.providerNotCalled = init.providerNotCalled ?? false;
   }
 
   toJSON(): TypedError {
