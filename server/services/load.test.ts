@@ -1367,7 +1367,20 @@ describe("480 concurrent oversize uploads", () => {
     const alive = await fetch(`${app.base}/healthz`);
     expect(alive.status).toBe(200);
     expect(await scoreOnce(app.base, 900)).toEqual({ status: 200, code: null });
-  });
+    /**
+     * 120s, matching the soak case below, because vitest's default is 5s and
+     * 480 concurrent multi-megabyte uploads do not finish inside it while the
+     * other 137 files are competing for the same machine.
+     *
+     * This failed twice in a row in the full suite and passed every time
+     * alone, which looked like the flakes already known here and was not one:
+     * every assertion in this case is structural — all 480 refused, nothing
+     * spent, still serving — and none of them is timing-dependent. The only
+     * wall-clock constraint was the *harness* budget, which is exactly the
+     * kind of implicit timing assertion this file set out to avoid, and it
+     * was left implicit by being left at its default.
+     */
+  }, 120_000);
 });
 
 /* ══ 5. the soak — human-run, `npm run soak` ═══════════════════════════════ */
