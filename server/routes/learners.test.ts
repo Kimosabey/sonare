@@ -429,6 +429,20 @@ function fillEverything(learnerId: string): void {
     hits: 3,
     expiresAt: new Date("2026-09-01T10:02:00.000Z"),
   });
+  /**
+   * A device link code, keyed on the digest rather than on anything a reader
+   * could turn back into a code — which is why the `_id` here is a made-up
+   * opaque string and not derived from the learner. Seeded rather than minted
+   * because this file is about the export and the deletion; linkCodes.test.ts
+   * and learners.link.test.ts own the mechanism.
+   */
+  col("linkcodes").set(`digest-for-${learnerId}`, {
+    _id: `digest-for-${learnerId}`,
+    learnerId,
+    createdAt: new Date("2026-09-01T10:00:00.000Z"),
+    expiresAt: new Date("2026-09-01T10:10:00.000Z"),
+    claimedAt: null,
+  });
   col("progress").set(`${learnerId}:fr`, {
     _id: `${learnerId}:fr`,
     learnerId,
@@ -480,6 +494,11 @@ describe("exporting a learner's own record", () => {
     expect(body.collections["attempts"]).toHaveLength(1);
     expect(body.collections["diagnostics"]).toHaveLength(1);
     expect(body.collections["ratelimits"]).toHaveLength(1);
+    expect(body.collections["linkcodes"]).toHaveLength(1);
+    // Summaries, and never the digest. The row is the learner's own, but an
+    // export is a file that gets mailed and uploaded, and a digest plus this
+    // server's secret is a live credential.
+    expect(JSON.stringify(body.collections["linkcodes"])).not.toContain("digest-for-");
     expect(body.collections["progress"]).toHaveLength(1);
     expect(body.collections["skills"]).toHaveLength(1);
     expect(body.collections["streaks"]).toMatchObject({ days: ["2026-09-01"], longest: 1 });

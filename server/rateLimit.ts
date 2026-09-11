@@ -86,3 +86,118 @@ export const perLearnerScoringLimiter = rateLimit({
     },
   },
 });
+
+/**
+ * ── device linking ───────────────────────────────────────────────────────────
+ *
+ * A link code (linkCodes.ts) is a bearer credential that grants full read,
+ * write and delete access to a learner's record, so the claim endpoint is a
+ * guessing surface and is limited as one rather than as a cheap read. The
+ * numbers here are half of the brute-force arithmetic written out in
+ * linkCodes.ts's `CODE_LENGTH`; changing one without the other invalidates it.
+ */
+
+/** Exported so the tests assert against the limit in force, not a copy of it. */
+export const LINK_CLAIM_WINDOW_MS = 600_000;
+export const LINK_CLAIM_PER_ADDRESS_LIMIT = 10;
+export const LINK_CLAIM_GLOBAL_WINDOW_MS = 60_000;
+export const LINK_CLAIM_GLOBAL_LIMIT = 600;
+export const LINK_MINT_WINDOW_MS = 600_000;
+export const LINK_MINT_PER_LEARNER_LIMIT = 5;
+
+const LINK_CLAIM_REFUSAL = {
+  error: {
+    code: "RATE_LIMITED",
+    domain: "client",
+    message: "too many link attempts",
+    userMessage: "Too many attempts. Wait a few minutes, then get a fresh code from your other device.",
+  },
+};
+
+/**
+ * The per-address claim ceiling: ten attempts per ten minutes.
+ *
+ * Tighter than `diagnosticsLimiter`'s 120 a minute, because a learner typing a
+ * code they are looking at needs one attempt and two on a bad day, and
+ * anything past ten from one address inside a code's whole lifetime is not a
+ * person typing.
+ *
+ * `diagnosticsLimiter` is deliberately **not** also applied to the claim
+ * route, and not because it would be too loose. Both limiters key on the
+ * caller's address and both are backed by a `MongoRateLimitStore`, and
+ * express-rate-limit treats two increments of one key within a single request
+ * as a bug (`ERR_ERL_DOUBLE_COUNT`) — so stacking them would log an error on
+ * every claim while adding nothing this limiter does not already do.
+ */
+export const linkClaimLimiter = rateLimit({
+  store: new MongoRateLimitStore("link-claim"),
+  windowMs: LINK_CLAIM_WINDOW_MS,
+  limit: LINK_CLAIM_PER_ADDRESS_LIMIT,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: LINK_CLAIM_REFUSAL,
+});
+
+/**
+ * The ceiling a botnet cannot step around: 600 wrong codes a minute, total.
+ *
+ * A per-address limit bounds one attacker and does nothing about ten thousand
+ * addresses, which is the shape a credential-guessing attack actually has. So
+ * this one is keyed on a constant — every claim in the world counts against
+ * one budget — and it is what makes the arithmetic in linkCodes.ts hold
+ * against an attacker of unbounded size rather than only against a polite one.
+ *
+ * `skipSuccessfulRequests` makes it a budget for *wrong* answers. A successful
+ * claim is decremented back out, so ordinary use never consumes it and the
+ * ceiling is spent only on failures.
+ *
+ * The cost, stated rather than hidden: a global ceiling is a lever, and an
+ * attacker willing to burn 600 attempts a minute can pause device linking for
+ * the rest of that minute for everybody. That is accepted knowingly. It
+ * suspends a rare, retriable, one-time flow for under a minute, where the
+ * alternative is an unbounded guessing surface against a credential that can
+ * delete a learner's record — and 600 failures a minute is orders of magnitude
+ * above any legitimate volume, so no real learner reaches it.
+ */
+export const linkClaimGlobalLimiter = rateLimit({
+  store: new MongoRateLimitStore("link-claim-all"),
+  // One bucket for the whole service. Deliberately not the address, and
+  // therefore not subject to the IPv6 helper the default generator needs.
+  keyGenerator: () => "all",
+  windowMs: LINK_CLAIM_GLOBAL_WINDOW_MS,
+  limit: LINK_CLAIM_GLOBAL_LIMIT,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: LINK_CLAIM_REFUSAL,
+});
+
+/**
+ * The minting ceiling: five codes per learner per ten minutes.
+ *
+ * Not about cost — minting is one small write. It bounds how fast a learner
+ * can churn codes, which matters because each mint retires the last one: a
+ * client looping on the button would hand its own learner a stream of codes
+ * that die a moment after being shown.
+ *
+ * Keyed on the learner rather than the address, so it follows them between
+ * networks and does not punish a classroom sharing one. That requires
+ * `requireLearner` to have run first, which is also what makes `?? "anonymous"`
+ * unreachable rather than a shared bucket for strangers.
+ */
+export const linkMintLimiter = rateLimit({
+  store: new MongoRateLimitStore("link-mint"),
+  keyGenerator: (_req, res) => learnerIdFrom(res) ?? "anonymous",
+  windowMs: LINK_MINT_WINDOW_MS,
+  limit: LINK_MINT_PER_LEARNER_LIMIT,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: {
+      code: "RATE_LIMITED",
+      domain: "client",
+      message: "too many link codes requested",
+      userMessage: "You have asked for several codes already. Use the last one, or try again in a few minutes.",
+    },
+  },
+});

@@ -176,6 +176,16 @@ describe.each([
     ["POST", "/api/v1/learners/rotate"],
     ["GET", "/api/v1/learners/me/export"],
     ["DELETE", "/api/v1/learners/me"],
+    ["POST", "/api/v1/learners/me/link"],
+    /**
+     * Unauthenticated by design and on this list anyway, because "protected"
+     * here means "must not serve its purpose with identity switched off"
+     * rather than "sits behind requireLearner". This is the one route that
+     * cannot inherit the check from that middleware — the device claiming a
+     * code has no credential yet — so it does it itself, and if it stopped,
+     * it would be the only door left open when the secret is unset.
+     */
+    ["POST", "/api/v1/learners/link/claim"],
     ["GET", "/api/v1/next?slug=fr"],
   ];
 
