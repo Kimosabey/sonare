@@ -120,7 +120,55 @@ product, or as the activity inside Lingotran — the manifest bakes it in) ·
 teacher accounts, which is where real auth belongs and the learner side stays
 anonymous.
 
+## Where to pick this up
+
+**Read this first if you are returning to the queue.**
+
+Everything committed is pushed and green — no half-finished work sits in a
+worktree without a record here. If a wave was in flight when the session ended,
+its agents' commits are on their own `worktree-agent-*` branches and were
+**never integrated**: check `git branch --list "worktree-agent-*"` and cherry-pick
+onto `redesign/course-platform`, gating all five by exit code before each.
+
+**The loop only advances while a session is alive.** Background agents keep
+working, but nothing integrates them without a turn — so a queue that looks
+stalled is usually waiting for an integrator, not for a worker.
+
+**Four decisions cost the owner a sentence each and unblock real work:**
+
+| Decision | Unblocks |
+|---|---|
+| Playwright + axe-core — free, open source, needs a yes not a purchase | **N9, N10, N11** and the automated a11y audit — four testing items that cannot be faked |
+| A second German voice id | Voice variation for the `listen` activity; the `repeat` voice is settled |
+| Sonare as product, or as the activity inside Lingotran | The PWA manifest bakes a name and an icon into the installed app |
+| `SAVE_AUDIO_DIR` privacy posture | The onboarding copy in C7 — "never stored" is not currently supportable |
+
+**And two things no decision can shorten:** T19's eighty recordings, and the
+curriculum — roughly 60 activities per language against the 20 that exist.
+Both have been the critical path for weeks and neither moves with code.
+
 ## Log
+
+- 11 Sep 2026 — **C2 done** (`2ebbc46`). 3252 tests + 1 expected fail + 3
+  soak-only across 143 files, all five gates green. Static budget **split
+  rather than raised**: 205 KiB for bytes every learner parses, 256 KiB **per
+  file** for conditionally-fetched media, because iOS requests one splash frame
+  once at install and a sum measures a transfer nobody makes. The measurement
+  is now a classification asserted to **partition** the build output, so the
+  next unclassified file fails loudly instead of slipping through a `.filter()`
+  — which is how `public/sw.js` had been in no budget at all.
+  **Two process failures of mine, recorded rather than quietly fixed.** I
+  launched agents against this branch while it was five commits stale, so C2
+  reconstructed ~2,500 lines of reviewed code that already existed; the real
+  history is now merged and the reconstruction discarded. And I committed
+  `docs/design/` after running `verify` but **not `lint`**, breaking the gate
+  with 97 errors from the design tool's vendored runtime — having told five
+  agents in a row to read every gate by exit code. A partial gate run reports a
+  clean result for a check that was never made.
+  **Re-export ask for the design side:** all seven splash PNGs are RGBA with
+  every pixel opaque. Alpha-free is **45.4% smaller, losslessly** — 1.09 MiB to
+  ~625 KB — plus 40 KB of canvas metadata currently shipped. Nothing installed
+  can re-encode and `sips` cannot drop an alpha channel.
 
 - 11 Sep 2026 — Queue created. Platform work is done and pushed on
   `revamp/platform`: 50 commits, 3240 tests + 1 expected fail + 3 soak-only
