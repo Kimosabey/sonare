@@ -149,6 +149,26 @@ Both have been the critical path for weeks and neither moves with code.
 
 ## Log
 
+- 12 Sep 2026 — **Correcting yesterday's diagnosis, because it was wrong.**
+  I concluded from three stalls that large items were the problem and that the
+  fix was smaller scope. C5 was then written deliberately narrow to test that —
+  the attempt record and authored distractors, with the screen explicitly out
+  of scope — and it **stalled earlier than any of them, before writing a single
+  line, while still reading files.** Scope was not the variable.
+  The likely cause is environmental. This session hit
+  *"claude-sonnet-5 temporarily unavailable, so auto mode cannot determine the
+  safety of Bash"* twice within minutes. Agents need that same classifier to
+  approve every tool call, so when it times out they cannot proceed, and ten
+  minutes of that is a stall. That explanation covers all five failures
+  including a pure-research agent and one that produced nothing.
+  **So: stop launching agents while it is degraded.** More would produce more
+  stalls and more half-finished worktrees to salvage. Re-launch when a plain
+  Bash call succeeds without a classifier timeout. The briefs were not the
+  problem and do not need rewriting.
+  Worth keeping as a rule of thumb regardless: an agent's work is only as safe
+  as its last commit, and four of five stalls lost uncommitted work. Every
+  brief now says to commit early and report honestly rather than press on.
+
 - 12 Sep 2026 — **C11's mechanism landed** (`f197cf2`); its UI stays open.
   **C12 is parked with a diagnosis, not abandoned.**
   **Three agents stalled or were rate-limited today, all on large items**, and
@@ -157,8 +177,8 @@ Both have been the critical path for weeks and neither moves with code.
   one. I wrote its 24 tests and proved three non-vacuous by mutation — strip
   unknown characters instead of separators, save the token before adopting the
   identity, move the code into the query string; each fails exactly one test.
-  **Scope the remaining items smaller.** A whole screen plus its mechanism is
-  where this keeps breaking; the mechanism alone, or the screen alone, is not.
+  ~~**Scope the remaining items smaller.**~~ **That conclusion was wrong and is
+  corrected below (12 Sep) — the variable was not scope.**
   **C12's formant estimator is on `worktree-agent-aaef63311d55877f0`** and
   deliberately not here. The method is right — pre-emphasis, Hamming frames,
   Levinson-Durbin, peaks of 1/|A| — but it avoided root-solving A(z), so there
