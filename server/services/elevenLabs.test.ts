@@ -42,7 +42,6 @@ vi.mock("../logger.js", () => ({
 /** Every environment variable this module reads, restored after each test. */
 const READS = [
   "ELEVENLABS_API_KEY",
-  "ElevenLabs_API_KEY",
   "ELEVENLABS_MODEL_ID",
   "ELEVENLABS_VOICE_ID",
   "ELEVENLABS_VOICE_IDS",
@@ -104,24 +103,22 @@ describe("the key", () => {
     expect(apiKey()).toBe("conventional");
   });
 
-  it("reads the mixed-case name the .env file actually uses", () => {
+  it("does not read the mixed-case spelling the variable arrived under", () => {
     /**
-     * `process.env` is case-sensitive and the variable was added as
-     * `ElevenLabs_API_KEY` — mixed case, unlike every other name in that file.
-     * Reading only the conventional spelling would leave the feature silently
-     * off with a key present, which looks exactly like a provider outage.
+     * `.env` first carried `ElevenLabs_API_KEY`, and this module accepted it
+     * for exactly as long as that was true — `process.env` is case-sensitive,
+     * so reading only the conventional name would have left the feature
+     * silently off with a key present, which looks like a provider outage.
+     *
+     * The variable has since been renamed. Asserted in the negative rather
+     * than deleted, because a fallback spelling that nothing uses is the kind
+     * of thing that gets re-added by someone who hits the silent-off failure
+     * once and does not find out why it was removed.
      */
     delete process.env.ELEVENLABS_API_KEY;
-    process.env.ElevenLabs_API_KEY = "as-written-in-dot-env";
+    process.env.ElevenLabs_API_KEY = "the-old-spelling";
 
-    expect(apiKey()).toBe("as-written-in-dot-env");
-  });
-
-  it("prefers the conventional name, so renaming it is a one-line edit", () => {
-    process.env.ELEVENLABS_API_KEY = "renamed";
-    process.env.ElevenLabs_API_KEY = "old";
-
-    expect(apiKey()).toBe("renamed");
+    expect(apiKey()).toBeUndefined();
   });
 
   it("treats blank as unset", () => {

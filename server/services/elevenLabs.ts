@@ -51,17 +51,18 @@ import { z } from "zod";
 import { logger } from "../logger.js";
 
 /**
- * The key, read under both spellings.
+ * The key.
  *
- * `process.env` is case-sensitive and the variable was added to `.env` as
- * `ElevenLabs_API_KEY` — mixed case, unlike every other name in that file. The
- * conventional `ELEVENLABS_API_KEY` is read first so renaming it to match the
- * rest is a one-line edit to `.env` with no code change, and the original
- * spelling is kept as a fallback so that rename is not required first. Delete
- * the second half once `.env` has been tidied.
+ * Read under one spelling now. It briefly accepted `ElevenLabs_API_KEY` as
+ * well, because that mixed-case name is how the variable first arrived in
+ * `.env` — and `process.env` is case-sensitive, so reading only the
+ * conventional name would have left the feature silently off with a key
+ * present, which looks exactly like a provider outage. `.env` has since been
+ * renamed to `ELEVENLABS_API_KEY`, matching every other name in that file, so
+ * the fallback is gone rather than left to rot as a spelling nothing uses.
  */
 export function apiKey(): string | undefined {
-  const key = process.env.ELEVENLABS_API_KEY ?? process.env.ElevenLabs_API_KEY;
+  const key = process.env.ELEVENLABS_API_KEY;
   return key === undefined || key.trim() === "" ? undefined : key.trim();
 }
 
