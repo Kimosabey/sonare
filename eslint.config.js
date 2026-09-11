@@ -32,6 +32,22 @@ export default tseslint.config(
     files: ["server/**/*.ts", "scripts/**/*.mjs"],
     languageOptions: { globals: globals.node },
   },
+  /**
+   * `public/sw.js` is a classic service worker, served verbatim and never
+   * bundled, so it is plain JS in a scope with neither `window` nor Node. Left
+   * on the defaults, `no-undef` from js.configs.recommended fails the lint
+   * gate on `self`, `caches` and `clients` — real globals in exactly one
+   * environment, which is the one this file runs in. `sourceType: "script"`
+   * for the same reason: package.json says `"type": "module"`, and a classic
+   * worker is not one.
+   */
+  {
+    files: ["public/**/*.js"],
+    languageOptions: {
+      globals: globals.serviceworker,
+      sourceType: "script",
+    },
+  },
   {
     // CLAUDE.md: no `any` in src/speech/ or server/services/.
     files: ["src/speech/**/*.ts", "server/services/**/*.ts"],

@@ -4,6 +4,58 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="icon" href="/brand/icon.png" />
+
+    <!-- ── installable PWA ─────────────────────────────────────────────── -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!--
+      `theme_color` and `background_color` are two different decisions and the
+      manifest is a strict-JSON file with nowhere to say so, so the reasoning
+      lives here.
+
+      theme-color paints *chrome*: the Android status bar, a desktop PWA's
+      title bar. Brand violet (#41009a, the --signal token) is the app's
+      identity and is what should frame it.
+
+      background_color paints the *splash* Chromium generates from the
+      manifest before the first frame, so it has to equal the app's real page
+      background — --ground, #fcfbfe. Violet there would flash the whole
+      screen the wrong colour and hand over to a near-white page, which reads
+      as a bug. Deliberately tied to --ground, and pinned: the manifest test
+      parses both values out of src/styles/tokens.css, so moving the palette
+      fails a test rather than shipping a flash.
+    -->
+    <meta name="theme-color" content="#41009a" />
+    <!--
+      Both spellings, on purpose. `mobile-web-app-capable` is the standard one
+      (Chromium, and Safari from 17); `apple-mobile-web-app-capable` is the
+      older Apple-only name and is still the only one iOS 16 and earlier
+      understands. Drop it and those iPhones open Sonare as a Safari tab with
+      an address bar instead of standalone. Chrome logs a deprecation notice
+      for the Apple spelling — a console notice is cheaper than losing
+      standalone mode on the older half of iOS.
+    -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!--
+      `default` keeps the iOS status bar dark-on-light, which is what reads
+      over --ground. `black-translucent` would slide the app under the status
+      bar, and `viewport-fit=cover` is already set above — the header would
+      land behind the notch.
+    -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Sonare" />
+    <!-- iOS ignores the manifest's icon list. Same 512x512 artwork; iOS
+         downscales it for the home screen. -->
+    <link rel="apple-touch-icon" href="/brand/icon.png" />
+    <!--
+      No `apple-touch-startup-image`. Safari wants one <link> per device
+      resolution with its own `media` query, and none of that artwork exists in
+      this repository. A startup-image tag pointing at a missing file gives a
+      *broken* splash, which is worse than the plain one iOS falls back to —
+      so this stays absent until the images are designed. The manifest test
+      enforces that every local href in this file resolves to a real file.
+    -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

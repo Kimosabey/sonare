@@ -107,6 +107,37 @@
   margin-top: 4px;
 }
 
+/*
+  The answer affordance. One caller today: the service-worker update prompt,
+  which must be *accepted* rather than applied under a learner mid-take
+  (src/pwa/register.ts). Styled as the toast's primary action — filled, not a
+  link — because the alternative to pressing it is ignoring the toast, and an
+  affordance that reads as optional is one nobody presses.
+
+  `min-height: var(--tap)` rather than a literal: this sits under a thumb.
+*/
+.toast-action {
+  display: inline-flex;
+  align-items: center;
+  margin-top: var(--space-4);
+  min-height: var(--tap);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--signal);
+  border-radius: var(--radius-md);
+  background: var(--signal);
+  color: var(--on-accent);
+  font-family: inherit;
+  font-size: var(--text-base);
+  font-weight: 620;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
 .toast-close {
   flex: none;
   background: none;

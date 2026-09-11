@@ -8,7 +8,7 @@
  */
 
 import { Router } from "express";
-import { issueToken, isLearnerId } from "../identity.js";
+import { identityConfigured, issueToken, isLearnerId } from "../identity.js";
 import { registerLearner, deleteLearner, findLearner } from "../store/learners.js";
 import { deleteProgress, readAllProgress } from "../store/progress.js";
 import { deleteSkills, readAllSkills } from "../store/skills.js";
@@ -16,8 +16,19 @@ import { deleteStreak, readStreak } from "../store/streaks.js";
 import { deleteAttemptsFor, listAttemptsFor } from "../attempts.js";
 import { deleteDiagnosticsFor, listDiagnosticsFor } from "../diagnostics.js";
 import { deleteRateLimitsFor, listRateLimitsFor } from "../rateLimitStore.js";
+import {
+  claimLinkCode,
+  deleteLinkCodesFor,
+  listLinkCodesFor,
+  mintLinkCode,
+} from "../linkCodes.js";
 import { learnerIdFrom, requireLearner } from "../middleware/identity.js";
-import { diagnosticsLimiter } from "../rateLimit.js";
+import {
+  diagnosticsLimiter,
+  linkClaimGlobalLimiter,
+  linkClaimLimiter,
+  linkMintLimiter,
+} from "../rateLimit.js";
 import { isAppError } from "../errors.js";
 import { logger } from "../logger.js";
 import { increment } from "../infra/metrics.js";
@@ -45,6 +56,13 @@ export const LEARNER_COLLECTIONS = [
   "attempts",
   "diagnostics",
   "ratelimits",
+  /**
+   * Here for exactly the reason `ratelimits` is. A device link code names a
+   * learner, so it is part of what is held about them — and it is the worst
+   * possible thing to leave behind, because it is a live credential for the
+   * record that was just erased.
+   */
+  "linkcodes",
   "progress",
   "skills",
   "streaks",
@@ -158,6 +176,227 @@ learnersRouter.post("/learners/rotate", diagnosticsLimiter, requireLearner, (_re
 });
 
 /**
+ * ── linking a second device ──────────────────────────────────────────────────
+ *
+ * Mints a short-lived, single-use code bound to the calling learner.
+ *
+ * The learner id stays shared afterwards and the merge layer combines the two
+ * devices' records, so this links rather than transfers: the first device is
+ * not invalidated, and "I bought a new phone" and "I also use a tablet" are
+ * one flow. linkCodes.ts's header has the design and the arithmetic, including
+ * how a link code relates to the bare-learner-id hole the audit found — the
+ * short answer being that it is a deliberately scoped version of it, and not
+ * an argument that the two are interchangeable.
+ *
+ * Three limiters, in this order and for three different reasons:
+ * `diagnosticsLimiter` for blanket abuse volume from one address,
+ * `requireLearner` because only a learner may mint their own code, and
+ * `linkMintLimiter` — which keys on the learner and therefore has to run after
+ * it — to bound how fast one learner can churn codes.
+ */
+learnersRouter.post(
+  "/learners/me/link",
+  diagnosticsLimiter,
+  requireLearner,
+  linkMintLimiter,
+  (_req, res) => {
+    const learnerId = learnerIdFrom(res);
+    if (learnerId === null) {
+      // Unreachable behind requireLearner, handled rather than asserted — an
+      // assertion here would be a crash in a credential path.
+      res.status(401).json({
+        error: {
+          code: "UNAUTHENTICATED",
+          domain: "client",
+          message: "no learner on the request",
+          userMessage: "Please reload the page and try again.",
+        },
+      });
+      return;
+    }
+
+    void (async (): Promise<void> => {
+      try {
+        const minted = await mintLinkCode(learnerId);
+        increment("identity.link.minted");
+        /**
+         * That a link was minted, never the code.
+         *
+         * Logs are copied into tickets, shipped to aggregators and read by
+         * more people than the database is. A code in a log line is a
+         * credential in all of those places, and it would survive there long
+         * after the ten minutes in which it means anything.
+         */
+        logger.info(
+          { learnerId, expiresInSeconds: minted.expiresInSeconds },
+          "[learners] minted a device link code",
+        );
+        res.json({
+          code: minted.code,
+          expiresAt: minted.expiresAt.toISOString(),
+          expiresInSeconds: minted.expiresInSeconds,
+        });
+      } catch (err) {
+        if (isAppError(err)) {
+          res.status(err.status).json({ error: err.toJSON() });
+          return;
+        }
+        logger.error({ err, learnerId }, "[learners] could not mint a device link code");
+        res.status(503).json({
+          error: {
+            code: "PROVIDER_UNAVAILABLE",
+            domain: "server",
+            message: "link code was not stored",
+            // Said plainly, because a code we failed to store is a code that
+            // would be refused — and a learner typing it would conclude the
+            // feature is broken rather than that it should be retried.
+            userMessage: "Could not create a link code. Please try again.",
+          },
+        });
+      }
+    })();
+  },
+);
+
+/**
+ * Claims a code and returns a token for the same learner.
+ *
+ * **Unauthenticated by necessity**, which is the whole point: the device doing
+ * the claiming has no credential yet, and if it had one it would not need to
+ * link. The code is the credential for this one request, and everything
+ * unusual about this handler follows from that.
+ *
+ * No `diagnosticsLimiter` here — see `linkClaimLimiter`'s own comment for why
+ * stacking it would only produce a logged error — and no `requireLearner`. The
+ * two limiters that are here bound a guess from one address and a guess from
+ * any number of them respectively.
+ *
+ * Fails closed with the secret unset, checked here rather than inherited:
+ * every other learner route gets this from `requireLearner`, and this one has
+ * no middleware to get it from. A 503 rather than a 401, because there is
+ * nothing wrong with the caller and a 401 would send them off to register,
+ * which cannot work either.
+ */
+learnersRouter.post("/learners/link/claim", linkClaimLimiter, linkClaimGlobalLimiter, (req, res) => {
+  if (!identityConfigured()) {
+    res.status(503).json({
+      error: {
+        code: "MISCONFIGURED",
+        domain: "server",
+        message: "LEARNER_TOKEN_SECRET is not set",
+        userMessage: "This feature is not available right now.",
+      },
+    });
+    return;
+  }
+
+  // Guarded, not cast, for the same reason registration is: express.json()
+  // leaves req.body undefined for a content type it does not parse, and
+  // reading through it threw out of the handler and answered 500.
+  const body: { code?: unknown } =
+    typeof req.body === "object" && req.body !== null ? req.body : {};
+
+  void (async (): Promise<void> => {
+    /**
+     * One catch around everything, because the alternative is a hung request.
+     *
+     * The identity layer *throws* MISCONFIGURED rather than returning it, so
+     * an escaping error here would leave this handler having sent no response
+     * at all and the claiming device waiting for its own timeout. Measured:
+     * with the check above removed, two tests stopped failing fast and started
+     * timing out after fifteen seconds. The check above is the guard; this is
+     * the floor under it.
+     */
+    try {
+      const outcome = await claimLinkCode(body.code);
+
+      if (outcome.ok) {
+        const token = issueToken(outcome.learnerId);
+        increment("identity.link.claimed");
+        // At warn, like the deletion: a new device gaining full access to a
+        // learner's record is the kind of event somebody reads a log to find.
+        logger.warn({ learnerId: outcome.learnerId }, "[learners] linked a device with a link code");
+        /**
+         * The id as well as the token. The client has to adopt it — its own
+         * `ensureLearnerId` minted a different one — and it is not a
+         * disclosure: the token carries the id in plaintext already, so
+         * making the client parse the token to find it would buy nothing but
+         * a second parser.
+         */
+        res.json({ token, learnerId: outcome.learnerId });
+        return;
+      }
+
+      increment("identity.link.refused");
+
+      if (outcome.reason === "unavailable") {
+        res.status(503).json({
+          error: {
+            code: "PROVIDER_UNAVAILABLE",
+            domain: "server",
+            message: "link claim could not be checked",
+            // Never "that code is wrong" on an error we could not check — a
+            // learner would go and generate another one for no reason.
+            userMessage: "Could not link this device right now. Please try again.",
+          },
+        });
+        return;
+      }
+
+      if (outcome.reason === "malformed") {
+        /**
+         * A distinct answer, and it discloses nothing: a string that is not
+         * the right length or carries a character the alphabet does not
+         * contain cannot be any code that was ever issued, so this says
+         * something about the caller's own typing and nothing about what
+         * exists.
+         */
+        res.status(400).json({
+          error: {
+            code: "INVALID_REQUEST",
+            domain: "client",
+            message: "not a link code",
+            userMessage: "That does not look like a link code. Check it and try again.",
+          },
+        });
+        return;
+      }
+
+      /**
+       * One answer for unknown, expired and already-claimed alike — identical
+       * status, identical body, so a caller cannot learn from a refusal
+       * whether the code exists, existed, or belonged to somebody who is
+       * still using it. Which of the three it was is not logged either:
+       * telling them apart would need a second read, and the reason is only
+       * ever interesting to somebody enumerating.
+       */
+      res.status(401).json({
+        error: {
+          code: "UNAUTHENTICATED",
+          domain: "client",
+          message: "link code is not claimable",
+          userMessage: "That code is not valid any more. Get a fresh one from your other device.",
+        },
+      });
+    } catch (err) {
+      if (isAppError(err)) {
+        res.status(err.status).json({ error: err.toJSON() });
+        return;
+      }
+      logger.error({ err }, "[learners] a link claim failed unexpectedly");
+      res.status(503).json({
+        error: {
+          code: "PROVIDER_UNAVAILABLE",
+          domain: "server",
+          message: "link claim could not be checked",
+          userMessage: "Could not link this device right now. Please try again.",
+        },
+      });
+    }
+  })();
+});
+
+/**
  * Everything this server holds about the learner, as JSON.
  *
  * The smaller half of a data request, and it was missing entirely: a learner
@@ -197,7 +436,7 @@ learnersRouter.get("/learners/me/export", diagnosticsLimiter, requireLearner, (_
 
   void (async (): Promise<void> => {
     try {
-      const [attempts, diagnostics, ratelimits, progress, skills, streaks, learner] =
+      const [attempts, diagnostics, ratelimits, linkcodes, progress, skills, streaks, learner] =
         await Promise.all([
           // One over the cap, so truncation is detected without a second
           // count query — and reported rather than left for the learner to
@@ -205,6 +444,14 @@ learnersRouter.get("/learners/me/export", diagnosticsLimiter, requireLearner, (_
           listAttemptsFor(learnerId, EXPORT_MAX_RECORDS + 1),
           listDiagnosticsFor(learnerId, EXPORT_MAX_RECORDS + 1),
           listRateLimitsFor(learnerId),
+          /**
+           * Summaries, without the digests — see `LinkCodeSummary`. The row
+           * is the learner's own, but an export is a file that gets mailed
+           * and uploaded, and a digest plus this server's secret is a code.
+           * What a person could act on is "you have an unclaimed code, made
+           * then, dying then", and that is what this returns.
+           */
+          listLinkCodesFor(learnerId),
           readAllProgress(learnerId),
           readAllSkills(learnerId),
           readStreak(learnerId),
@@ -215,6 +462,7 @@ learnersRouter.get("/learners/me/export", diagnosticsLimiter, requireLearner, (_
         attempts: attempts.slice(0, EXPORT_MAX_RECORDS),
         diagnostics: diagnostics.slice(0, EXPORT_MAX_RECORDS),
         ratelimits,
+        linkcodes,
         progress,
         skills,
         streaks,
@@ -289,6 +537,21 @@ learnersRouter.delete("/learners/me", diagnosticsLimiter, requireLearner, (_req,
 
   void (async (): Promise<void> => {
     try {
+      /**
+       * The link codes first, and the order is the point.
+       *
+       * Everything else in this sequence is a record; a link code is a live
+       * credential that would let somebody re-establish the identity being
+       * erased. Swept first, a claim cannot land in the window between the
+       * sweep and the last delete and recreate a learner record behind the
+       * deletion's back. Swept last, it could.
+       *
+       * It is also the one step allowed to fail the whole request — see
+       * `deleteLinkCodesFor` — which only works if it runs before anything
+       * has been removed, so a retry starts from a consistent record rather
+       * than from a partly erased one.
+       */
+      await deleteLinkCodesFor(learnerId);
       const attempts = await deleteAttemptsFor(learnerId);
       const diagnostics = await deleteDiagnosticsFor(learnerId);
       /**

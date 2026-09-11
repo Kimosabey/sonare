@@ -151,7 +151,9 @@ function matches(doc: Doc, filter: Filter): boolean {
   for (const [field, condition] of Object.entries(filter)) {
     const value = doc[field];
 
-    if (typeof condition === "object" && condition !== null) {
+    // A Date is an object, so it has to be excluded here or it would be read
+    // as an operator bag with no operators in it and hit the throw below.
+    if (typeof condition === "object" && condition !== null && !(condition instanceof Date)) {
       const ops = condition as { $regex?: unknown; $gt?: unknown; $lt?: unknown };
 
       if (typeof ops.$regex === "string") {
@@ -166,9 +168,31 @@ function matches(doc: Doc, filter: Filter): boolean {
         if (typeof value !== "number" || value >= ops.$lt) return false;
         continue;
       }
+      /**
+       * Dates as well as numbers, for the link-code claim: its filter says
+       * `expiresAt: { $gt: now }`, which is the expiry check itself. Comparing
+       * a Date to a number silently would have made that condition false for
+       * every document and no link would ever have worked; throwing would
+       * have said so, which is why the branch below exists rather than a
+       * loose `>`.
+       */
+      if (ops.$gt instanceof Date) {
+        if (!(value instanceof Date) || value.getTime() <= ops.$gt.getTime()) return false;
+        continue;
+      }
+      if (ops.$lt instanceof Date) {
+        if (!(value instanceof Date) || value.getTime() >= ops.$lt.getTime()) return false;
+        continue;
+      }
       throw new Error(`e2e mock: filter on ${field} uses an operator it does not implement`);
     }
 
+    // A Date on the filter is a value to match, not an operator object — and
+    // two Dates are never `===`, so it needs comparing by instant.
+    if (condition instanceof Date) {
+      if (!(value instanceof Date) || value.getTime() !== condition.getTime()) return false;
+      continue;
+    }
     if (value !== condition) return false;
   }
   return true;
@@ -578,6 +602,147 @@ describe("a second device", () => {
   });
 });
 
+describe("linking a device that does not know the learner id", () => {
+  /**
+   * The block above cheats, and the cheat is worth naming: it calls
+   * `register(LEARNER)` a second time, which works because `POST /learners`
+   * signs whatever well-formed id it is handed. That is fine as a test of the
+   * merge, and useless as a device-linking story — a real second phone has
+   * never seen the id, so there is nothing for it to re-register.
+   *
+   * This is that path. Nothing here passes the learner id to the new device:
+   * it sees ten characters a person typed, and everything else it gets back
+   * from the server.
+   */
+
+  async function mintCode(token: string): Promise<string> {
+    const res = await fetch(`${base}/api/v1/learners/me/link`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...client(token) },
+      body: "{}",
+    });
+    if (res.status !== 200) throw new Error(`mint failed: ${res.status}`);
+    return ((await res.json()) as { code: string }).code;
+  }
+
+  async function claimCode(code: unknown): Promise<Response> {
+    return fetch(`${base}/api/v1/learners/link/claim`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...client() },
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  it("hands the new device its own token for the same learner, and both keep working", async () => {
+    const first = await register(LEARNER, "Marie");
+    await pushSync(
+      {
+        progress: [{ slug: "fr", entries: [{ activityId: 1, passed: true, bestAccuracy: 88, attemptsUsed: 2, skipped: false, at: "2026-09-06T10:00:00.000Z" }] }],
+        streak: { days: ["2026-09-06"], longest: 1 },
+      },
+      first,
+    );
+
+    const claimed = (await (await claimCode(await mintCode(first))).json()) as {
+      token: string;
+      learnerId: string;
+    };
+
+    // The new device finds the record it has never seen.
+    expect(claimed.learnerId).toBe(LEARNER);
+    expect((await pullSync(claimed.token)).streak.days).toEqual(["2026-09-06"]);
+    // And the first device is untouched. A link is not a transfer: "I bought
+    // a new phone" and "I also use a tablet" are the same flow, and the merge
+    // layer is what makes that true rather than a compromise.
+    expect((await pullSync(first)).streak.days).toEqual(["2026-09-06"]);
+  });
+
+  it("merges what the two devices each did afterwards", async () => {
+    const first = await register(LEARNER);
+    await pushSync({ streak: { days: ["2026-09-06"], longest: 1 } }, first);
+    const second = ((await (await claimCode(await mintCode(first))).json()) as { token: string }).token;
+
+    // A day on each, in the order that would lose one under last-write-wins.
+    await pushSync({ streak: { days: ["2026-09-08"], longest: 1 } }, second);
+    const merged = await pushSync({ streak: { days: ["2026-09-07"], longest: 1 } }, first);
+
+    expect(merged.streak.days).toEqual(["2026-09-06", "2026-09-07", "2026-09-08"]);
+    expect((await pullSync(second)).streak.days).toEqual(["2026-09-06", "2026-09-07", "2026-09-08"]);
+  });
+
+  it("lets a third device in only with a code of its own", async () => {
+    // Single use, at the level a learner would meet it: the code that linked
+    // the tablet does not also link the laptop.
+    const first = await register(LEARNER);
+    const code = await mintCode(first);
+
+    expect((await claimCode(code)).status).toBe(200);
+    expect((await claimCode(code)).status).toBe(401);
+
+    expect((await claimCode(await mintCode(first))).status).toBe(200);
+  });
+
+  it("refuses a guess, and the guess never reaches a learner's record", async () => {
+    const first = await register(LEARNER);
+    await pushSync({ streak: { days: ["2026-09-06"], longest: 1 } }, first);
+    const real = await mintCode(first);
+
+    const guessed = await claimCode("23456-789AB");
+
+    expect(guessed.status).toBe(401);
+    expect(((await guessed.json()) as { token?: string }).token).toBeUndefined();
+    // The real code still works, so this is about the guess being wrong
+    // rather than about the collection being empty or the code consumed.
+    expect([...store.keys()].filter((k) => k.startsWith("linkcodes/"))).toHaveLength(1);
+    expect((await claimCode(real)).status).toBe(200);
+  });
+
+  it("writes no code into any log line, minted or claimed", async () => {
+    const { logger } = await import("./logger.js");
+    const first = await register(LEARNER);
+
+    const code = await mintCode(first);
+    await claimCode(code);
+    await claimCode(code);
+
+    const written = JSON.stringify(
+      [logger.info, logger.warn, logger.error, logger.debug].map((fn) => vi.mocked(fn).mock.calls),
+    );
+    expect(written).toContain("minted a device link code");
+    expect(written).toContain("linked a device with a link code");
+    for (const form of [code, code.replace("-", ""), code.toLowerCase()]) {
+      expect(written).not.toContain(form);
+    }
+  });
+
+  it("stores the code nowhere, in any collection", async () => {
+    const first = await register(LEARNER);
+
+    const code = await mintCode(first);
+
+    // The whole store, not only the link-code rows: a credential that leaked
+    // into an attempt or a rate-limit document would be just as available.
+    const dump = JSON.stringify([...store.entries()]);
+    for (const form of [code, code.replace("-", ""), code.toLowerCase()]) {
+      expect(dump).not.toContain(form);
+    }
+  });
+
+  it("refuses to mint for a caller holding only the learner id", async () => {
+    // The audit's finding, which this feature must not widen: the bare id
+    // authorises nothing, including the minting of a code that would.
+    await register(LEARNER);
+
+    const res = await fetch(`${base}/api/v1/learners/me/link`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...client(LEARNER) },
+      body: "{}",
+    });
+
+    expect(res.status).toBe(401);
+  });
+});
+
 describe("what to practise next, from what was scored", () => {
   it("schedules the sound a take just measured", async () => {
     /**
@@ -735,6 +900,21 @@ describe("erasing everything, on request", () => {
     // A read as well as writes: `requireLearner` refreshes `lastSeenAt` on
     // every authenticated request, which is itself a write to `learners`.
     await fetch(`${base}/api/v1/next?slug=fr`, { headers: client(token) });
+
+    /**
+     * And an outstanding device link code, minted through the real endpoint.
+     *
+     * The worst possible leftover: a code that outlives the record it names
+     * is a live credential for an account that has just been erased, and
+     * whoever holds it could re-establish the identity the learner asked us
+     * to destroy. Left unclaimed deliberately — a claimed row lingers too,
+     * but the unclaimed one is the one that still does something.
+     */
+    await fetch(`${base}/api/v1/learners/me/link`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...client(token) },
+      body: "{}",
+    });
 
     // And a rotated token, since a learner who rotates mid-journey must not
     // end up with a record the deletion cannot reach.
@@ -1156,6 +1336,8 @@ describe("the routes are mounted where the client expects", () => {
     ["POST", "/api/v1/sync"],
     ["POST", "/api/v1/pronunciation"],
     ["DELETE", "/api/v1/learners/me"],
+    ["POST", "/api/v1/learners/me/link"],
+    ["POST", "/api/v1/learners/link/claim"],
     ["GET", "/api/v1/next?slug=fr"],
   ])("answers %s %s rather than 404", async (method, path) => {
     /**

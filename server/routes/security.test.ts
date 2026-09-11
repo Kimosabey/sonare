@@ -1052,6 +1052,9 @@ describe("malformed and oversized bodies", () => {
   const WRITES: Array<[string, string, Record<string, string>]> = [
     ["/api/v1/sync", "POST", {}],
     ["/api/v1/learners", "POST", {}],
+    // Unauthenticated, so an unbounded body here is an unbounded allocation
+    // anyone can ask for — the same exposure `/api/v1/learners` has.
+    ["/api/v1/learners/link/claim", "POST", {}],
     ["/api/v1/diagnostics", "POST", {}],
     ["/api/v1/content/fr", "POST", { "x-diagnostics-token": DIAGNOSTICS_TOKEN }],
   ];
@@ -1157,6 +1160,9 @@ describe("malformed and oversized bodies", () => {
   it.each([
     ["/api/v1/sync", "POST"],
     ["/api/v1/learners", "POST"],
+    // The third route that reads through `req.body` while unauthenticated,
+    // and the only one that hands back a credential when it succeeds.
+    ["/api/v1/learners/link/claim", "POST"],
   ])("does not answer a 5xx for a body express.json() never parsed on %s", async (path, method) => {
     const res = await fetch(at(path), {
       method,

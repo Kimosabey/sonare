@@ -148,9 +148,14 @@ export class MongoRateLimitStore implements Store {
         .collection<WindowDocument>("ratelimits")
         .updateOne({ _id: this.documentId(key, start), hits: { $gt: 0 } }, { $inc: { hits: -1 } });
     } catch (err) {
-      // Only reached with skipSuccessfulRequests/skipFailedRequests, neither
-      // of which this project sets. A missed decrement is one request's worth
-      // of over-counting, never an under-count.
+      /**
+       * Only reached with skipSuccessfulRequests/skipFailedRequests. One
+       * limiter sets the first: `linkClaimGlobalLimiter` returns a successful
+       * device link to the budget so the global ceiling is spent only on
+       * wrong codes. A missed decrement is one request's worth of
+       * over-counting, never an under-count — which for that limiter means
+       * the guessing budget shrinks slightly, in the safe direction.
+       */
       logger.error({ err, limiter: this.namespace }, "[ratelimit] failed to decrement");
     }
   }

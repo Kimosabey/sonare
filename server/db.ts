@@ -51,9 +51,20 @@ export function getDb(): Promise<Db> {
  * inside an expiring attempt are rolled into `skills` before it goes
  * (domain/rollup.ts) precisely so the split can be clean.
  *
- * `operational` is neither: counters and rate-limit windows, holding counts
- * and no learner content, each expiring on its own `expiresAt` rather than the
- * shared privacy window.
+ * `operational` is neither: counters, rate-limit windows and device link
+ * codes, each expiring on its own `expiresAt` rather than on the shared
+ * privacy window.
+ *
+ * Two of those three do name a learner, and the class is still right. A
+ * learner-keyed rate-limit window carries their id in its `_id`, and a link
+ * code carries it in a field — but neither is a record *of* anything the
+ * learner did, both are dead within minutes, and both want a life measured in
+ * minutes rather than the ninety days telemetry gets or the forever the
+ * learner's own history gets. What they do inherit from naming a learner is
+ * the obligation to be swept by a deletion request, which is why both appear
+ * in `LEARNER_COLLECTIONS` in routes/learners.ts. A short life is not a
+ * substitute for erasing on request; it is a bound on the damage of missing
+ * one.
  *
  * `aggregate` is daily rollups — counts and means with **no learner content in
  * them at all**, kept indefinitely so a trend outlives the takes it came from.
@@ -192,6 +203,12 @@ export const INDEXES: Record<RetentionClass, IndexSpec[]> = {
       keys: { expiresAt: 1 },
       expireAfterSeconds: 0,
       why: "A closed window is only garbage — a new window is a new document id.",
+    },
+    {
+      collection: "linkcodes",
+      keys: { expiresAt: 1 },
+      expireAfterSeconds: 0,
+      why: "A device link code is a credential with a ten-minute life; this sweep is what makes that life real rather than advisory.",
     },
   ],
 };

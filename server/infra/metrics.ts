@@ -100,6 +100,11 @@ export type CounterName =
   | "sync.pull.failed"
   | "identity.registered"
   | "identity.rejected"
+  /** Device link codes handed out, claimed, and refused. A rise in the last
+      one without a matching rise in the first two is somebody guessing. */
+  | "identity.link.minted"
+  | "identity.link.claimed"
+  | "identity.link.refused"
   | "fallback.written";
 
 const counters = new Map<CounterName, number>();

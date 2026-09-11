@@ -97,6 +97,38 @@ export function issueToken(learnerId: string, now: number = Date.now()): string 
   return `${payload}.${sign(payload)}`;
 }
 
+/**
+ * A keyed digest of a value, so a credential can be recognised without being
+ * stored.
+ *
+ * Written for the device-link codes (linkCodes.ts), which have to be checked
+ * against something the database holds while the database itself holds
+ * nothing that hands out an identity.
+ *
+ * **Keyed**, not a bare SHA-256, and that is the substance rather than a
+ * flourish. A link code is short and human-typeable — a few hundred trillion
+ * possibilities — which is ample against an online guess bounded by a rate
+ * limit and nowhere near enough against an offline one: a stolen table of
+ * plain digests over that keyspace is enumerable on commodity hardware in
+ * hours. Under an HMAC the attacker needs this secret as well, and with this
+ * secret they could forge a token for any learner directly and would have no
+ * use for the codes at all.
+ *
+ * `domain` separates one use of this from the next, with a separator between,
+ * so that ("a", "bc") and ("ab", "c") cannot produce the same digest. Every
+ * domain here is a fixed literal containing no `|`, which is what makes the
+ * separation unambiguous rather than merely likely.
+ *
+ * Lives here rather than in the caller so that exactly one module reads
+ * LEARNER_TOKEN_SECRET. A second reader would be a second place for "unset
+ * means disabled" to be got wrong, and getting it wrong there means a digest
+ * keyed on the empty string — a bare hash wearing an HMAC's name.
+ */
+export function keyedDigest(domain: string, value: string): string {
+  if (!identityConfigured()) throw notConfigured();
+  return createHmac("sha256", SECRET).update(`${domain}|${value}`).digest("base64url");
+}
+
 export type Verification =
   | { ok: true; learnerId: string; issuedAt: number }
   | { ok: false; reason: "malformed" | "bad-signature" | "expired" };

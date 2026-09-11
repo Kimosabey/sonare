@@ -137,6 +137,23 @@ describe("operational data expires on its own horizon", () => {
       expect(Object.keys(spec.keys)).toEqual(["expiresAt"]);
     }
   });
+
+  it("covers every collection whose whole point is a short life", () => {
+    /**
+     * The mirror of the learner-record test above, and it exists because the
+     * invariant next to it can be satisfied by *omission*.
+     *
+     * Every assertion in this block iterates the operational list, so a
+     * collection left off it entirely passes all of them — and the
+     * consequence is not a missing index costing query speed. `linkcodes`
+     * with no TTL is a collection of rows naming learners that accumulates
+     * for ever, while the comment above it says the opposite. So the set is
+     * pinned rather than iterated.
+     */
+    const collections = new Set(INDEXES.operational.map((spec) => spec.collection));
+
+    expect(collections).toEqual(new Set(["counters", "ratelimits", "linkcodes"]));
+  });
 });
 
 describe("creating them", () => {

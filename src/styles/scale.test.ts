@@ -139,9 +139,19 @@ describe("font sizes come from the scale", () => {
   });
 
   test("the scale is actually used, not merely defined", () => {
-    // 58 declarations migrated onto the scale plus the 3 that already used it.
+    /**
+     * 58 declarations migrated onto the scale plus the 3 that already used it,
+     * and then +1 for `.toast-action` — the service-worker update prompt's
+     * button (src/styles/components/toast.css).
+     *
+     * Exact equality on purpose, even though it means every new rule that sets
+     * a font-size has to come past this line. That is the notification: a
+     * declaration added with a literal lands in the census above instead and
+     * fails there, and one added with a var() has to be counted here, so
+     * neither can arrive unnoticed.
+     */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(61);
+    expect(onScale.length).toBe(62);
   });
 });
 
