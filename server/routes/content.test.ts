@@ -525,3 +525,124 @@ describe("the version history", () => {
     expect((await fetch(`${base}/api/v1/content/fr/versions`, { headers: auth })).status).toBe(503);
   });
 });
+
+/**
+ * The course spine across the wire, which is where it would be dropped without
+ * anybody noticing: the route builds its responses from a written-out list of
+ * fields, so a field added to the document and not to the list validates,
+ * stores, and never arrives.
+ */
+describe("publishing and serving a course", () => {
+  const courseActivities = [
+    activity({ id: 1, target: "Bonjour", soundTargets: ["bon", "jour"] }),
+    activity({ id: 2, target: "Bonsoir", soundTargets: ["soir"] }),
+    activity({ id: 3, target: "Merci", soundTargets: ["mer"] }),
+  ];
+
+  const units = [
+    {
+      id: 1,
+      title: "Meeting people",
+      outcome: "You can greet someone and be understood.",
+      lessons: [
+        {
+          id: 1,
+          title: "Hello and goodbye",
+          outcome: "You can say hello and goodbye.",
+          activityIds: [1, 2, 3],
+        },
+      ],
+    },
+  ];
+
+  it("publishes a spine and serves it back to a learner", async () => {
+    const response = await post("fr", body({ activities: courseActivities, units }));
+    expect(response.status).toBe(201);
+
+    const served = (await (await fetch(`${base}/api/v1/content/fr`)).json()) as {
+      units?: { lessons: { activityIds: number[] }[] }[];
+      activities: { soundTargets?: string[] }[];
+    };
+
+    expect(served.units?.[0]?.lessons[0]?.activityIds).toEqual([1, 2, 3]);
+    expect(served.activities[0]?.soundTargets).toEqual(["bon", "jour"]);
+  });
+
+  it("publishes the spine as a new version, leaving the flat one exactly as it was", async () => {
+    /**
+     * The property the whole content store is built on, and the one this
+     * change had to respect rather than work around: the spine is not a
+     * migration of `fr:1`. It is `fr:2`, and a learner mid-sitting keeps the
+     * words — and the shape — they started being scored against.
+     */
+    seed(1);
+
+    const response = await post("fr", body({ baseVersion: 1, activities: courseActivities, units }));
+
+    expect(response.status).toBe(201);
+    expect(store.map((d) => d._id)).toEqual(["fr:1", "fr:2"]);
+    expect(store[0]?.units).toBeUndefined();
+    expect(store[0]?.activities).toHaveLength(1);
+    expect(store[1]?.units).toHaveLength(1);
+  });
+
+  it("refuses a spine whose lesson names an activity that is not there", async () => {
+    const broken = [
+      { ...units[0], lessons: [{ ...units[0]?.lessons[0], activityIds: [1, 2, 99] }] },
+    ];
+
+    const response = await post("fr", body({ activities: courseActivities, units: broken }));
+    const payload = (await response.json()) as { problems?: string[] };
+
+    expect(response.status).toBe(422);
+    expect(payload.problems?.join(" | ")).toMatch(/is not in this set/);
+    expect(store).toHaveLength(0);
+  });
+
+  it("refuses a course whose activities carry no sound targets", async () => {
+    const withoutMapping = courseActivities.map((a) => {
+      const copy = { ...a };
+      delete (copy as Record<string, unknown>)["soundTargets"];
+      return copy;
+    });
+
+    const response = await post("fr", body({ activities: withoutMapping, units }));
+    const payload = (await response.json()) as { problems?: string[] };
+
+    expect(response.status).toBe(422);
+    expect(payload.problems?.join(" | ")).toMatch(/soundTargets cannot be empty/);
+    expect(store).toHaveLength(0);
+  });
+
+  it("still accepts a flat publish from a client that has never heard of units", async () => {
+    /**
+     * The other half of the compatibility claim. A client built before the
+     * spine sends no `units` key at all, and that has to stay a valid publish
+     * rather than becoming an implicit empty course.
+     */
+    const response = await post("fr", body());
+
+    expect(response.status).toBe(201);
+    expect(store[0]?.units).toBeUndefined();
+  });
+
+  it("hands the spine back unvalidated on the version read, because that is the one to repair", async () => {
+    seed(1, {
+      activities: courseActivities,
+      units: [{ ...units[0], lessons: [{ ...units[0]?.lessons[0], activityIds: [1, 2, 99] }] }],
+    });
+
+    const payload = (await (
+      await fetch(`${base}/api/v1/content/fr/versions/1`, { headers: auth })
+    ).json()) as { units?: { lessons: { activityIds: number[] }[] }[] };
+
+    expect(payload.units?.[0]?.lessons[0]?.activityIds).toEqual([1, 2, 99]);
+    // And the learner's read drops the spine rather than serving a hole in it.
+    const served = (await (await fetch(`${base}/api/v1/content/fr`)).json()) as {
+      units?: unknown;
+      activities: unknown[];
+    };
+    expect(served.units).toBeUndefined();
+    expect(served.activities).toHaveLength(3);
+  });
+});

@@ -70,6 +70,23 @@ function served(over: Record<string, unknown> = {}): CachedSet {
   } as CachedSet;
 }
 
+/** One unit of one lesson over three activities — the smallest real spine. */
+const SPINE = [
+  {
+    id: 1,
+    title: "Meeting people",
+    outcome: "You can greet someone and be understood.",
+    lessons: [
+      {
+        id: 1,
+        title: "Hello and goodbye",
+        outcome: "You can say hello and goodbye.",
+        activityIds: [1, 2, 3],
+      },
+    ],
+  },
+];
+
 /** Puts a set straight into storage, as a previous fetch would have. */
 function cache(...sets: unknown[]): void {
   installStorage({
@@ -131,6 +148,70 @@ describe("with content served", () => {
     cache(served({ version: 7 }));
 
     expect(servedVersions()).toEqual({ [FIRST.slug]: 7 });
+  });
+
+  it("resolves a set published before the course spine existed", () => {
+    /**
+     * The compatibility claim from the other direction: a document with no
+     * `units` and no `soundTargets` is not an old document to migrate, it is a
+     * valid shape — three of the four shipped languages still have it — and it
+     * has to keep resolving to a complete, working language.
+     */
+    cache(served());
+    const resolved = resolveLanguage(FIRST.slug);
+
+    expect(resolved?.activities).toHaveLength(1);
+    expect(resolved?.units).toBeUndefined();
+    expect(resolved?.activities[0]?.soundTargets).toBeUndefined();
+  });
+
+  it("carries the course spine through to the screens", () => {
+    /**
+     * The regression this is really about. `resolveLanguage` used to rebuild
+     * the set from a written-out list of four fields, so a fifth would have
+     * been dropped on the floor — the set would validate, every activity would
+     * be there, and the journey would be empty for every learner on served
+     * content with nothing to attribute it to.
+     */
+    cache(served({ activities: [activity({ id: 1 }), activity({ id: 2, target: "Merci" }), activity({ id: 3, target: "Salut" })], units: SPINE }));
+
+    expect(resolveLanguage(FIRST.slug)?.units?.[0]?.lessons[0]?.activityIds).toEqual([1, 2, 3]);
+    expect(resolveLanguages()[0]?.units?.[0]?.title).toBe("Meeting people");
+  });
+
+  it("carries an activity's sound targets, which is what the scheduler joins on", () => {
+    cache(served({ activities: [activity({ soundTargets: ["bon", "soir"] })] }));
+
+    expect(resolveLanguage(FIRST.slug)?.activities[0]?.soundTargets).toEqual(["bon", "soir"]);
+  });
+
+  it("serves the flat list when the spine does not hold up", () => {
+    /**
+     * A journey with a hole in it shows nothing that says so, whereas the flat
+     * list is the shape every screen already handles. So an unreadable spine
+     * costs the spine and never the language.
+     */
+    const broken = [
+      {
+        ...SPINE[0],
+        lessons: [{ id: 1, title: "One", outcome: "You can say hello.", activityIds: [1, 2, 99] }],
+      },
+    ];
+    cache(served({ activities: [activity({ id: 1 }), activity({ id: 2, target: "Merci" }), activity({ id: 3, target: "Salut" })], units: broken }));
+
+    expect(resolveLanguage(FIRST.slug)?.activities).toHaveLength(3);
+    expect(resolveLanguage(FIRST.slug)?.units).toBeUndefined();
+  });
+
+  it("refuses a served activity of a kind it cannot render, and keeps the rest", () => {
+    /**
+     * What an old client does with a course published after it shipped. Its
+     * union has three kinds, so a `recall` row is dropped by its own
+     * validation — it loses that activity and keeps the language, rather than
+     * rendering a blank task. This end has four, so it keeps it.
+     */
+    expect(readCachedSet(served({ activities: [activity({ kind: "recall" })] }))?.activities).toHaveLength(1);
+    expect(readCachedSet(served({ activities: [activity({ kind: "listen" })] }))).toBeNull();
   });
 
   it("ignores a language the bundle has never heard of", () => {

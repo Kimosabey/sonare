@@ -14,9 +14,33 @@
  * falls back to the bundle, which is why the bundle stays.
  */
 
-import type { Activity, LanguageActivitySet } from "../activities/types.js";
+import {
+  ACTIVITY_KINDS,
+  MAX_LESSON_ACTIVITIES,
+  MIN_LESSON_ACTIVITIES,
+  type Activity,
+  type ActivityKind,
+  type LanguageActivitySet,
+  type Lesson,
+  type Unit,
+} from "../activities/types.js";
 
-/** In the key, so a shape change orphans the old cache rather than misreading it. */
+/**
+ * In the key, so a shape change orphans the old cache rather than misreading
+ * it.
+ *
+ * **Deliberately still v1 after the course spine landed**, because that change
+ * is readable in both directions rather than a reinterpretation. A set cached
+ * before units existed has no `units` and no `soundTargets`, which is exactly
+ * what this code reads as "flat language, no spine" — the shape three of the
+ * four shipped languages still have. And a set cached by this version is read
+ * by the previous one as the flat list it also is, because the spine points
+ * into `activities` rather than replacing it.
+ *
+ * Bumping it would have been the safe-looking move and the wrong one: it
+ * evicts every learner's cached content and sends them back to the bundle
+ * until the next successful fetch, to solve a misreading that cannot happen.
+ */
 const SCHEMA_VERSION = "v1";
 
 const STORAGE_KEY = `sonare.content.${SCHEMA_VERSION}`;
@@ -42,22 +66,123 @@ function readActivity(raw: unknown): Activity | null {
   const c = raw as Record<string, unknown>;
 
   if (typeof c["id"] !== "number" || !Number.isFinite(c["id"])) return null;
+  /**
+   * Checked against the exported list rather than a hand-written union. This
+   * check and `ActivityKind` used to be two copies of the same three strings,
+   * and adding a fourth kind (`recall`) to one of them would have left served
+   * content silently discarded by this function while the type said it was
+   * fine.
+   */
   const kind = c["kind"];
-  if (kind !== "repeat" && kind !== "respond" && kind !== "read") return null;
+  if (typeof kind !== "string" || !(ACTIVITY_KINDS as readonly string[]).includes(kind)) return null;
 
   for (const field of ["title", "prompt", "gloss", "target", "focus"]) {
     if (typeof c[field] !== "string" || (c[field] as string).length === 0) return null;
   }
 
+  /**
+   * Sound targets are filtered, never grounds for refusal. An unreadable entry
+   * costs the scheduler a mapping it never had; dropping the activity over one
+   * would cost the learner a phrase. The publish gate is where a bad one is
+   * named and refused.
+   */
+  const rawSounds = c["soundTargets"];
+  const soundTargets = Array.isArray(rawSounds)
+    ? rawSounds.filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    : [];
+
   return {
     id: Math.trunc(c["id"]),
     title: c["title"] as string,
-    kind,
+    kind: kind as ActivityKind,
     prompt: c["prompt"] as string,
     gloss: c["gloss"] as string,
     target: c["target"] as string,
     focus: c["focus"] as string,
+    ...(soundTargets.length > 0 ? { soundTargets } : {}),
   };
+}
+
+/**
+ * The spine, read strictly — all of it or none of it.
+ *
+ * The opposite posture to everything else here, and deliberately. A dropped
+ * activity costs one phrase. A dropped *lesson* leaves a journey with a hole
+ * in it that nothing on screen would explain, so an unreadable spine falls
+ * back to no spine: the flat list in order, which is the shape that shipped
+ * and that every screen already handles.
+ *
+ * Mirrors `readUnits` in server/store/content.ts — the same deliberate
+ * duplication the content types already follow across that boundary, and with
+ * the same guarantee: this end can refuse something the server would serve,
+ * which costs a spine; it cannot accept something the server refuses.
+ */
+function readUnits(raw: unknown, known: ReadonlySet<number>): Unit[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+
+  const unitIds = new Set<number>();
+  const lessonIds = new Set<number>();
+  const covered = new Set<number>();
+  const units: Unit[] = [];
+
+  for (const entry of raw) {
+    if (typeof entry !== "object" || entry === null) return null;
+    const u = entry as Record<string, unknown>;
+
+    const id = u["id"];
+    if (typeof id !== "number" || !Number.isInteger(id) || id < 1 || unitIds.has(id)) return null;
+    unitIds.add(id);
+
+    const title = u["title"];
+    const outcome = u["outcome"];
+    if (typeof title !== "string" || title.trim().length === 0) return null;
+    if (typeof outcome !== "string" || outcome.trim().length === 0) return null;
+
+    const rawLessons = u["lessons"];
+    if (!Array.isArray(rawLessons) || rawLessons.length === 0) return null;
+
+    const lessons: Lesson[] = [];
+    for (const lessonEntry of rawLessons) {
+      if (typeof lessonEntry !== "object" || lessonEntry === null) return null;
+      const l = lessonEntry as Record<string, unknown>;
+
+      const lessonId = l["id"];
+      if (typeof lessonId !== "number" || !Number.isInteger(lessonId) || lessonId < 1) return null;
+      if (lessonIds.has(lessonId)) return null;
+      lessonIds.add(lessonId);
+
+      const lessonTitle = l["title"];
+      const lessonOutcome = l["outcome"];
+      if (typeof lessonTitle !== "string" || lessonTitle.trim().length === 0) return null;
+      if (typeof lessonOutcome !== "string" || lessonOutcome.trim().length === 0) return null;
+
+      const activityIds = l["activityIds"];
+      if (!Array.isArray(activityIds)) return null;
+      if (activityIds.length < MIN_LESSON_ACTIVITIES) return null;
+      if (activityIds.length > MAX_LESSON_ACTIVITIES) return null;
+
+      for (const activityId of activityIds) {
+        if (typeof activityId !== "number" || !known.has(activityId)) return null;
+        // One take must not read as progress in two lessons.
+        if (covered.has(activityId)) return null;
+        covered.add(activityId);
+      }
+
+      lessons.push({
+        id: lessonId,
+        title: lessonTitle,
+        outcome: lessonOutcome,
+        activityIds: activityIds as number[],
+      });
+    }
+
+    units.push({ id, title, outcome, lessons });
+  }
+
+  // An activity in no lesson can never be reached from the journey.
+  if (covered.size !== known.size) return null;
+
+  return units;
 }
 
 /**
@@ -83,12 +208,19 @@ export function readCachedSet(raw: unknown): CachedSet | null {
   const activities = c["activities"].map(readActivity).filter((a): a is Activity => a !== null);
   if (activities.length === 0) return null;
 
+  // Read against the activities that survived, so a lesson pointing at one
+  // that was dropped takes the spine with it rather than producing a sitting
+  // that ends early on a blank screen.
+  const units =
+    c["units"] === undefined ? null : readUnits(c["units"], new Set(activities.map((a) => a.id)));
+
   return {
     slug: c["slug"],
     code: c["code"],
     label: c["label"],
     version: c["version"],
     activities,
+    ...(units === null ? {} : { units }),
   };
 }
 

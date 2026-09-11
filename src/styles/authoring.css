@@ -39,6 +39,15 @@
   margin-bottom: 8px;
 }
 
+/* A lesson inside a unit. Indented by a rule on one edge rather than by
+   another box: a unit is already a disclosure, and a card inside a card reads
+   as two levels of nesting where there is only one. */
+.authoring-lesson {
+  border-left: 2px solid var(--rule);
+  padding-left: 12px;
+  margin: 12px 0;
+}
+
 /* Label above field on a narrow screen, beside it once there is room — a
    seven-field form in one column is a lot of scrolling on a desktop. */
 .authoring-field {

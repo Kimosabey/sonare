@@ -30,6 +30,7 @@ import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
 import { Authoring } from "./Authoring.js";
 import { LANGUAGES } from "../activities/languages/index.js";
+import { getCourse } from "../activities/courses/index.js";
 
 let store: Map<string, string>;
 
@@ -154,7 +155,8 @@ function publishedPayload() {
   return JSON.parse(String(call.init?.body)) as {
     baseVersion: number;
     label: string;
-    activities: { id: number; target: string }[];
+    activities: { id: number; target: string; soundTargets: string[] }[];
+    units?: { id: number; lessons: { id: number; activityIds: number[] }[] }[];
   };
 }
 
@@ -307,8 +309,27 @@ describe("what may be published", () => {
     fireEvent.change(field("target"), { target: { value: "" } });
 
     fireEvent.change(field("target"), { target: { value: "Bonsoir" } });
+    // The bundled row's sound targets are syllables of the phrase it had. A
+    // replaced phrase needs replaced syllables, or none — see the test below.
+    fireEvent.change(field("soundTargets"), { target: { value: "" } });
 
     expect(screen.getByRole("button", { name: /Publish as version/ })).toBeEnabled();
+  });
+
+  it("refuses a phrase whose sound targets no longer occur in it", async () => {
+    /**
+     * The likeliest way a mapping rots: somebody corrects a phrase and leaves
+     * the syllables alone. Nothing about that looks wrong in the editor — the
+     * list is still full of plausible French — but not one of those syllables
+     * can come back from the scorer any more, so the activity quietly stops
+     * being schedulable while continuing to claim it is.
+     */
+    await openWithBundle();
+
+    fireEvent.change(field("target"), { target: { value: "Bonsoir" } });
+
+    expect(screen.getByRole("button", { name: /Publish as version/ })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(/does not appear in the target/);
   });
 });
 
@@ -322,10 +343,14 @@ describe("publishing", () => {
     open();
     fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
     fireEvent.change(field("target"), { target: { value: "Bonsoir!" } });
+    fireEvent.change(field("soundTargets"), { target: { value: "bon, soir" } });
     fireEvent.click(screen.getByRole("button", { name: "Publish as version 1" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/Published version 1/);
     expect(publishedPayload().activities[0]?.target).toBe("Bonsoir!");
+    // The syllables travel with the phrase, folded to what the skills store
+    // actually keys on.
+    expect(publishedPayload().activities[0]?.soundTargets).toEqual(["bon", "soir"]);
   });
 
   it("says earlier versions are untouched, because they are", async () => {
@@ -467,5 +492,114 @@ describe("switching language", () => {
     fireEvent.click(screen.getByRole("button", { name: /Start from the bundled set/ }));
 
     expect(screen.getAllByLabelText("id")).toHaveLength(FIRST.activities.length);
+  });
+});
+
+/**
+ * The course spine, captured rather than assumed.
+ *
+ * The screen has to be able to author what the gate accepts. If it could not,
+ * the spine would only ever arrive by running a script from a checkout — which
+ * is the exact situation this screen exists to end, and it would be invisible
+ * because everything else on the screen would keep working.
+ */
+describe("authoring the course spine", () => {
+  const COURSE = getCourse(FIRST.slug);
+
+  it("offers the authored course as a starting point, spine and all", async () => {
+    if (COURSE === undefined) throw new Error("expected a course for the first language");
+
+    open();
+    await screen.findByText(/Nothing published/);
+    fireEvent.click(screen.getByRole("button", { name: /Start from the course set/ }));
+
+    expect(screen.getByText(/Editing the course built into the app/)).toBeInTheDocument();
+    expect(screen.getAllByLabelText("id")).toHaveLength(COURSE.activities.length);
+    expect(screen.getAllByLabelText("unit id")).toHaveLength(COURSE.units?.length ?? 0);
+    const lessons = COURSE.units?.flatMap((u) => u.lessons) ?? [];
+    expect(screen.getAllByLabelText("lesson id")).toHaveLength(lessons.length);
+  });
+
+  it("offers no course shortcut for a language that has none", async () => {
+    // Spanish and Hindi are deliberately still flat, and a button promising a
+    // course that does not exist would be worse than no button.
+    open();
+    await screen.findByText(/Nothing published/);
+
+    fireEvent.change(screen.getByLabelText("Language"), { target: { value: "hi" } });
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Start from the course set/ })).toBeNull(),
+    );
+  });
+
+  it("publishes the spine it was shown, activity ids and all", async () => {
+    if (COURSE === undefined) throw new Error("expected a course for the first language");
+    replies = [
+      [`/versions`, { status: 200, body: { versions: [] } }],
+      [`/content/${FIRST.slug}`, { status: 201, body: { version: 1 } }],
+    ];
+
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the course set/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Publish as version/ }));
+
+    await screen.findByRole("alert");
+    expect(publishedPayload().units).toEqual(COURSE.units);
+  });
+
+  it("names a spine problem by the unit and lesson it is in", async () => {
+    /**
+     * A lesson is one sitting. Emptying its activity list is the fastest way
+     * to a set that publishes and then ends a sitting on a blank screen, so it
+     * has to be refused before the round trip, and named where an author can
+     * find it.
+     */
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the course set/ }));
+
+    const lists = screen.getAllByLabelText("lesson activities");
+    const first = lists[0];
+    if (first === undefined) throw new Error("need a lesson");
+    fireEvent.change(first, { target: { value: "" } });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/unit 1 lesson 1: 0 activities/);
+    expect(screen.getByRole("button", { name: /Publish as version/ })).toBeDisabled();
+  });
+
+  it("adds a unit whose lesson is numbered against every other lesson", async () => {
+    /**
+     * Lesson ids are unique across the language, not per unit — a finished
+     * sitting is recorded by lesson id alone. Numbering a new one against its
+     * own unit would hand out an id another unit already uses, and the two
+     * sittings would share a record.
+     */
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the course set/ }));
+
+    const before = screen.getAllByLabelText("lesson id").map((input) => (input as HTMLInputElement).value);
+    fireEvent.click(screen.getByRole("button", { name: "Add a unit" }));
+
+    const after = screen.getAllByLabelText("lesson id").map((input) => (input as HTMLInputElement).value);
+    const added = after.filter((id) => !before.includes(id));
+    expect(added).toHaveLength(1);
+    expect(new Set(after).size).toBe(after.length);
+  });
+
+  it("lets a flat set stay flat — no spine is a set, not an unfinished one", async () => {
+    replies = [
+      [`/versions`, { status: 200, body: { versions: [] } }],
+      [`/content/${FIRST.slug}`, { status: 201, body: { version: 1 } }],
+    ];
+
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+
+    expect(screen.queryAllByLabelText("unit id")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: /Publish as version/ })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Publish as version/ }));
+    await screen.findByRole("alert");
+    expect(publishedPayload().units).toBeUndefined();
   });
 });

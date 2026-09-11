@@ -88,6 +88,64 @@ function set(over: Record<string, unknown> = {}) {
   return { slug: "fr", code: "fr-FR", label: "French", activities: [activity()], ...over };
 }
 
+/**
+ * Three activities whose targets each contain the syllable they name, because
+ * a sound target that does not occur in its phrase is refused — see the rule
+ * it is testing.
+ */
+function courseActivities() {
+  return [
+    activity({ id: 1, target: "Bonjour", soundTargets: ["bon", "jour"] }),
+    activity({ id: 2, target: "Bonsoir", soundTargets: ["soir"] }),
+    activity({ id: 3, target: "Merci", soundTargets: ["mer"] }),
+  ];
+}
+
+/** The smallest set with a spine: one unit, one lesson, three activities. */
+function course(over: Record<string, unknown> = {}) {
+  return set({
+    activities: courseActivities(),
+    units: [
+      {
+        id: 1,
+        title: "Meeting people",
+        outcome: "You can greet someone and be understood.",
+        lessons: [
+          {
+            id: 1,
+            title: "Hello and goodbye",
+            outcome: "You can say hello and goodbye.",
+            activityIds: [1, 2, 3],
+          },
+        ],
+      },
+    ],
+    ...over,
+  });
+}
+
+/** The same spine with one lesson field replaced, for the per-rule cases. */
+function courseWithLesson(over: Record<string, unknown>) {
+  return course({
+    units: [
+      {
+        id: 1,
+        title: "Meeting people",
+        outcome: "You can greet someone and be understood.",
+        lessons: [
+          {
+            id: 1,
+            title: "Hello and goodbye",
+            outcome: "You can say hello and goodbye.",
+            activityIds: [1, 2, 3],
+            ...over,
+          },
+        ],
+      },
+    ],
+  });
+}
+
 beforeEach(() => {
   store = [];
   readFails = false;
@@ -418,5 +476,363 @@ describe("the version history", () => {
     expect((await readVersion(fakeDb(), "fr", 1))?.activities).toEqual([]);
     // And the learner's path still refuses it, so nobody is served it.
     expect(await readLatest("fr")).toBeNull();
+  });
+});
+
+/**
+ * The course spine — `Unit → Lesson → Activity` — and the field it exists to
+ * make usable.
+ *
+ * Every rule here is about a *relationship*, which is what makes them worth
+ * runtime checks: a lesson pointing at an activity that does not exist, an
+ * activity in two lessons, an activity in none. Each of those is a valid JSON
+ * document and each fails invisibly — a sitting that ends early, one take
+ * counted twice, content nobody can reach — so none of them would be reported
+ * by the thing that broke.
+ */
+describe("publishing a set with a course spine", () => {
+  it("accepts a well-formed course", () => {
+    expect(contentProblems({ ...course(), version: 1 })).toEqual([]);
+  });
+
+  it("still accepts a set with no spine at all", () => {
+    /**
+     * The compatibility claim, as a test. Three of the four shipped languages
+     * are flat, and content is immutable — so the spine has to arrive as a new
+     * version rather than as a requirement imposed on documents that already
+     * exist.
+     */
+    expect(contentProblems({ ...set(), version: 1 })).toEqual([]);
+    expect("units" in set()).toBe(false);
+  });
+
+  it("refuses an activity in a lesson with no sound targets", () => {
+    /**
+     * The field `selectActivity` has been waiting on. A lesson is what the
+     * scheduler picks from, so an activity inside one with no mapping is one
+     * it can only ever offer as a fallback — the first-unpassed activity
+     * wearing the word "recommended", which GET /next refused to ship.
+     */
+    const activities = courseActivities();
+    const [first, ...rest] = activities;
+    const withoutMapping = { ...first };
+    delete (withoutMapping as Record<string, unknown>)["soundTargets"];
+
+    const problems = contentProblems({
+      ...course({ activities: [withoutMapping, ...rest] }),
+      version: 1,
+    });
+
+    expect(problems.join(" | ")).toMatch(/soundTargets cannot be empty in a set with units/);
+  });
+
+  it("refuses an empty sound target list in the same way as a missing one", () => {
+    // Otherwise "no mapping" would have two spellings and only one of them
+    // would be caught.
+    const activities = courseActivities();
+    const [first, ...rest] = activities;
+
+    const problems = contentProblems({
+      ...course({ activities: [{ ...first, soundTargets: [] }, ...rest] }),
+      version: 1,
+    });
+
+    expect(problems.join(" | ")).toMatch(/soundTargets cannot be empty/);
+  });
+
+  it("lets a flat set publish with no sound targets, because the scheduler has a fallback", () => {
+    expect(contentProblems({ ...set(), version: 1 })).toEqual([]);
+  });
+
+  it.each([
+    [
+      "a lesson pointing at an activity that is not in the set",
+      courseWithLesson({ activityIds: [1, 2, 99] }),
+      /activity 99 is not in this set/,
+    ],
+    [
+      "a lesson shorter than one sitting",
+      courseWithLesson({ activityIds: [1, 2] }),
+      /a lesson is one sitting/,
+    ],
+    [
+      "a lesson longer than one sitting",
+      course({
+        activities: [
+          ...courseActivities(),
+          activity({ id: 4, target: "Salut", soundTargets: ["sa"] }),
+          activity({ id: 5, target: "Adieu", soundTargets: ["dieu"] }),
+          activity({ id: 6, target: "Pardon", soundTargets: ["par"] }),
+          activity({ id: 7, target: "Voilà", soundTargets: ["voi"] }),
+        ],
+        units: [
+          {
+            id: 1,
+            title: "Everything at once",
+            outcome: "You can say seven things.",
+            lessons: [
+              {
+                id: 1,
+                title: "All of it",
+                outcome: "You can say all of it.",
+                activityIds: [1, 2, 3, 4, 5, 6, 7],
+              },
+            ],
+          },
+        ],
+      }),
+      /outlasts the sitting it was sized for/,
+    ],
+    [
+      "an activity in no lesson",
+      course({
+        activities: [...courseActivities(), activity({ id: 4, target: "Salut", soundTargets: ["sa"] })],
+      }),
+      /are in no lesson/,
+    ],
+    [
+      "an activity in two lessons",
+      course({
+        activities: [
+          ...courseActivities(),
+          activity({ id: 4, target: "Salut", soundTargets: ["sa"] }),
+          activity({ id: 5, target: "Adieu", soundTargets: ["dieu"] }),
+        ],
+        units: [
+          {
+            id: 1,
+            title: "Meeting people",
+            outcome: "You can greet someone.",
+            lessons: [
+              { id: 1, title: "One", outcome: "You can say hello.", activityIds: [1, 2, 3] },
+              { id: 2, title: "Two", outcome: "You can say goodbye.", activityIds: [3, 4, 5] },
+            ],
+          },
+        ],
+      }),
+      /already in unit 1 lesson 1/,
+    ],
+    [
+      "two lessons sharing an id across units",
+      course({
+        activities: [
+          ...courseActivities(),
+          activity({ id: 4, target: "Salut", soundTargets: ["sa"] }),
+          activity({ id: 5, target: "Adieu", soundTargets: ["dieu"] }),
+          activity({ id: 6, target: "Pardon", soundTargets: ["par"] }),
+        ],
+        units: [
+          {
+            id: 1,
+            title: "One",
+            outcome: "You can say hello.",
+            lessons: [{ id: 1, title: "A", outcome: "You can say hello.", activityIds: [1, 2, 3] }],
+          },
+          {
+            id: 2,
+            title: "Two",
+            outcome: "You can say goodbye.",
+            lessons: [{ id: 1, title: "B", outcome: "You can say goodbye.", activityIds: [4, 5, 6] }],
+          },
+        ],
+      }),
+      /already used by another lesson/,
+    ],
+    [
+      "a unit with no outcome",
+      course({
+        units: [
+          {
+            id: 1,
+            title: "Meeting people",
+            outcome: "  ",
+            lessons: [
+              { id: 1, title: "Hello", outcome: "You can say hello.", activityIds: [1, 2, 3] },
+            ],
+          },
+        ],
+      }),
+      /the can-do statement the unit exists to earn/,
+    ],
+    [
+      "a unit with no lessons",
+      course({
+        units: [{ id: 1, title: "Meeting people", outcome: "You can greet.", lessons: [] }],
+      }),
+      /needs at least one lesson/,
+    ],
+    [
+      "an empty units list, which is not the same claim as no units",
+      course({ units: [] }),
+      /leave it out entirely/,
+    ],
+  ])("refuses %s", (_label, candidate, expected) => {
+    const problems = contentProblems({ ...candidate, version: 1 });
+
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.join(" | ")).toMatch(expected);
+  });
+
+  it("names a spine problem by the unit and lesson an author is looking at", () => {
+    // "activityIds must be a list" with no position is a hunt through six
+    // lessons, which is the state this screen exists to remove.
+    const problems = contentProblems({ ...courseWithLesson({ title: "" }), version: 1 });
+
+    expect(problems).toContain("unit 1 lesson 1: title cannot be empty");
+  });
+});
+
+describe("the sound targets themselves", () => {
+  it("refuses a syllable that does not occur in the phrase", () => {
+    /**
+     * The mistake that looks right: somebody corrects a phrase and leaves the
+     * syllables alone. The scorer can only ever name syllables of the
+     * reference text, so those entries match nothing for ever — and the
+     * activity goes on claiming a mapping it does not have.
+     */
+    const problems = contentProblems({
+      ...set({ activities: [activity({ target: "Bonjour", soundTargets: ["merci"] })] }),
+      version: 1,
+    });
+
+    expect(problems.join(" | ")).toMatch(/does not appear in the target/);
+  });
+
+  it("refuses a phonetic symbol, which is the obvious thing to type", () => {
+    // `focus` is where IPA belongs. A grapheme is matched against the
+    // reference text's own orthography, so /ʁ/ maps to nothing.
+    const problems = contentProblems({
+      ...set({ activities: [activity({ target: "Bonjour", soundTargets: ["/ʁ/"] })] }),
+      version: 1,
+    });
+
+    expect(problems.join(" | ")).toMatch(/not a written syllable/);
+  });
+
+  it("refuses the same syllable listed twice", () => {
+    const problems = contentProblems({
+      ...set({ activities: [activity({ target: "Bonjour", soundTargets: ["bon", "Bon"] })] }),
+      version: 1,
+    });
+
+    expect(problems.join(" | ")).toMatch(/listed twice/);
+  });
+
+  it("accepts a capital and stores it folded, rather than refusing over case", () => {
+    /**
+     * The skills store folds a grapheme to lower case on the way in, so a
+     * published "Bon" would be a mapping that never matches the "bon" a
+     * learner's history is keyed on. Refusing the publish over a capital
+     * letter would be pedantry; storing one would be a silent no-op.
+     */
+    const draft = readDraft(
+      set({ activities: [activity({ target: "Bonjour", soundTargets: [" Bon "] })] }),
+    );
+
+    expect(draft.ok).toBe(true);
+    if (!draft.ok) return;
+    expect(draft.set.activities[0]?.soundTargets).toEqual(["bon"]);
+  });
+
+  it("leaves the key off entirely when nothing was authored", () => {
+    // One representation for "no mapping", so the rule that requires one in a
+    // course set has a single thing to check.
+    const draft = readDraft(set());
+
+    expect(draft.ok).toBe(true);
+    if (!draft.ok) return;
+    expect("soundTargets" in (draft.set.activities[0] ?? {})).toBe(false);
+    expect(Object.keys(draft.set).sort()).toEqual(["activities", "code", "label", "slug"]);
+  });
+
+  it("carries the spine through normalisation", () => {
+    const draft = readDraft(course());
+
+    expect(draft.ok).toBe(true);
+    if (!draft.ok) return;
+    expect(Object.keys(draft.set).sort()).toEqual(["activities", "code", "label", "slug", "units"]);
+    expect(draft.set.units?.[0]?.lessons[0]?.activityIds).toEqual([1, 2, 3]);
+  });
+
+  it("refuses to publish a course it would refuse to describe", async () => {
+    // `publish` runs the same gate, so seed-content and the authoring screen
+    // cannot differ about what a course is.
+    await expect(publish(fakeDb(), courseWithLesson({ activityIds: [1, 2] }), 1)).rejects.toThrow(
+      /one sitting/,
+    );
+    expect(store).toHaveLength(0);
+  });
+});
+
+/**
+ * Serving a course, which is the opposite posture again: a spine that does not
+ * hold up costs the spine, never the language.
+ */
+describe("what may be served with a spine", () => {
+  it("serves the spine when it holds up", () => {
+    const content = readContent({ ...course(), version: 1 });
+
+    expect(content?.units?.[0]?.lessons[0]?.activityIds).toEqual([1, 2, 3]);
+  });
+
+  it("falls back to the flat set when the spine does not hold up", async () => {
+    /**
+     * A course with a hole in it is worse than no course: the flat list is a
+     * shape every screen already handles, and a journey missing a lesson shows
+     * nothing that says so. Logged, because otherwise it looks from outside
+     * like the Journey screen being broken.
+     */
+    const { logger } = await import("../logger.js");
+    const content = readContent({ ...courseWithLesson({ activityIds: [1, 2, 99] }), version: 1 });
+
+    expect(content?.activities).toHaveLength(3);
+    expect(content?.units).toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: "fr" }),
+      expect.stringMatching(/spine failed validation/),
+    );
+  });
+
+  it("drops the spine when a lesson points at an activity that was itself dropped", () => {
+    /**
+     * The two leniencies interacting. A bad activity row is dropped so one
+     * typo cannot take down a language — but a lesson still pointing at it
+     * would produce a sitting that ends early on a blank screen, so the spine
+     * goes with it.
+     */
+    const activities = courseActivities();
+    const [first, second, third] = activities;
+    const content = readContent({
+      ...course({ activities: [first, second, { ...third, target: "" }] }),
+      version: 1,
+    });
+
+    expect(content?.activities.map((a) => a.id)).toEqual([1, 2]);
+    expect(content?.units).toBeUndefined();
+  });
+
+  it("keeps sound targets, folded, and drops only the entries it cannot use", () => {
+    const content = readContent({
+      ...set({
+        activities: [activity({ target: "Bonjour", soundTargets: ["Bon", "/ʁ/", "jour", 7] })],
+      }),
+      version: 1,
+    });
+
+    expect(content?.activities[0]?.soundTargets).toEqual(["bon", "jour"]);
+  });
+
+  it("serves a recall activity, which no client older than the spine can render", () => {
+    /**
+     * The fourth kind. An old client's own validation drops it — which is the
+     * designed outcome, not a bug: it loses that row and keeps the language,
+     * rather than rendering a blank task.
+     */
+    const content = readContent({
+      ...set({ activities: [activity({ kind: "recall" })] }),
+      version: 1,
+    });
+
+    expect(content?.activities[0]?.kind).toBe("recall");
   });
 });

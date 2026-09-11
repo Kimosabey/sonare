@@ -49,14 +49,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { LANGUAGES, getLanguage } from "../activities/languages/index.js";
+import { getCourse } from "../activities/courses/index.js";
 import {
   DRAFT_KINDS,
+  MAX_DRAFT_LESSON_ACTIVITIES,
+  MIN_DRAFT_LESSON_ACTIVITIES,
   draftFromSet,
   draftProblems,
   draftToPayload,
   emptyActivity,
+  emptyLesson,
+  emptyUnit,
   type ContentDraft,
   type DraftActivity,
+  type DraftLesson,
 } from "../content/draft.js";
 
 /** The same key the diagnostics screen writes, because it is the same secret. */
@@ -82,6 +88,14 @@ interface PublishedSet {
     gloss: string;
     target: string;
     focus: string;
+    soundTargets?: string[];
+  }[];
+  /** Absent on every set published before the course spine existed. */
+  units?: {
+    id: number;
+    title: string;
+    outcome: string;
+    lessons: { id: number; title: string; outcome: string; activityIds: number[] }[];
   }[];
 }
 
@@ -98,7 +112,7 @@ interface PublishOutcome {
   problems?: string[];
 }
 
-const FIELDS = ["title", "prompt", "gloss", "target", "focus"] as const;
+const FIELDS = ["title", "prompt", "gloss", "target", "focus", "soundTargets"] as const;
 
 /** What each field is for, in the terms an author would ask about it. */
 const FIELD_HINTS: Record<(typeof FIELDS)[number], string> = {
@@ -107,6 +121,8 @@ const FIELD_HINTS: Record<(typeof FIELDS)[number], string> = {
   gloss: "The English meaning, so nobody is guessing at what they are saying.",
   target: "The text scored against. For “respond”, the expected spoken answer.",
   focus: "What this activity is designed to expose. Drives the report’s advice.",
+  soundTargets:
+    "The written syllables this phrase drills, separated by commas — “bon, jour”. Each one has to occur in the target, because that is the only thing the scorer can name. Required once the set has units.",
 };
 
 export function Authoring() {
@@ -194,6 +210,26 @@ export function Authoring() {
     if (bundled === undefined) return;
     setDraft(draftFromSet(bundled));
     setLoadedFrom("the set built into the app");
+    setOutcome(null);
+  }, [slug]);
+
+  /**
+   * The course-shaped set, where one is authored: the same phrases with a
+   * spine over them plus the `read` and `recall` activities the flat set has
+   * none of.
+   *
+   * Offered rather than assumed, and from the bundle rather than the resolver's
+   * cache for the same reason the flat one is — a draft labelled "the course
+   * built into the app" that was actually a stale copy of something already
+   * published is worse than no shortcut at all. Typing six lessons by hand to
+   * get a spine into a draft is the alternative, and nobody would.
+   */
+  const course = getCourse(slug);
+  const startFromCourse = useCallback(() => {
+    const authored = getCourse(slug);
+    if (authored === undefined) return;
+    setDraft(draftFromSet(authored));
+    setLoadedFrom("the course built into the app");
     setOutcome(null);
   }, [slug]);
 
@@ -313,6 +349,91 @@ export function Authoring() {
     );
   }
 
+  function editUnit(index: number, field: "id" | "title" | "outcome", value: string): void {
+    setDraft((current) => {
+      if (current === null) return current;
+      return {
+        ...current,
+        units: current.units.map((u, i) => (i === index ? { ...u, [field]: value } : u)),
+      };
+    });
+  }
+
+  function editLesson(
+    unitIndex: number,
+    lessonIndex: number,
+    field: keyof DraftLesson,
+    value: string,
+  ): void {
+    setDraft((current) => {
+      if (current === null) return current;
+      return {
+        ...current,
+        units: current.units.map((u, i) =>
+          i !== unitIndex
+            ? u
+            : {
+                ...u,
+                lessons: u.lessons.map((l, j) => (j === lessonIndex ? { ...l, [field]: value } : l)),
+              },
+        ),
+      };
+    });
+  }
+
+  /**
+   * The next id nothing is using, across the whole draft.
+   *
+   * Lesson ids are unique across the language rather than per unit — a
+   * finished sitting is recorded by lesson id alone — so a new lesson has to be
+   * numbered against every unit's lessons, not against the one it is added to.
+   */
+  function nextLessonId(draftNow: ContentDraft): number {
+    const highest = draftNow.units
+      .flatMap((u) => u.lessons)
+      .reduce((max, l) => Math.max(max, Number(l.id) || 0), 0);
+    return highest + 1;
+  }
+
+  function addUnit(): void {
+    setDraft((current) => {
+      if (current === null) return current;
+      const highest = current.units.reduce((max, u) => Math.max(max, Number(u.id) || 0), 0);
+      return { ...current, units: [...current.units, emptyUnit(highest + 1, nextLessonId(current))] };
+    });
+  }
+
+  function removeUnit(index: number): void {
+    setDraft((current) =>
+      current === null ? current : { ...current, units: current.units.filter((_, i) => i !== index) },
+    );
+  }
+
+  function addLesson(unitIndex: number): void {
+    setDraft((current) => {
+      if (current === null) return current;
+      const id = nextLessonId(current);
+      return {
+        ...current,
+        units: current.units.map((u, i) =>
+          i === unitIndex ? { ...u, lessons: [...u.lessons, emptyLesson(id)] } : u,
+        ),
+      };
+    });
+  }
+
+  function removeLesson(unitIndex: number, lessonIndex: number): void {
+    setDraft((current) => {
+      if (current === null) return current;
+      return {
+        ...current,
+        units: current.units.map((u, i) =>
+          i === unitIndex ? { ...u, lessons: u.lessons.filter((_, j) => j !== lessonIndex) } : u,
+        ),
+      };
+    });
+  }
+
   return (
     <>
       <section>
@@ -395,6 +516,11 @@ export function Authoring() {
           <button type="button" className="ghost" onClick={startFromBundle}>
             Start from the bundled set
           </button>
+          {course !== undefined && (
+            <button type="button" className="ghost" onClick={startFromCourse}>
+              Start from the course set
+            </button>
+          )}
           <button
             type="button"
             className="ghost"
@@ -492,6 +618,146 @@ export function Authoring() {
           <p className="row">
             <button type="button" className="ghost" onClick={addActivity}>
               Add an activity
+            </button>
+          </p>
+
+          <h3>Course spine</h3>
+          <p className="what">
+            Units and lessons are optional. A set with none is a flat list, which is what three
+            of the shipped languages still are and what every client understands. Add one and the
+            rules tighten: every activity must sit in exactly one lesson, a lesson is{" "}
+            {MIN_DRAFT_LESSON_ACTIVITIES}–{MAX_DRAFT_LESSON_ACTIVITIES} activities, and every
+            activity in a lesson needs its sound targets.
+          </p>
+
+          {draft.units.map((unit, unitIndex) => (
+            <details key={unitIndex} className="authoring-activity">
+              <summary>
+                Unit {unit.id || "?"} · {unit.title.trim() === "" ? "untitled" : unit.title}
+              </summary>
+
+              <p className="row">
+                <label htmlFor={`authoring-unit-${unitIndex}-id`}>unit id</label>
+                <input
+                  id={`authoring-unit-${unitIndex}-id`}
+                  type="text"
+                  inputMode="numeric"
+                  className="authoring-narrow"
+                  value={unit.id}
+                  onChange={(event) => editUnit(unitIndex, "id", event.target.value)}
+                />
+              </p>
+              <p className="row authoring-field">
+                <label htmlFor={`authoring-unit-${unitIndex}-title`}>unit title</label>
+                <input
+                  id={`authoring-unit-${unitIndex}-title`}
+                  type="text"
+                  value={unit.title}
+                  onChange={(event) => editUnit(unitIndex, "title", event.target.value)}
+                />
+                <span className="hint">The theme, as a learner would name it.</span>
+              </p>
+              <p className="row authoring-field">
+                <label htmlFor={`authoring-unit-${unitIndex}-outcome`}>unit outcome</label>
+                <input
+                  id={`authoring-unit-${unitIndex}-outcome`}
+                  type="text"
+                  value={unit.outcome}
+                  onChange={(event) => editUnit(unitIndex, "outcome", event.target.value)}
+                />
+                <span className="hint">
+                  The can-do statement, e.g. “You can order food and be understood.” It may only
+                  claim what this product measures — pronunciation and attendance.
+                </span>
+              </p>
+
+              {unit.lessons.map((lesson, lessonIndex) => (
+                <div key={lessonIndex} className="authoring-lesson">
+                  <p className="row">
+                    <label htmlFor={`authoring-unit-${unitIndex}-lesson-${lessonIndex}-id`}>
+                      lesson id
+                    </label>
+                    <input
+                      id={`authoring-unit-${unitIndex}-lesson-${lessonIndex}-id`}
+                      type="text"
+                      inputMode="numeric"
+                      className="authoring-narrow"
+                      value={lesson.id}
+                      onChange={(event) =>
+                        editLesson(unitIndex, lessonIndex, "id", event.target.value)
+                      }
+                    />
+                  </p>
+                  <p className="row authoring-field">
+                    <label htmlFor={`authoring-unit-${unitIndex}-lesson-${lessonIndex}-title`}>
+                      lesson title
+                    </label>
+                    <input
+                      id={`authoring-unit-${unitIndex}-lesson-${lessonIndex}-title`}
+                      type="text"
+                      value={lesson.title}
+                      onChange={(event) =>
+                        editLesson(unitIndex, lessonIndex, "title", event.target.value)
+                      }
+                    />
+                  </p>
+                  <p className="row authoring-field">
+                    <label htmlFor={`authoring-unit-${unitIndex}-lesson-${lessonIndex}-outcome`}>
+                      lesson outcome
+                    </label>
+                    <input
+                      id={`authoring-unit-${unitIndex}-lesson-${lessonIndex}-outcome`}
+                      type="text"
+                      value={lesson.outcome}
+                      onChange={(event) =>
+                        editLesson(unitIndex, lessonIndex, "outcome", event.target.value)
+                      }
+                    />
+                    <span className="hint">What the sitting ends on.</span>
+                  </p>
+                  <p className="row authoring-field">
+                    <label htmlFor={`authoring-unit-${unitIndex}-lesson-${lessonIndex}-activityIds`}>
+                      lesson activities
+                    </label>
+                    <input
+                      id={`authoring-unit-${unitIndex}-lesson-${lessonIndex}-activityIds`}
+                      type="text"
+                      inputMode="numeric"
+                      value={lesson.activityIds}
+                      onChange={(event) =>
+                        editLesson(unitIndex, lessonIndex, "activityIds", event.target.value)
+                      }
+                    />
+                    <span className="hint">
+                      Activity ids, separated by commas, in the order they are practised.
+                    </span>
+                  </p>
+                  <p className="row">
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => removeLesson(unitIndex, lessonIndex)}
+                    >
+                      Remove lesson {lessonIndex + 1} of unit {unitIndex + 1}
+                    </button>
+                  </p>
+                </div>
+              ))}
+
+              <p className="row">
+                <button type="button" className="ghost" onClick={() => addLesson(unitIndex)}>
+                  Add a lesson to unit {unitIndex + 1}
+                </button>
+                <button type="button" className="ghost" onClick={() => removeUnit(unitIndex)}>
+                  Remove unit {unitIndex + 1}
+                </button>
+              </p>
+            </details>
+          ))}
+
+          <p className="row">
+            <button type="button" className="ghost" onClick={addUnit}>
+              Add a unit
             </button>
           </p>
 

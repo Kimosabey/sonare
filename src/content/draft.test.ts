@@ -21,6 +21,7 @@
 
 import { describe, expect, it } from "vitest";
 import { LANGUAGES } from "../activities/languages/index.js";
+import { COURSES } from "../activities/courses/index.js";
 import {
   DRAFT_KINDS,
   MAX_DRAFT_ACTIVITIES,
@@ -42,6 +43,9 @@ function activity(over: Partial<DraftActivity> = {}): DraftActivity {
     gloss: "hello",
     target: "Bonjour",
     focus: "the French r",
+    // Empty by default: a set with no spine needs no sound mapping, and that
+    // is the shape most of these cases are about.
+    soundTargets: "",
     ...over,
   };
 }
@@ -52,6 +56,9 @@ function draft(over: Partial<ContentDraft> = {}): ContentDraft {
     code: "fr-FR",
     label: "French",
     activities: [activity()],
+    // No spine by default: a flat set is the shape three of the four shipped
+    // languages have, and it has to stay publishable.
+    units: [],
     ...over,
   };
 }
@@ -231,8 +238,14 @@ describe("seeding a draft", () => {
         gloss: a.gloss,
         target: a.target,
         focus: a.focus,
+        // Through a comma-joined form field and back. A round trip that lost
+        // these would be invisible until the scheduler had nothing to join on.
+        soundTargets: a.soundTargets ?? [],
       })),
     );
+    // The bundled set has no spine, so none is sent — rather than `units: []`,
+    // which asks the server to store an empty course.
+    expect(payload.units).toBeUndefined();
   });
 
   it.each(LANGUAGES.map((l) => [l.label, l] as const))(
@@ -248,4 +261,135 @@ describe("seeding a draft", () => {
       expect(draftProblems(draftFromSet(set))).toEqual([]);
     },
   );
+
+  it.each(COURSES.map((c) => [c.label, c] as const))(
+    "considers the authored %s course publishable as it stands",
+    (_label, set) => {
+      /**
+       * The same tie, for the shape this mirror grew to describe. These are
+       * what `seed-content -- --course` publishes, so a rule here they fail is
+       * a rule that would refuse the content it was written for.
+       */
+      expect(draftProblems(draftFromSet(set))).toEqual([]);
+    },
+  );
+
+  it("round-trips a course through the form and back without losing the spine", () => {
+    const french = COURSES[0];
+    if (french === undefined) throw new Error("need a course");
+
+    const payload = draftToPayload(draftFromSet(french), 0);
+
+    expect(payload.units).toEqual(french.units);
+    expect(payload.activities.map((a) => a.soundTargets)).toEqual(
+      french.activities.map((a) => a.soundTargets ?? []),
+    );
+  });
+});
+
+/**
+ * The spine, mirrored. Every rule below exists on the server too — that is the
+ * point of the file — and the one-way guarantee holds: this can refuse
+ * something the server would accept, which costs a failed publish and is shown
+ * with the server's own wording; it cannot accept something the server refuses.
+ */
+describe("a draft with a course spine", () => {
+  function courseDraft(over: Partial<ContentDraft> = {}): ContentDraft {
+    return draft({
+      activities: [
+        activity({ id: "1", target: "Bonjour", soundTargets: "bon, jour" }),
+        activity({ id: "2", target: "Bonsoir", soundTargets: "soir" }),
+        activity({ id: "3", target: "Merci", soundTargets: "mer" }),
+      ],
+      units: [
+        {
+          id: "1",
+          title: "Meeting people",
+          outcome: "You can greet someone and be understood.",
+          lessons: [
+            {
+              id: "1",
+              title: "Hello and goodbye",
+              outcome: "You can say hello and goodbye.",
+              activityIds: "1, 2, 3",
+            },
+          ],
+        },
+      ],
+      ...over,
+    });
+  }
+
+  it("has nothing to say about a well-formed course", () => {
+    expect(draftProblems(courseDraft())).toEqual([]);
+  });
+
+  it("reads a list separated by spaces as well as commas", () => {
+    // "1 2 3" is what somebody types, and reading it as one id that does not
+    // exist would be a problem report about the wrong thing.
+    const units = courseDraft().units.map((u) => ({
+      ...u,
+      lessons: u.lessons.map((l) => ({ ...l, activityIds: "1 2 3" })),
+    }));
+
+    expect(draftProblems(courseDraft({ units }))).toEqual([]);
+  });
+
+  it("refuses an activity in a lesson with no sound targets", () => {
+    const activities = [
+      activity({ id: "1", target: "Bonjour", soundTargets: "" }),
+      activity({ id: "2", target: "Bonsoir", soundTargets: "soir" }),
+      activity({ id: "3", target: "Merci", soundTargets: "mer" }),
+    ];
+
+    expect(draftProblems(courseDraft({ activities })).join(" | ")).toMatch(
+      /soundTargets cannot be empty in a set with units/,
+    );
+  });
+
+  it("refuses a lesson that is not one sitting", () => {
+    const units = courseDraft().units.map((u) => ({
+      ...u,
+      lessons: u.lessons.map((l) => ({ ...l, activityIds: "1, 2" })),
+    }));
+
+    expect(draftProblems(courseDraft({ units })).join(" | ")).toMatch(/a lesson is one sitting/);
+  });
+
+  it("refuses a lesson pointing at an activity that is not in the set", () => {
+    const units = courseDraft().units.map((u) => ({
+      ...u,
+      lessons: u.lessons.map((l) => ({ ...l, activityIds: "1, 2, 99" })),
+    }));
+
+    expect(draftProblems(courseDraft({ units })).join(" | ")).toMatch(/is not in this set/);
+  });
+
+  it("refuses an activity that no lesson reaches", () => {
+    const activities = [
+      ...courseDraft().activities,
+      activity({ id: "4", target: "Salut", soundTargets: "sa" }),
+    ];
+
+    expect(draftProblems(courseDraft({ activities })).join(" | ")).toMatch(/are in no lesson/);
+  });
+
+  it("refuses a sound target that does not occur in its phrase", () => {
+    const activities = [
+      activity({ id: "1", target: "Bonjour", soundTargets: "merci" }),
+      activity({ id: "2", target: "Bonsoir", soundTargets: "soir" }),
+      activity({ id: "3", target: "Merci", soundTargets: "mer" }),
+    ];
+
+    expect(draftProblems(courseDraft({ activities })).join(" | ")).toMatch(
+      /does not appear in the target/,
+    );
+  });
+
+  it("offers all four kinds, including the one the spine added", () => {
+    // A mistyped kind renders as a blank task, so the screen offers a list —
+    // and a list that had stayed at three would have made `recall` unwritable
+    // from the only screen an author has.
+    expect([...DRAFT_KINDS]).toEqual(["repeat", "respond", "read", "recall"]);
+  });
 });

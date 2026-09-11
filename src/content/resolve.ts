@@ -20,7 +20,7 @@
 
 import { LANGUAGES, getLanguage as bundledLanguage } from "../activities/languages/index.js";
 import type { LanguageActivitySet } from "../activities/types.js";
-import { readCache } from "./cache.js";
+import { readCache, type CachedSet } from "./cache.js";
 
 /**
  * One language, preferring served content.
@@ -46,7 +46,24 @@ export function resolveLanguage(slug: string | undefined): LanguageActivitySet |
    */
   if (bundled === undefined) return undefined;
 
-  return { slug: cached.slug, code: cached.code, label: cached.label, activities: cached.activities };
+  return withoutVersion(cached);
+}
+
+/**
+ * A cached set as a plain `LanguageActivitySet` — everything but the version
+ * the cache tracks for staleness.
+ *
+ * Written as an omission rather than as a list of fields to copy, because the
+ * list-of-fields version silently dropped `units` the day the course spine
+ * arrived: the set validated, the activities were all there, and the journey
+ * was empty for every learner on served content with nothing to attribute it
+ * to. A field added to the content model must reach the screens without this
+ * file being edited, or it will one day not.
+ */
+function withoutVersion(cached: CachedSet): LanguageActivitySet {
+  const set: LanguageActivitySet & { version?: number } = { ...cached };
+  delete set.version;
+  return set;
 }
 
 /**
@@ -62,12 +79,7 @@ export function resolveLanguages(): LanguageActivitySet[] {
   return LANGUAGES.map((bundled) => {
     const cached = cache[bundled.slug];
     if (cached === undefined) return bundled;
-    return {
-      slug: cached.slug,
-      code: cached.code,
-      label: cached.label,
-      activities: cached.activities,
-    };
+    return withoutVersion(cached);
   });
 }
 

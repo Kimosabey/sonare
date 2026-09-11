@@ -7,17 +7,20 @@
  * every session and device, which is exactly what the client does not have on
  * a fresh install.
  *
- * It deliberately does *not* choose the activity yet. Choosing needs to know
- * which syllables each activity exercises, and that mapping only exists where
- * content does — which is still in the client bundle. Once content moves into
- * the database, `selectActivity` (already written and tested in
- * domain/scheduler.ts) moves behind this endpoint and the response gains an
- * `activityId`. Until then the client keeps using its own ordering, and this
- * supplies the thing it could not work out for itself.
+ * It deliberately does *not* choose the activity yet, and the reason has
+ * changed. Choosing needs to know which syllables each activity exercises;
+ * that mapping now exists — `soundTargets` on every activity a lesson
+ * references, checked by the publish gate in store/content.ts — so the
+ * remaining work is wiring, not a missing fact. `selectActivity` (already
+ * written and tested in domain/scheduler.ts) needs this endpoint to read the
+ * learner's content version, map its activities to `SchedulableActivity`, and
+ * return an `activityId` alongside the sounds.
  *
- * Saying that plainly matters more than shipping a guess: an `activityId`
- * chosen without the grapheme mapping would be the first-unpassed activity
- * wearing the word "recommended", which is worse than not recommending.
+ * Until that lands the client keeps using its own ordering and this supplies
+ * the thing it could not work out for itself. Saying so plainly still matters
+ * more than shipping a guess: an `activityId` chosen without the grapheme
+ * mapping would be the first-unpassed activity wearing the word
+ * "recommended", which is worse than not recommending.
  */
 
 import { Router } from "express";

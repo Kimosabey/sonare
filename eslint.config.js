@@ -12,16 +12,31 @@ export default tseslint.config(
    * which is the worst kind of red — it trains you to stop reading it.
    */
   /**
-   * `docs` holds the design handoff, including `designs/support.js` — the
-   * design tool's own vendored runtime, which arrives with the boards and is
-   * explicitly "not for shipping". Linted, it produces 97 `no-undef` errors
-   * for globals that exist in its own environment and not ours.
+   * `docs/design/designs` is the design handoff: the `.dc.html` boards and the
+   * `support.js` runtime that renders them. That runtime is a vendored browser
+   * bundle — the handoff says in as many words that it is "not for shipping" —
+   * and linting it produces 97 `no-undef` errors for globals that exist in its
+   * own environment and not ours.
    *
-   * Ignored rather than fixed: it is somebody else's build output that we
-   * store so the boards render, in the same category as `reference` and
-   * `dist`. Nothing under `docs` is ours to hold to our rules.
+   * Ignored rather than fixed: it is somebody else's build output that we store
+   * so the boards open in a browser, the same category as `reference` and
+   * `dist`. Nothing there is built, imported or served.
+   *
+   * Scoped to that directory rather than to `docs`, deliberately. A script
+   * added under `docs` later would be ours and should be linted; only the
+   * vendored runtime earns the exemption.
    */
-  { ignores: ["dist", "dist-server", "node_modules", "reference", "server/data", ".claude", "docs"] },
+  {
+    ignores: [
+      "dist",
+      "dist-server",
+      "node_modules",
+      "reference",
+      "server/data",
+      ".claude",
+      "docs/design/designs",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

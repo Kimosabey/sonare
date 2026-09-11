@@ -23,13 +23,57 @@ import { isSlug } from "../domain/merge.js";
 import { logger } from "../logger.js";
 
 /**
- * The three kinds the activity screen knows how to render. A fourth renders as
+ * The four kinds the activity screens know how to render. A fifth renders as
  * nothing at all: no type error, no failed request, just a blank task.
+ *
+ * `recall` — see the English, produce the target aloud — is the newest, and it
+ * is why this list is checked rather than assumed: it did not exist in the
+ * client's union until the course spine landed, and a `recall` row published
+ * against a client that predates it is dropped by that client's own validation
+ * rather than rendered wrong.
  */
-export const ACTIVITY_KINDS = ["repeat", "respond", "read"] as const;
+export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall"] as const;
 
 /** Bounded, so one publish cannot store an unbounded document. */
 export const MAX_ACTIVITIES = 50;
+
+/**
+ * How many activities make one lesson — one sitting, with an end.
+ *
+ * Mirrors MIN/MAX_LESSON_ACTIVITIES in src/activities/types.ts, which carries
+ * the reasoning. Duplicated for the same reason every other content constant
+ * on this side of the boundary is: the store must not import from `src/`.
+ */
+export const MIN_LESSON_ACTIVITIES = 3;
+export const MAX_LESSON_ACTIVITIES = 6;
+
+/**
+ * Bounds on the spine, so one publish cannot store an unbounded document —
+ * the same posture as MAX_ACTIVITIES, applied to the two lists that nest.
+ */
+export const MAX_UNITS = 20;
+export const MAX_LESSONS = 60;
+
+/**
+ * How many written syllables one activity may name.
+ *
+ * A phrase of fourteen words has nowhere near this many syllables worth
+ * drilling, and a list longer than the phrase is a sign somebody pasted the
+ * whole thing in — which would make the activity "cover" every due sound and
+ * win every scheduling comparison for reasons that are not about the content.
+ */
+export const MAX_SOUND_TARGETS = 12;
+
+/**
+ * A written syllable: letters, combining marks, apostrophes and hyphens.
+ *
+ * The same shape server/domain/merge.ts accepts as a skill's grapheme, and it
+ * has to be — an entry that the skills store would refuse can never match a
+ * learner's history, so it is data that looks like a mapping and is not one.
+ * Combining marks are kept deliberately: Devanagari matras are marks, and
+ * stripping them as punctuation is a mistake this project has already made.
+ */
+const SOUND_TARGET = /^[\p{L}\p{M}'’-]{1,24}$/u;
 
 /**
  * Roughly 2.5 words a second — a slow learner's pace — against the capture
@@ -57,6 +101,33 @@ export interface ContentActivity {
   gloss: string;
   target: string;
   focus: string;
+  /**
+   * The written syllables this activity exercises — what `selectActivity` has
+   * been waiting on to choose an activity rather than only rank sounds.
+   *
+   * Optional here because the sets published before the spine existed carry no
+   * mapping and are still valid content. Required by `contentProblems` of any
+   * activity a lesson references, because a lesson is what the scheduler picks
+   * from: an activity in a lesson with no sound targets is one the scheduler
+   * can only ever offer as a fallback.
+   */
+  soundTargets?: string[];
+}
+
+/** One sitting. `activityIds` rather than nested activities — see ContentDocument. */
+export interface ContentLesson {
+  id: number;
+  title: string;
+  outcome: string;
+  activityIds: number[];
+}
+
+/** A theme carrying a can-do statement, and the lessons that reach it. */
+export interface ContentUnit {
+  id: number;
+  title: string;
+  outcome: string;
+  lessons: ContentLesson[];
 }
 
 export interface ContentDocument {
@@ -67,7 +138,20 @@ export interface ContentDocument {
   code: string;
   label: string;
   version: number;
+  /**
+   * Every activity in the language, flat and authoritative. The spine points
+   * into this list rather than containing it, which is what lets a client
+   * built before lessons existed read a course-shaped document and get a
+   * complete, working language out of it.
+   */
   activities: ContentActivity[];
+  /**
+   * The course spine, `Unit → Lesson → Activity`. Absent on every set
+   * published before it existed, and absent is a valid, servable shape rather
+   * than a document to migrate — content is immutable, so the spine arrives as
+   * a new version and the old ones stay exactly as they were.
+   */
+  units?: ContentUnit[];
   publishedAt: Date;
 }
 
@@ -102,6 +186,21 @@ function readActivity(raw: unknown): ContentActivity | null {
     if (typeof c[field] !== "string" || c[field].trim().length === 0) return null;
   }
 
+  /**
+   * Sound targets are folded and filtered rather than being grounds for
+   * refusal. An entry that cannot match anything — wrong case, punctuation,
+   * an IPA symbol that belongs in `focus` — costs the scheduler nothing it
+   * had, whereas dropping the whole activity over one would cost the learner
+   * a phrase. The publish gate refuses it outright, so this only ever sees a
+   * document written before that gate existed or edited into the database.
+   */
+  const soundTargets = Array.isArray(c.soundTargets)
+    ? c.soundTargets
+        .filter((s): s is string => typeof s === "string")
+        .map((s) => s.trim().toLocaleLowerCase())
+        .filter((s) => SOUND_TARGET.test(s))
+    : [];
+
   return {
     id: Math.trunc(c.id),
     title: c.title as string,
@@ -110,7 +209,84 @@ function readActivity(raw: unknown): ContentActivity | null {
     gloss: c.gloss as string,
     target: c.target as string,
     focus: c.focus as string,
+    // Omitted rather than stored empty, so "no mapping" has one
+    // representation instead of two that have to be checked separately.
+    ...(soundTargets.length > 0 ? { soundTargets: [...new Set(soundTargets)] } : {}),
   };
+}
+
+/**
+ * The spine, read strictly — all of it or none of it.
+ *
+ * The opposite posture to the rest of this function, and deliberately. A
+ * dropped *activity* costs one phrase and the language stays up. A dropped
+ * *lesson* leaves a course whose units no longer cover their activities, so a
+ * learner would be shown a journey with a hole in it and no way to tell that
+ * something is missing. Falling back to no spine at all is the shape that
+ * shipped and that every screen already handles: the flat list, in order.
+ *
+ * `known` is the set of activity ids that survived validation, not the ids the
+ * document claimed — so a lesson pointing at an activity that was itself
+ * dropped takes the spine with it rather than producing a sitting that ends
+ * early on a blank screen.
+ */
+function readUnits(raw: unknown, known: ReadonlySet<number>): ContentUnit[] | null {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_UNITS) return null;
+
+  const unitIds = new Set<number>();
+  const lessonIds = new Set<number>();
+  const covered = new Set<number>();
+  const units: ContentUnit[] = [];
+
+  for (const entry of raw) {
+    if (typeof entry !== "object" || entry === null) return null;
+    const u = entry as Partial<ContentUnit>;
+
+    if (typeof u.id !== "number" || !Number.isInteger(u.id) || u.id < 1) return null;
+    if (unitIds.has(u.id)) return null;
+    unitIds.add(u.id);
+
+    // Named one at a time rather than looped, so the narrowing survives to the
+    // construction below — the same reason readActivity casts after its loop.
+    if (typeof u.title !== "string" || u.title.trim().length === 0) return null;
+    if (typeof u.outcome !== "string" || u.outcome.trim().length === 0) return null;
+    if (!Array.isArray(u.lessons) || u.lessons.length === 0) return null;
+
+    const lessons: ContentLesson[] = [];
+    for (const lessonEntry of u.lessons) {
+      if (typeof lessonEntry !== "object" || lessonEntry === null) return null;
+      const l = lessonEntry as Partial<ContentLesson>;
+
+      if (typeof l.id !== "number" || !Number.isInteger(l.id) || l.id < 1) return null;
+      if (lessonIds.has(l.id)) return null;
+      lessonIds.add(l.id);
+      if (lessonIds.size > MAX_LESSONS) return null;
+
+      if (typeof l.title !== "string" || l.title.trim().length === 0) return null;
+      if (typeof l.outcome !== "string" || l.outcome.trim().length === 0) return null;
+
+      if (!Array.isArray(l.activityIds)) return null;
+      if (l.activityIds.length < MIN_LESSON_ACTIVITIES) return null;
+      if (l.activityIds.length > MAX_LESSON_ACTIVITIES) return null;
+
+      for (const id of l.activityIds) {
+        if (typeof id !== "number" || !known.has(id)) return null;
+        // One take must not read as progress in two places.
+        if (covered.has(id)) return null;
+        covered.add(id);
+      }
+
+      lessons.push({ id: l.id, title: l.title, outcome: l.outcome, activityIds: [...l.activityIds] });
+    }
+
+    units.push({ id: u.id, title: u.title, outcome: u.outcome, lessons });
+  }
+
+  // An activity in no lesson is content a learner can never reach from the
+  // journey, so a spine that does not cover everything is not a spine.
+  if (covered.size !== known.size) return null;
+
+  return units;
 }
 
 /** A whole published set, or null if it cannot be trusted. */
@@ -152,6 +328,28 @@ export function readContent(raw: unknown): ContentDocument | null {
    */
   if (unique.length === 0) return null;
 
+  /**
+   * The spine is read against the activities that *survived*, and dropped
+   * whole if it does not hold up. Serving a course with a hole in it is worse
+   * than serving no course: the flat list is a shape every screen already
+   * handles, a half-spine is not.
+   *
+   * Logged, because a published set whose spine silently disappears looks from
+   * the outside like the Journey screen being broken.
+   */
+  let units: ContentUnit[] | undefined;
+  if (c.units !== undefined) {
+    const read = readUnits(c.units, new Set(unique.map((a) => a.id)));
+    if (read === null) {
+      logger.warn(
+        { slug: c.slug, version: c.version },
+        "[content] published spine failed validation — serving the flat set",
+      );
+    } else {
+      units = read;
+    }
+  }
+
   return {
     _id: `${c.slug}:${c.version}`,
     slug: c.slug,
@@ -159,6 +357,7 @@ export function readContent(raw: unknown): ContentDocument | null {
     label: c.label,
     version: c.version,
     activities: unique,
+    ...(units === undefined ? {} : { units }),
     publishedAt: c.publishedAt instanceof Date ? c.publishedAt : new Date(),
   };
 }
@@ -251,6 +450,219 @@ export function contentProblems(raw: unknown): string[] {
       if (targets.has(target)) problems.push(`${where}: target repeats an earlier activity's`);
       else targets.add(target);
     }
+
+    /**
+     * Sound targets, wherever they appear. Absence is checked further down —
+     * it depends on whether a lesson references the activity — but a malformed
+     * entry is wrong in any set, because it is a mapping that cannot map.
+     */
+    if (a.soundTargets !== undefined) {
+      if (!Array.isArray(a.soundTargets)) {
+        problems.push(`${where}: soundTargets must be a list of written syllables`);
+      } else {
+        if (a.soundTargets.length > MAX_SOUND_TARGETS) {
+          problems.push(
+            `${where}: ${a.soundTargets.length} sound targets — more than ${MAX_SOUND_TARGETS} means the whole phrase, which would win every scheduling comparison`,
+          );
+        }
+        const seen = new Set<string>();
+        const targetText = typeof a.target === "string" ? a.target.toLocaleLowerCase() : "";
+        for (const entry of a.soundTargets) {
+          if (typeof entry !== "string" || entry.trim().length === 0) {
+            problems.push(`${where}: a sound target cannot be empty`);
+            continue;
+          }
+          const sound = entry.trim().toLocaleLowerCase();
+          if (!SOUND_TARGET.test(sound)) {
+            problems.push(
+              `${where}: “${entry.trim()}” is not a written syllable — letters, apostrophes and hyphens only, and no phonetic symbols (those belong in focus)`,
+            );
+            continue;
+          }
+          if (seen.has(sound)) {
+            problems.push(`${where}: sound target “${sound}” is listed twice`);
+            continue;
+          }
+          seen.add(sound);
+          /**
+           * The one rule that catches a plausible-looking mistake. A syllable
+           * that does not occur in the phrase can never come back from the
+           * scorer, so the activity would carry a mapping that matches nothing
+           * and be invisible to the scheduler — while looking, in the editor,
+           * exactly like one that works.
+           */
+          if (!targetText.includes(sound)) {
+            problems.push(
+              `${where}: sound target “${sound}” does not appear in the target — the scorer can only ever return syllables of the phrase itself`,
+            );
+          }
+        }
+      }
+    }
+  });
+
+  problems.push(...spineProblems(c.units, c.activities, ids));
+
+  return problems;
+}
+
+/**
+ * Everything wrong with the spine, or nothing when there is no spine.
+ *
+ * Split out because it is a different question from "is this activity usable":
+ * every rule here is about *relationships* — which lesson an activity is in,
+ * whether a lesson points at something that exists, whether anything is
+ * unreachable — and those can only be asked once every activity has been read.
+ *
+ * A set with no `units` produces no problems at all. That is the shape that
+ * shipped and it is still publishable: content is versioned and immutable, so
+ * the spine arrives as a new version rather than as a requirement imposed
+ * retroactively on sets that already exist.
+ */
+function spineProblems(
+  raw: unknown,
+  activities: readonly unknown[],
+  activityIds: ReadonlySet<number>,
+): string[] {
+  if (raw === undefined) return [];
+
+  const problems: string[] = [];
+  if (!Array.isArray(raw)) return ["units must be a list"];
+  if (raw.length === 0) {
+    return ["units cannot be an empty list — leave it out entirely for a set with no course spine"];
+  }
+  if (raw.length > MAX_UNITS) problems.push(`a set cannot hold more than ${MAX_UNITS} units`);
+
+  const unitIds = new Set<number>();
+  const lessonIds = new Set<number>();
+  /** Which lesson claimed each activity, so a clash can name both. */
+  const claimedBy = new Map<number, string>();
+
+  raw.forEach((entry, unitIndex) => {
+    const whereUnit = `unit ${unitIndex + 1}`;
+    if (typeof entry !== "object" || entry === null) {
+      problems.push(`${whereUnit} is not an object`);
+      return;
+    }
+    const u = entry as Partial<ContentUnit>;
+
+    if (typeof u.id !== "number" || !Number.isInteger(u.id) || u.id < 1) {
+      problems.push(`${whereUnit}: id must be a whole number, 1 or more`);
+    } else if (unitIds.has(u.id)) {
+      problems.push(`${whereUnit}: id ${u.id} is already used`);
+    } else {
+      unitIds.add(u.id);
+    }
+
+    if (typeof u.title !== "string" || u.title.trim().length === 0) {
+      problems.push(`${whereUnit}: title cannot be empty`);
+    }
+    if (typeof u.outcome !== "string" || u.outcome.trim().length === 0) {
+      problems.push(
+        `${whereUnit}: outcome cannot be empty — it is the can-do statement the unit exists to earn`,
+      );
+    }
+
+    if (!Array.isArray(u.lessons) || u.lessons.length === 0) {
+      problems.push(`${whereUnit}: needs at least one lesson`);
+      return;
+    }
+
+    u.lessons.forEach((lessonEntry, lessonIndex) => {
+      const where = `${whereUnit} lesson ${lessonIndex + 1}`;
+      if (typeof lessonEntry !== "object" || lessonEntry === null) {
+        problems.push(`${where} is not an object`);
+        return;
+      }
+      const l = lessonEntry as Partial<ContentLesson>;
+
+      if (typeof l.id !== "number" || !Number.isInteger(l.id) || l.id < 1) {
+        problems.push(`${where}: id must be a whole number, 1 or more`);
+      } else if (lessonIds.has(l.id)) {
+        // Across the whole set, not per unit: a finished sitting is recorded
+        // by lesson id alone, so two lessons sharing one share a record.
+        problems.push(`${where}: id ${l.id} is already used by another lesson`);
+      } else {
+        lessonIds.add(l.id);
+      }
+
+      if (typeof l.title !== "string" || l.title.trim().length === 0) {
+        problems.push(`${where}: title cannot be empty`);
+      }
+      if (typeof l.outcome !== "string" || l.outcome.trim().length === 0) {
+        problems.push(`${where}: outcome cannot be empty — it is what the sitting ends on`);
+      }
+
+      if (!Array.isArray(l.activityIds)) {
+        problems.push(`${where}: activityIds must be a list`);
+        return;
+      }
+      if (l.activityIds.length < MIN_LESSON_ACTIVITIES) {
+        problems.push(
+          `${where}: ${l.activityIds.length} activities — a lesson is one sitting, and fewer than ${MIN_LESSON_ACTIVITIES} is a drill with nothing to summarise`,
+        );
+      }
+      if (l.activityIds.length > MAX_LESSON_ACTIVITIES) {
+        problems.push(
+          `${where}: ${l.activityIds.length} activities — more than ${MAX_LESSON_ACTIVITIES} outlasts the sitting it was sized for`,
+        );
+      }
+
+      for (const id of l.activityIds) {
+        if (typeof id !== "number" || !Number.isInteger(id)) {
+          problems.push(`${where}: every activity id must be a whole number`);
+          continue;
+        }
+        if (!activityIds.has(id)) {
+          problems.push(
+            `${where}: activity ${id} is not in this set — the sitting would end early on a blank screen`,
+          );
+          continue;
+        }
+        const already = claimedBy.get(id);
+        if (already !== undefined) {
+          problems.push(
+            `${where}: activity ${id} is already in ${already} — one take cannot be progress in two lessons`,
+          );
+          continue;
+        }
+        claimedBy.set(id, where);
+      }
+    });
+  });
+
+  /**
+   * Unreachable content. An activity in no lesson can never be reached from
+   * the journey, so it is content that exists and cannot be practised — which
+   * is the failure that would be discovered by nobody, because nothing shows
+   * an error.
+   */
+  const orphans = [...activityIds].filter((id) => !claimedBy.has(id));
+  if (orphans.length > 0) {
+    problems.push(
+      `activities ${orphans.join(", ")} are in no lesson — once a set has units, an activity outside them can never be reached`,
+    );
+  }
+
+  /**
+   * And the field this whole spine exists to make usable. A lesson is what the
+   * scheduler picks from, so an activity inside one with no sound targets is
+   * one it can only ever offer as a fallback — which is the "first unpassed
+   * activity wearing the word recommended" that `GET /next` refused to ship.
+   */
+  activities.forEach((entry, index) => {
+    if (typeof entry !== "object" || entry === null) return;
+    const a = entry as Partial<ContentActivity>;
+    if (typeof a.id !== "number" || !claimedBy.has(a.id)) return;
+
+    const named = Array.isArray(a.soundTargets)
+      ? a.soundTargets.filter((s) => typeof s === "string" && s.trim().length > 0)
+      : [];
+    if (named.length === 0) {
+      problems.push(
+        `activity ${index + 1}: soundTargets cannot be empty in a set with units — it is which written syllables the activity drills, and without it the scheduler can never choose this activity for a reason`,
+      );
+    }
   });
 
   return problems;
@@ -269,6 +681,12 @@ export type DraftResult =
  * trailing space is the single most likely thing to survive a copy-paste, and
  * refusing the publish over one would teach an author to distrust the screen;
  * storing it would put it in front of the scorer.
+ *
+ * Sound targets are case-folded here for the same reason, and it is not
+ * cosmetic: the skills store folds a grapheme to lower case on the way in, so
+ * a published “Bon” would be a mapping that never matches the “bon” a
+ * learner's history is keyed on. Refusing the publish over a capital letter
+ * would be pedantry; storing one would be a silent no-op.
  */
 export function readDraft(raw: unknown): DraftResult {
   const problems = contentProblems(raw);
@@ -284,15 +702,42 @@ export function readDraft(raw: unknown): DraftResult {
       slug: c.slug,
       code: c.code,
       label: c.label.trim(),
-      activities: c.activities.map((a) => ({
-        id: a.id,
-        title: a.title.trim(),
-        kind: a.kind,
-        prompt: a.prompt.trim(),
-        gloss: a.gloss.trim(),
-        target: a.target.trim(),
-        focus: a.focus.trim(),
-      })),
+      activities: c.activities.map((a) => {
+        const soundTargets = (a.soundTargets ?? []).map((s) => s.trim().toLocaleLowerCase());
+        return {
+          id: a.id,
+          title: a.title.trim(),
+          kind: a.kind,
+          prompt: a.prompt.trim(),
+          gloss: a.gloss.trim(),
+          target: a.target.trim(),
+          focus: a.focus.trim(),
+          // Omitted rather than stored empty, so a set with no mapping has one
+          // representation rather than two, and the key-set of a published
+          // document says plainly whether one was authored.
+          ...(soundTargets.length > 0 ? { soundTargets } : {}),
+        };
+      }),
+      /**
+       * The spine is carried only when there is one. A `units: undefined` key
+       * would be stored by the driver as a null field and would make an old
+       * flat set and a new course set indistinguishable by shape.
+       */
+      ...(c.units === undefined
+        ? {}
+        : {
+            units: c.units.map((u) => ({
+              id: u.id,
+              title: u.title.trim(),
+              outcome: u.outcome.trim(),
+              lessons: u.lessons.map((l) => ({
+                id: l.id,
+                title: l.title.trim(),
+                outcome: l.outcome.trim(),
+                activityIds: [...l.activityIds],
+              })),
+            })),
+          }),
     },
   };
 }

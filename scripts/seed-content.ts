@@ -14,26 +14,53 @@
  *
  *   npm run seed-content              publish anything not yet published
  *   npm run seed-content -- --force   publish the bundle as the next version
+ *   npm run seed-content -- --course  publish the course-shaped set instead
  *
  * This is the one script that reads from src/. That is deliberate and narrow:
  * tsconfig.scripts.json already lists src/activities as shared, the content
  * modules are pure data with no DOM in them, and the alternative is
  * maintaining a second copy of every phrase.
+ *
+ * ## `--course`, and why it is not the default
+ *
+ * A course-shaped set (src/activities/courses/) carries units, lessons,
+ * `soundTargets`, and the `read` and `recall` activities the flat set has
+ * none of. Publishing it is how the spine reaches a learner — content is
+ * versioned and immutable, so it arrives as the *next version* and every
+ * document already published stays exactly as it was.
+ *
+ * It is opt-in because a published version reaches clients immediately and the
+ * screens for two of those kinds are not built yet: `read` rendered by today's
+ * session screen would show a Listen button, which is precisely the thing that
+ * makes it a `repeat` instead, and `recall` would show the target it exists to
+ * hide. So the flag is the gate between "the content is written" and "the
+ * content is in front of someone", and it belongs to whoever deploys C6 rather
+ * than to whoever wrote the phrases.
+ *
+ * A language with no course authored publishes its flat set under `--course`
+ * too, rather than being skipped: the flag says which shape to prefer, not
+ * which languages to touch.
  */
 
 import { getDb } from "../server/db.js";
 import { logger } from "../server/logger.js";
 import { latestVersion, publish } from "../server/store/content.js";
 import { LANGUAGES } from "../src/activities/languages/index.js";
+import { getCourse } from "../src/activities/courses/index.js";
 
 const force = process.argv.includes("--force");
+const course = process.argv.includes("--course");
 
 async function main(): Promise<void> {
   const db = await getDb();
   let published = 0;
   let skipped = 0;
 
-  for (const set of LANGUAGES) {
+  for (const bundled of LANGUAGES) {
+    // The course set where one is authored, the flat set everywhere else.
+    // `LANGUAGES` stays the list of what exists, so `--course` cannot quietly
+    // publish a different set of languages from a plain run.
+    const set = (course ? getCourse(bundled.slug) : undefined) ?? bundled;
     const current = await latestVersion(db, set.slug);
 
     if (current > 0 && !force) {
@@ -57,19 +84,43 @@ async function main(): Promise<void> {
           gloss: a.gloss,
           target: a.target,
           focus: a.focus,
+          // Copied field by field like everything else here, so a field added
+          // to the model is a compile error in this file rather than a field
+          // that silently stops being published.
+          ...(a.soundTargets === undefined ? {} : { soundTargets: [...a.soundTargets] }),
         })),
+        ...(set.units === undefined
+          ? {}
+          : {
+              units: set.units.map((u) => ({
+                id: u.id,
+                title: u.title,
+                outcome: u.outcome,
+                lessons: u.lessons.map((l) => ({
+                  id: l.id,
+                  title: l.title,
+                  outcome: l.outcome,
+                  activityIds: [...l.activityIds],
+                })),
+              })),
+            }),
       },
       next,
     );
 
     logger.info(
-      { slug: set.slug, version: document.version, activities: document.activities.length },
+      {
+        slug: set.slug,
+        version: document.version,
+        activities: document.activities.length,
+        units: document.units?.length ?? 0,
+      },
       "[seed-content] published",
     );
     published += 1;
   }
 
-  logger.info({ published, skipped, force }, "[seed-content] done");
+  logger.info({ published, skipped, force, course }, "[seed-content] done");
 }
 
 main()

@@ -110,6 +110,13 @@ contentRouter.get("/content/:slug", diagnosticsLimiter, (req, res) => {
         label: content.label,
         version: content.version,
         activities: content.activities,
+        /**
+         * Sent only when the set has one. An absent `units` is what a client
+         * built before the spine existed sees for every set, and it is also
+         * what a course-shaped client sees for a language with no spine
+         * authored — one absence, one meaning: use the flat list in order.
+         */
+        ...(content.units === undefined ? {} : { units: content.units }),
       });
     })
     .catch((err: unknown) => {
@@ -188,6 +195,9 @@ contentRouter.get(
           version: doc.version,
           publishedAt: doc.publishedAt,
           activities: doc.activities,
+          // Unvalidated, like the rest of this response: a broken spine is
+          // exactly what somebody needs to open and repair.
+          ...(doc.units === undefined ? {} : { units: doc.units }),
         });
       })
       .catch((err: unknown) => {
@@ -251,6 +261,12 @@ contentRouter.post(
       code: body["code"],
       label: body["label"],
       activities: body["activities"],
+      /**
+       * Passed through only when the body has one, so a client that has never
+       * heard of the spine publishes a flat set rather than an explicit
+       * `units: undefined` that the gate would have to treat as a third state.
+       */
+      ...("units" in body ? { units: body["units"] } : {}),
     });
 
     if (!draft.ok) {

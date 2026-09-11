@@ -192,10 +192,14 @@ export function dueSounds(skills: Skill[], now: Date): SkillSchedule[] {
  * `graphemes` is the written syllables the activity exercises. Supplied by the
  * caller rather than derived here, because deriving it needs syllabification
  * of the reference text — which this system only ever gets from the provider,
- * at scoring time. In practice the mapping is learned: once a learner has
- * attempted an activity, its syllables are known. Until content carries them
- * (that work is separate), an unattempted activity has an empty list and is
- * chosen only as a fallback.
+ * at scoring time.
+ *
+ * Content now carries the mapping: `soundTargets` on an activity, required by
+ * the publish gate of anything a lesson references and folded to the same
+ * lower case the skills store keys on, so a caller can fill this from the
+ * published set rather than only from what a learner has already attempted.
+ * An activity from a set published before that field existed still arrives
+ * with an empty list, and is still chosen only as a fallback.
  */
 export interface SchedulableActivity {
   id: number;

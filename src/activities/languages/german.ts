@@ -3,6 +3,10 @@
  * progression. Each target carries a sound English speakers reliably get
  * wrong: umlauts (ü/ö/ä), the ich-laut /ç/ vs. ach-laut /x/ contrast,
  * initial /pf/, uvular /ʁ/, and final-consonant devoicing.
+ *
+ * Deliberately still a flat ten with no `units`, for the same reason French is
+ * — see the note there. The course spine is a published version seeded from
+ * src/activities/courses/; this stays the offline floor and the old shape.
  */
 
 import type { LanguageActivitySet } from "../types.js";
@@ -20,6 +24,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "Hello, how are you?",
       target: "Guten Tag, wie geht es Ihnen?",
       focus: "The ich-laut /ç/ in geht/Ihnen, and uvular /ʁ/ in Guten",
+      soundTargets: ["gu", "ten", "geht", "nen"],
     },
     {
       id: 2,
@@ -29,6 +34,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "My name is Anna and I live in Munich.",
       target: "Ich heiße Anna und wohne in München",
       focus: "The umlaut /ʏ/ in München, and ich-laut /ç/ in Ich",
+      soundTargets: ["ich", "hei", "woh", "mün"],
     },
     {
       id: 3,
@@ -38,6 +44,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "I would like a coffee and a pretzel, please.",
       target: "Ich hätte gern einen Kaffee und eine Brezel, bitte",
       focus: "The umlaut /ɛ/ in hätte, and initial /pf/-adjacent cluster stress",
+      soundTargets: ["hät", "gern", "ffee", "bre"],
     },
     {
       id: 4,
@@ -47,6 +54,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "There are forty-seven guests at the party.",
       target: "Es sind siebenundvierzig Gäste auf der Party",
       focus: "The affricate /ts/ and ich-laut /ç/ both in vierzig, and the umlaut /ɛː/ in Gäste",
+      soundTargets: ["sie", "vier", "zig", "gäs"],
     },
     {
       id: 5,
@@ -56,6 +64,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "Where is the nearest pharmacy?",
       target: "Wo ist die nächste Apotheke?",
       focus: "The ich-laut /ç/ in nächste",
+      soundTargets: ["nächs", "apo", "the"],
     },
     {
       id: 6,
@@ -65,6 +74,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "It is very cold and it is raining a lot today.",
       target: "Es ist sehr kalt und es regnet heute viel",
       focus: "The ach-laut /x/ in the -ch of nicht-family sounds, tested via the uvular /ʁ/ in regnet",
+      soundTargets: ["sehr", "kalt", "reg", "heu"],
     },
     {
       id: 7,
@@ -74,6 +84,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "The meeting starts at a quarter past nine.",
       target: "Die Besprechung beginnt um Viertel nach neun",
       focus: "The /ʃp/ cluster in Besprechung, and the diphthong in neun",
+      soundTargets: ["be", "spre", "chung", "neun"],
     },
     {
       id: 8,
@@ -83,6 +94,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "How much do these green trousers cost?",
       target: "Wie viel kostet diese grüne Hose?",
       focus: "The umlaut /yː/ in grüne",
+      soundTargets: ["viel", "kos", "grü", "ho"],
     },
     {
       id: 9,
@@ -92,6 +104,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "The bill, please. The food was excellent.",
       target: "Die Rechnung, bitte. Das Essen war ausgezeichnet",
       focus: "The ich-laut /ç/ in both Rechnung and ausgezeichnet",
+      soundTargets: ["rech", "nung", "zeich", "net"],
     },
     {
       id: 10,
@@ -101,6 +114,7 @@ export const GERMAN: LanguageActivitySet = {
       gloss: "Have a pleasant evening, see you then, and take care of yourself.",
       target: "Einen schönen Abend noch, bis dann, und pass auf dich auf",
       focus: "The umlaut /øː/ in schönen, and the separable verb split in pass ... auf",
+      soundTargets: ["schö", "nen", "bend", "dich"],
     },
   ],
 };
