@@ -16,6 +16,12 @@
  * ## Three budgets
  *
  * 1. **Bundle size.** Measured off the real `vite build`, not an estimate.
+ *    Split by *who pays and when*: chunks every learner parses, files every
+ *    learner fetches, and files one device conditionally fetches for itself.
+ *    The third is capped on its largest single member rather than its sum,
+ *    because no device downloads the set. Every file the build writes belongs
+ *    to exactly one of these, and that is asserted — the gap between two
+ *    independently-written filters is where `public/sw.js` lived uncapped.
  * 2. **Resample throughput.** Absolute *and* relative, because an absolute
  *    wall-clock floor on a shared CI box fails for the wrong reason.
  * 3. **The client's deadline.** Verifier rule T15 proves the provider's worst
@@ -73,8 +79,107 @@ const APP_ENTRY_GZIP_CEILING = 45 * KIB;
 /** Everything emitted, lazy routes included, gzipped. Measured 127,304 B; +21%. */
 const ALL_CHUNKS_GZIP_CEILING = 150 * KIB;
 
-/** Files copied verbatim out of public/. Measured 175,550 B; +17%. */
-const STATIC_ASSET_CEILING = 205 * KIB;
+/* ── what `public/` costs, which is two different things ───────────────────
+ *
+ * One ceiling used to cover everything Vite copied verbatim out of `public/`,
+ * measured as a sum of bytes on disk. That conflated two costs that behave
+ * nothing alike, and the conflation became load-bearing the moment the design
+ * handoff's splash exports arrived: seven PNGs, 1.09 MiB, against 33 KiB of
+ * headroom.
+ *
+ * **Bytes every learner fetches.** The brand icon, the wordmark, the manifest,
+ * the service worker. Everyone pays for all of them, the worker in
+ * main-thread parse time. This is the cost that deserves a tight ceiling and
+ * it keeps the one it had — 205 KiB, not raised, now covering two files it
+ * never saw before.
+ *
+ * **Bytes one device conditionally fetches.** A splash frame. iOS requests
+ * only the file whose `media` query describes the phone it is running on, once,
+ * at install; the other four are never asked for by that device, and an Android
+ * phone asks for none of them. Summing them measures a transfer nobody makes.
+ * The figure that is real is **the largest single file**, because that is the
+ * worst case any one device actually downloads.
+ *
+ * Raising the old number instead would have been the easy move and the wrong
+ * one: 205 KiB was set from a measurement, and a ceiling moved to fit whatever
+ * arrived is not a ceiling. Splitting keeps the tight limit where the tight
+ * limit was earned.
+ */
+
+/**
+ * Everything a learner fetches unconditionally, copied out of `public/`:
+ * `brand/icon.png`, `brand/wordmark-purple.png`, `manifest.webmanifest`,
+ * `sw.js`. Measured 191,158 B; +10%.
+ *
+ * The number is unchanged from when this covered the two brand images alone.
+ * Its headroom is smaller because it now also counts the manifest and the
+ * service worker, which is the point — see SHIPPED_SCRIPT_CEILING.
+ */
+const EAGER_ASSET_CEILING = 205 * KIB;
+
+/**
+ * One conditionally-fetched media file. Largest measured 241,914 B
+ * (`splash/icon-1024.png`); +8%.
+ *
+ * Keyed on the largest single asset, never on the sum, because a sum here
+ * would be a limit on a transfer no device performs — and a limit that cannot
+ * describe a real cost is a limit nobody can reason about when it fires.
+ *
+ * 256 KiB is what one install-time image may cost. On a poor connection that
+ * is a few seconds, once, while the OS is already showing its own launch UI;
+ * on anything better it is imperceptible. It is also tight enough to notice
+ * the regression it exists for: these seven are 8-bit RGBA and fully opaque,
+ * so the alpha channel is dead weight worth about 45% of every one of them
+ * (see the note at the end of this block in docs/design/assets/splash/). A
+ * re-export that went the other way — deeper colour, a photographic ground —
+ * fails here rather than landing quietly in the tree.
+ */
+const MEDIA_ASSET_CEILING = 256 * KIB;
+
+/**
+ * How many conditionally-fetched assets may exist at all. Seven today.
+ *
+ * Not a transfer cost — it is a repository cost, and it is the one thing a
+ * per-asset ceiling cannot see. Apple's full startup-image matrix is thirty-odd
+ * entries once every iPad and retired iPhone is in it; at ~200 KiB each that is
+ * 6 MB in every clone and in history forever, with every single file under the
+ * per-asset ceiling. Five iPhone resolutions were chosen deliberately (see
+ * index.html); twelve leaves room to add a couple without re-opening the
+ * decision, and fails the paste of the whole matrix.
+ */
+const MAX_MEDIA_ASSETS = 12;
+
+/**
+ * A script served verbatim out of `public/` rather than emitted by the build —
+ * today exactly `public/sw.js`. Measured 14,839 B; +38%.
+ *
+ * This file had no ceiling of any kind before, and could not have had one by
+ * accident: the static measure excluded `.js`, and every bundle ceiling
+ * requires the `assets/` prefix Vite gives its own output. `sw.js` is copied to
+ * the build *root*, so it fell through the gap between the two — a service
+ * worker that grew to 200 kB would have passed every budget on this page in
+ * silence. The partition check below is what stops that shape recurring; this
+ * ceiling is what bounds the file itself.
+ *
+ * The headroom is deliberately loose. Roughly two thirds of `sw.js` is comment,
+ * and it is comment this repository wants: the caching strategy per route and
+ * the reasons for the caps. One more strategy is perhaps 2 KiB of code and as
+ * much again of reasoning. 20 KiB passes that and fails a precache manifest or
+ * a bundled library, which is the notification worth sending.
+ */
+const SHIPPED_SCRIPT_CEILING = 20 * KIB;
+
+/**
+ * `index.html` itself. Measured 5,958 B; +38%.
+ *
+ * Render-blocking by definition and counted by no other ceiling here — the
+ * initial-payload budgets measure the JS and CSS it references, not the
+ * document. Most of it is comment, which does ship; that is a cost the
+ * repository accepts for the same reason it accepts it in `sw.js`. What this
+ * catches is an inlined script or stylesheet, which would move real weight out
+ * of the measured chunks and into a file nothing was watching.
+ */
+const DOCUMENT_CEILING = 8 * KIB;
 
 interface Emitted {
   /** Path relative to the build output directory, POSIX-separated. */
@@ -86,9 +191,47 @@ interface Emitted {
   text: string;
 }
 
+/** A file the build copied out of `public/`, or the document itself. */
+interface Copied {
+  /** Path relative to the build output directory, POSIX-separated. */
+  name: string;
+  bytes: number;
+}
+
+/**
+ * How a file in the build output is classified, and therefore which ceiling
+ * it answers to.
+ *
+ * Written as one ordered list rather than as filters scattered across the
+ * assertions, because the bug this file just fixed was a *gap between* two
+ * filters: `staticBytes` excluded `.js`, the chunk ceilings required the
+ * `assets/` prefix, and `sw.js` — a root-level `.js` — matched neither. Every
+ * file the build emits now falls into exactly one bucket below, the last of
+ * which is a catch-all, and a test asserts the partition is total. There is no
+ * longer a shape of file that can arrive unmeasured.
+ */
+const SOURCE_MAP = /\.map$/;
+/** Vite's own output: hashed chunks and stylesheets, always under `assets/`. */
+const BUILD_CHUNK = /^assets\/.*\.(js|css)$/;
+/** Conditionally fetched: one splash frame per device, one icon per platform. */
+const CONDITIONAL_MEDIA = /^splash\//;
+/** A script copied verbatim out of `public/` rather than bundled. */
+const SHIPPED_SCRIPT = /^[^/]+\.js$/;
+
 let outDir = "";
 let emitted: Emitted[] = [];
-let staticBytes = 0;
+/** Every file the build wrote, before any classification. */
+let everything: Copied[] = [];
+/** Vite's own hashed chunks and stylesheets. Measured by the ceilings above. */
+let chunkFiles: Copied[] = [];
+/** The hidden sourcemaps. Deliberately unbounded; see the sourcemap test. */
+let sourceMaps: Copied[] = [];
+/** Fetched by every learner: the brand images, the manifest, the worker. */
+let eager: Copied[] = [];
+/** Fetched by one device, for itself, at install. */
+let media: Copied[] = [];
+/** `index.html`. Counted on its own; see DOCUMENT_CEILING. */
+let documentFile: Copied | undefined;
 
 /** Every file under `dir`, relative and POSIX-separated. */
 function walk(dir: string, prefix = ""): string[] {
@@ -166,9 +309,32 @@ beforeAll(() => {
       };
     });
 
-  staticBytes = files
-    .filter((f) => !/\.(js|css|map)$/.test(f) && f !== "index.html")
-    .reduce((total, f) => total + statSync(join(outDir, f)).size, 0);
+  /**
+   * Classify every remaining file into exactly one bucket.
+   *
+   * The last branch is a catch-all on purpose. The previous version of this
+   * code ended in a `.filter()` whose rejected files went nowhere at all —
+   * `sw.js` spent its whole life in that nowhere — and a filter cannot be
+   * checked for completeness, because what it dropped leaves no trace. These
+   * buckets can: the test that adds them back up against `everything` fails
+   * the moment a file arrives that none of them claims.
+   */
+  everything = files.map((name) => ({ name, bytes: statSync(join(outDir, name)).size }));
+  sourceMaps = [];
+  chunkFiles = [];
+  eager = [];
+  media = [];
+  documentFile = undefined;
+  for (const file of everything) {
+    // Emitted for post-mortem work, never advertised and never served — see
+    // the sourcemap test below, which is what vouches for them.
+    if (SOURCE_MAP.test(file.name)) sourceMaps.push(file);
+    // Already measured, five different ways, by the chunk ceilings above.
+    else if (BUILD_CHUNK.test(file.name)) chunkFiles.push(file);
+    else if (file.name === "index.html") documentFile = file;
+    else if (CONDITIONAL_MEDIA.test(file.name)) media.push(file);
+    else eager.push(file);
+  }
 });
 
 afterAll(() => {
@@ -257,15 +423,150 @@ describe("the bundle a learner downloads", () => {
     );
   });
 
-  it(`keeps the copied static assets under ${STATIC_ASSET_CEILING / KIB} KiB`, () => {
+  it("measures every file it built, with none falling between the buckets", () => {
     /**
-     * Everything Vite copies out of `public/` verbatim: the brand icon and
-     * wordmark. Not render-blocking, but downloaded, and not compressed by
-     * the build — a PNG dropped in here at export resolution is invisible to
-     * every other budget on this page.
+     * The check that makes every ceiling on this page trustworthy, and the one
+     * that would have caught `sw.js`.
+     *
+     * Each ceiling here reads a *subset* of the build output, selected by a
+     * pattern. Subsets selected independently do not have to cover anything,
+     * and for a year these did not: `staticBytes` excluded `.js`, the chunk
+     * ceilings required the `assets/` prefix Vite gives its own output, and
+     * `public/sw.js` — copied to the build root — matched neither. It was in no
+     * budget at all. A service worker that grew to 200 kB, or a second script
+     * dropped into `public/`, would have passed every assertion on this page
+     * without anyone noticing.
+     *
+     * So rather than add a ceiling for `sw.js` and wait for the next file to
+     * find the next gap, the buckets are asserted to *partition* the output:
+     * counts add to the whole, bytes add to the whole. Add an unforeseen file
+     * shape to `public/` and this fails with its name, immediately, saying that
+     * nothing is measuring it.
      */
-    expect(staticBytes).toBeGreaterThan(0);
-    expect(staticBytes / KIB).toBeLessThanOrEqual(STATIC_ASSET_CEILING / KIB);
+    const buckets = [
+      ...chunkFiles,
+      ...sourceMaps,
+      ...(documentFile ? [documentFile] : []),
+      ...media,
+      ...eager,
+    ];
+    const missing = everything
+      .filter((f) => !buckets.some((b) => b.name === f.name))
+      .map((f) => f.name);
+    expect(missing, "in the build output and in no budget").toEqual([]);
+    // Counts as well as names, so a file counted twice fails too — a bucket
+    // that overlapped another would make the byte sums below lie.
+    expect(buckets.length).toBe(everything.length);
+    expect(
+      buckets.reduce((total, f) => total + f.bytes, 0),
+      "bucketed bytes do not add up to the build output",
+    ).toBe(everything.reduce((total, f) => total + f.bytes, 0));
+    // And the build produced something to partition in the first place.
+    expect(everything.length).toBeGreaterThanOrEqual(12);
+  });
+
+  it(`keeps what every learner fetches under ${EAGER_ASSET_CEILING / KIB} KiB`, () => {
+    /**
+     * The brand icon, the wordmark, the manifest and the service worker:
+     * copied out of `public/` verbatim, not compressed by the build, and paid
+     * for by everyone. This is the ceiling the splash exports must not be
+     * allowed to eat, which is why they are not in it.
+     */
+    const bytes = eager.reduce((total, f) => total + f.bytes, 0);
+    const summary = eager.map((f) => `${f.name} ${(f.bytes / KIB).toFixed(1)}KiB`).join(", ");
+    expect(bytes, "nothing was copied out of public/ at all").toBeGreaterThan(0);
+    // Named, not merely counted. The failure worth catching is a file quietly
+    // moving out of this bucket — into `splash/`, say, where the ceiling is
+    // eight times looser — rather than the bucket growing.
+    expect(eager.map((f) => f.name).sort()).toEqual([
+      "brand/icon.png",
+      "brand/wordmark-purple.png",
+      "manifest.webmanifest",
+      "sw.js",
+    ]);
+    expect(bytes, summary).toBeLessThanOrEqual(EAGER_ASSET_CEILING);
+  });
+
+  it(`keeps the service worker under ${SHIPPED_SCRIPT_CEILING / KIB} KiB`, () => {
+    /**
+     * `public/sw.js`, by name and by shape: any script copied to the build root
+     * rather than emitted into `assets/`. Both, because the name is what makes
+     * this non-vacuous today and the shape is what covers the next one.
+     *
+     * It is parsed on install and on every update, and it is the one script on
+     * the page that runs before anything is rendered. The old static measure
+     * excluded `.js` outright, so this file was uncapped; see the partition
+     * check above for why that was possible.
+     */
+    const scripts = eager.filter((f) => SHIPPED_SCRIPT.test(f.name));
+    expect(scripts.map((f) => f.name), "public/sw.js is not in the build output").toContain(
+      "sw.js",
+    );
+    for (const script of scripts) {
+      expect(script.bytes, `${script.name} ${(script.bytes / KIB).toFixed(1)}KiB`).toBeLessThanOrEqual(
+        SHIPPED_SCRIPT_CEILING,
+      );
+    }
+  });
+
+  it(`keeps index.html under ${DOCUMENT_CEILING / KIB} KiB`, () => {
+    // Counted by nothing else: the initial-payload ceilings measure the JS and
+    // CSS the document references, not the document. An inlined script would
+    // move real weight into a file no other assertion here reads.
+    expect(documentFile, "the build emitted no index.html").toBeTruthy();
+    expect(
+      documentFile?.bytes ?? 0,
+      `index.html ${((documentFile?.bytes ?? 0) / KIB).toFixed(1)}KiB`,
+    ).toBeLessThanOrEqual(DOCUMENT_CEILING);
+  });
+
+  it(`keeps any one conditionally-fetched asset under ${MEDIA_ASSET_CEILING / KIB} KiB`, () => {
+    /**
+     * The largest single file, never the sum. iOS fetches the one splash frame
+     * whose `media` query matches the phone it is running on; Android fetches
+     * the manifest icon it wants. No device fetches two of these and none
+     * fetches all seven, so a sum would be a ceiling on a download nobody
+     * performs — and the repository's own history is full of limits that could
+     * not fire, which is the failure mode worth avoiding more than laxness.
+     *
+     * The floor matters as much as the ceiling here: `Math.max` of an empty
+     * list is `-Infinity`, and of a directory of 1x1 placeholders is a few
+     * hundred bytes. Either would pass a ceiling silently while the splash a
+     * learner sees is gone or broken, so the bucket's contents are named and
+     * its largest file is required to be a real export.
+     */
+    expect(media.map((f) => f.name).sort()).toEqual([
+      "splash/apple-splash-1125x2436.png",
+      "splash/apple-splash-1170x2532.png",
+      "splash/apple-splash-1179x2556.png",
+      "splash/apple-splash-1290x2796.png",
+      "splash/apple-splash-828x1792.png",
+      "splash/icon-1024.png",
+      "splash/icon-maskable-512.png",
+    ]);
+
+    const largest = media.reduce((worst, f) => (f.bytes > worst.bytes ? f : worst), media[0]!);
+    expect(
+      largest.bytes,
+      `${largest.name} is ${(largest.bytes / KIB).toFixed(1)} KiB`,
+    ).toBeLessThanOrEqual(MEDIA_ASSET_CEILING);
+    // A full-resolution splash frame is on the order of 100 KiB. Anything much
+    // under that is a placeholder, not an export.
+    expect(largest.bytes, `largest asset is only ${(largest.bytes / KIB).toFixed(1)} KiB`)
+      .toBeGreaterThan(64 * KIB);
+  });
+
+  it(`keeps the conditionally-fetched set to ${MAX_MEDIA_ASSETS} files`, () => {
+    /**
+     * The repository cost the per-asset ceiling cannot see. Every one of
+     * Apple's thirty-odd startup-image resolutions would pass the ceiling
+     * above on its own and put 6 MB in every clone. This is the limit that
+     * says no to the whole matrix, and it is a count rather than a byte sum
+     * because the number of files is the thing that is actually being bounded.
+     */
+    const names = media.map((f) => f.name).join(", ");
+    expect(media.length, names).toBeLessThanOrEqual(MAX_MEDIA_ASSETS);
+    expect(media.length, "the conditionally-fetched bucket is empty").toBeGreaterThan(0);
   });
 
   it("keeps React out of the app chunk, which is what makes the split real", () => {
@@ -318,11 +619,21 @@ describe("the bundle a learner downloads", () => {
     // Not an assertion so much as a record. When a ceiling needs raising,
     // this is the line that says what it was raised from.
     const initial = emitted.filter((f) => f.initial);
+    const eagerBytes = eager.reduce((total, f) => total + f.bytes, 0);
+    const largestMedia = media.reduce((worst, f) => Math.max(worst, f.bytes), 0);
+    const worker = eager.find((f) => f.name === "sw.js")?.bytes ?? 0;
     const summary = [
       `initial gzip ${(sum(initial, "gzipBytes") / KIB).toFixed(1)} KiB of ${INITIAL_GZIP_CEILING / KIB}`,
       `initial raw ${(sum(initial, "bytes") / KIB).toFixed(1)} KiB of ${INITIAL_RAW_CEILING / KIB}`,
       `all gzip ${(sum(emitted, "gzipBytes") / KIB).toFixed(1)} KiB of ${ALL_CHUNKS_GZIP_CEILING / KIB}`,
-      `static ${(staticBytes / KIB).toFixed(1)} KiB of ${STATIC_ASSET_CEILING / KIB}`,
+      `eager ${(eagerBytes / KIB).toFixed(1)} KiB of ${EAGER_ASSET_CEILING / KIB}`,
+      `sw.js ${(worker / KIB).toFixed(1)} KiB of ${SHIPPED_SCRIPT_CEILING / KIB}`,
+      `document ${((documentFile?.bytes ?? 0) / KIB).toFixed(1)} KiB of ${DOCUMENT_CEILING / KIB}`,
+      // The sum is printed and deliberately not asserted on: it is what the
+      // repository carries, not what any device downloads. The ceiling is on
+      // the largest single file beside it.
+      `largest media ${(largestMedia / KIB).toFixed(1)} KiB of ${MEDIA_ASSET_CEILING / KIB}`,
+      `media total ${(media.reduce((total, f) => total + f.bytes, 0) / KIB).toFixed(1)} KiB across ${media.length} of ${MAX_MEDIA_ASSETS} files`,
     ].join(" | ");
     expect(summary, summary).toContain("initial gzip");
   });

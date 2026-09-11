@@ -25,10 +25,20 @@
  * ## What iOS does with none of this
  *
  * Safari ignores the manifest for splash purposes and wants an explicit
- * `apple-touch-startup-image` per device resolution. None of that artwork
- * exists here, and a `<link>` pointing at a missing file is a *broken* splash
- * rather than no splash — so the head carries none, and the test below checks
- * that every local URL it does carry resolves to a real file.
+ * `apple-touch-startup-image` per device resolution, each with its own `media`
+ * query. Five of them now exist, from the design handoff. A `<link>` pointing
+ * at a missing file is a *broken* splash rather than no splash, so every local
+ * URL in the head is resolved against disk below.
+ *
+ * The interesting failure is subtler than a missing file: a link whose `media`
+ * query does not describe the device the artwork was drawn for. iOS picks by
+ * the query and then stretches whatever it finds, so the mismatch is silent —
+ * the splash simply looks wrong on one model of phone and nowhere else. The
+ * arithmetic is checkable, so it is checked: a query's `device-width` times
+ * its `-webkit-device-pixel-ratio` must equal the file's real pixel width, out
+ * of the PNG's own IHDR chunk, and the same for height. That ties the query,
+ * the filename and the bytes together, and no two of the three can drift apart
+ * without failing here.
  *
  * Lives in scripts/ because it reads the filesystem; see vitest.config.ts.
  */
@@ -259,6 +269,44 @@ describe("the icons", () => {
     ).not.toContain("/brand/icon.png");
   });
 
+  it("declares exactly one maskable icon, and it is the padded export", () => {
+    /**
+     * The other half of the rule above, which on its own is satisfied by
+     * declaring nothing maskable at all — and that is what shipped until the
+     * padded artwork existed. Android's adaptive icon crops to a circle or a
+     * squircle; with no maskable icon declared it does not crop, it *shrinks*
+     * the icon into the mask and puts a grey plate behind it. So the absence
+     * is visible on a home screen too, and now that a file drawn for the crop
+     * exists, its declaration is worth holding in place.
+     *
+     * `/splash/icon-maskable-512.png` has its art at 60% of the canvas, inside
+     * the 40% safe circle, so every mask shape Android applies lands on ground
+     * rather than on the mortarboard. Exactly one, because a second maskable
+     * entry means a browser is choosing between them on size alone and the
+     * padding is no longer something this file has checked.
+     */
+    const maskable = icons.filter((icon) => (icon.purpose ?? "").split(/\s+/).includes("maskable"));
+    expect(maskable.map((icon) => icon.src)).toEqual(["/splash/icon-maskable-512.png"]);
+  });
+
+  it("offers Android a 1024 source for the splash it generates", () => {
+    /**
+     * Chromium generates the Android splash from `name`, `background_color`
+     * and the largest suitable icon. 512 is the documented floor and is what
+     * the brand icon gives it; 1024 is what the handoff exported so the
+     * generated splash is drawn from real pixels rather than upscaled ones on
+     * a 3x phone.
+     *
+     * Declared `"any"`, not maskable: it is full-bleed artwork, the same shape
+     * as /brand/icon.png and subject to the same crop problem.
+     */
+    const large = icons.filter((icon) => pngSize(icon.src).width >= 1024);
+    expect(large.map((icon) => icon.src)).toContain("/splash/icon-1024.png");
+    for (const icon of large) {
+      expect((icon.purpose ?? "").split(/\s+/), icon.src).not.toContain("maskable");
+    }
+  });
+
   it("states a purpose on every icon", () => {
     // The default is "any", so this is redundant to a browser and not to a
     // reader: the maskable decision above is the interesting one, and it
@@ -318,19 +366,132 @@ describe("index.html's install surface", () => {
     }
   });
 
-  it("ships no startup image at all, rather than one that half works", () => {
+});
+
+/**
+ * Every `<link rel="apple-touch-startup-image">` in the head, with its `media`
+ * query broken into the three values Safari selects on.
+ *
+ * Parsed off HEAD, which has had comments stripped — the block above these
+ * links explains the arithmetic using the same words and would otherwise be
+ * read as five more links.
+ */
+interface StartupImage {
+  href: string;
+  media: string;
+  deviceWidth: number | undefined;
+  deviceHeight: number | undefined;
+  ratio: number | undefined;
+}
+
+function startupImages(): StartupImage[] {
+  const tags = HEAD.match(/<link\b[^>]*rel="apple-touch-startup-image"[^>]*>/g) ?? [];
+  return tags.map((tag) => {
+    const number = (property: string): number | undefined => {
+      const found = new RegExp(`${property}:\\s*([0-9.]+)`).exec(tag)?.[1];
+      return found === undefined ? undefined : Number(found);
+    };
+    return {
+      href: /href="([^"]+)"/.exec(tag)?.[1] ?? "",
+      media: /media="([^"]+)"/.exec(tag)?.[1] ?? "",
+      deviceWidth: number("device-width"),
+      deviceHeight: number("device-height"),
+      ratio: number("-webkit-device-pixel-ratio"),
+    };
+  });
+}
+
+describe("the iOS splash screens", () => {
+  const images = startupImages();
+
+  it("declares one per device the handoff exported artwork for", () => {
     /**
-     * Recorded as a decision rather than left as an absence. Safari wants one
-     * `<link rel="apple-touch-startup-image">` per device resolution, each with
-     * its own `media` query — on the order of 20 to 30 entries to cover the
-     * iPhone and iPad sizes in use, with artwork for every one. That is a
-     * design deliverable, and inventing the images here is exactly the thing
-     * not to do.
-     *
-     * If they are ever added, the check above requires every one of them to
-     * resolve, and this assertion is the one to delete.
+     * Five iPhone resolutions, deliberately rather than exhaustively — see the
+     * comment on the links themselves. The count is asserted so that a parse
+     * returning nothing cannot make every check below pass by having nothing
+     * to check, which is the failure this file's own header calls out.
      */
-    expect(HEAD).not.toContain("apple-touch-startup-image");
+    expect(images.length, "no apple-touch-startup-image links were parsed").toBe(5);
+  });
+
+  it("gives every one a media query, since a bare one would claim every device", () => {
+    /**
+     * `<link rel="apple-touch-startup-image">` with no `media` matches
+     * everything. Ship one alongside four targeted ones and iOS may pick the
+     * untargeted file for a phone that has its own, so the designed splash is
+     * stretched from the wrong resolution on exactly the devices this list
+     * exists to serve.
+     */
+    for (const image of images) {
+      expect(image.media, `${image.href} has no media query`).toBeTruthy();
+      expect(image.deviceWidth, `${image.href}: media names no device-width`).toBeGreaterThan(0);
+      expect(image.deviceHeight, `${image.href}: media names no device-height`).toBeGreaterThan(0);
+      expect(image.ratio, `${image.href}: media names no -webkit-device-pixel-ratio`).toBeGreaterThan(0);
+    }
+  });
+
+  it("points every one at a file that exists", () => {
+    // A startup-image href that resolves to nothing gives iOS a *broken*
+    // splash, which is worse than the plain one it falls back to. Also covered
+    // by the whole-head check above; stated here too so the failure names the
+    // splash rather than "some URL".
+    for (const image of images) {
+      expect(resolves(image.href), `${image.href} does not resolve to a file`).toBe(true);
+    }
+  });
+
+  it("pairs each media query with artwork at exactly that pixel size", () => {
+    /**
+     * The check this whole describe block exists for. iOS selects on the query
+     * and then draws whatever the href names, scaled to fit — so a link that
+     * points at the wrong file produces a stretched or letterboxed splash on
+     * one model of phone and looks perfect everywhere else. Nothing else in
+     * this repository would notice.
+     *
+     * CSS size times pixel ratio is the device's real pixel size, and the PNG
+     * knows its own: 430 x 3 = 1290 and 932 x 3 = 2796 is the Pro Max, and the
+     * file named for it has to be 1290x2796 in its IHDR chunk.
+     */
+    for (const image of images) {
+      const real = pngSize(image.href);
+      expect(
+        (image.deviceWidth ?? 0) * (image.ratio ?? 0),
+        `${image.href}: media says ${image.deviceWidth}px @${image.ratio}x, artwork is ${real.width}px wide`,
+      ).toBe(real.width);
+      expect(
+        (image.deviceHeight ?? 0) * (image.ratio ?? 0),
+        `${image.href}: media says ${image.deviceHeight}px @${image.ratio}x, artwork is ${real.height}px tall`,
+      ).toBe(real.height);
+    }
+  });
+
+  it("names each file after the pixels actually in it", () => {
+    // The filename is how a human matches a link to an export, and it is the
+    // only part of the chain a person reads. A rename that drifts from the
+    // bytes turns every review of this list into a lie.
+    for (const image of images) {
+      const declared = /-(\d+)x(\d+)\.png$/.exec(image.href);
+      expect(declared, `${image.href} does not state its size in its name`).toBeTruthy();
+      const real = pngSize(image.href);
+      expect(Number(declared?.[1]), image.href).toBe(real.width);
+      expect(Number(declared?.[2]), image.href).toBe(real.height);
+    }
+  });
+
+  it("does not shadow one device with two links", () => {
+    /**
+     * Two links with the same `media` are not an error to a browser — the
+     * later one simply wins — so a copy-paste that changed the href and not
+     * the query leaves one device permanently served the wrong artwork and one
+     * export permanently unused. Both halves are asserted: no repeated query,
+     * and no repeated file.
+     */
+    const queries = images.map((image) => image.media);
+    expect(new Set(queries).size, `duplicate media query: ${queries.join(" | ")}`).toBe(
+      images.length,
+    );
+    const files = images.map((image) => image.href);
+    expect(new Set(files).size, `duplicate href: ${files.join(" | ")}`).toBe(images.length);
   });
 });
 

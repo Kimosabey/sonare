@@ -48,13 +48,56 @@
          downscales it for the home screen. -->
     <link rel="apple-touch-icon" href="/brand/icon.png" />
     <!--
-      No `apple-touch-startup-image`. Safari wants one <link> per device
-      resolution with its own `media` query, and none of that artwork exists in
-      this repository. A startup-image tag pointing at a missing file gives a
-      *broken* splash, which is worse than the plain one iOS falls back to —
-      so this stays absent until the images are designed. The manifest test
-      enforces that every local href in this file resolves to a real file.
+      ── the iOS splash ───────────────────────────────────────────────────
+
+      Safari ignores the manifest for splash purposes and wants one <link> per
+      device resolution, each with its own `media` query. The artwork is the
+      design handoff's export (docs/design/README.md §7, and the
+      size-to-device table in the handoff's assets/splash/README.md).
+
+      Five resolutions, chosen rather than exhaustive. Apple's full matrix runs
+      to thirty-odd entries once every iPad and every retired iPhone is in it,
+      and a list that long is one nobody audits — half its files go missing and
+      nothing says so. A device that matches no query here gets the browser's
+      default splash, which is why the ground colour matters more than the
+      list being complete: the images are drawn on #fcfbfe, the --ground token
+      and the manifest's background_color, so the default and the designed
+      splash hand over to the first paint at the same colour.
+
+      Each `media` query is the device's own CSS size and pixel ratio, and the
+      product of the two is the file's real pixel size — 430 x 3 = 1290,
+      932 x 3 = 2796. scripts/pwa-manifest.test.ts multiplies it out against
+      the PNG's IHDR chunk, so a link paired with the wrong file fails rather
+      than shipping a stretched splash.
+
+      Ordered widest first, which is only for reading: `media` selects, so
+      order carries no meaning to Safari.
     -->
+    <link
+      rel="apple-touch-startup-image"
+      href="/splash/apple-splash-1290x2796.png"
+      media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="/splash/apple-splash-1179x2556.png"
+      media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="/splash/apple-splash-1170x2532.png"
+      media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="/splash/apple-splash-1125x2436.png"
+      media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="/splash/apple-splash-828x1792.png"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)"
+    />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

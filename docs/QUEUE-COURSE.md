@@ -42,7 +42,7 @@ language-bearing string carries `lang`.
       `ActivityKind`** (the union is `"repeat" | "respond" | "read"` today, so
       `recall` does not exist), and **`read` content authored** (the type
       exists with zero content ever written).
-- [ ] **C2 — PWA assets, and split the static budget.**
+- [x] **C2 — PWA assets, and split the static budget.**
       Place the seven exports in `public/`, wire `apple-touch-startup-image`
       per device, and declare `purpose: "maskable"` **only** for
       `icon-maskable-512.png` (art at 60% inside the 40% safe circle; the
@@ -126,3 +126,33 @@ anonymous.
   `revamp/platform`: 50 commits, 3240 tests + 1 expected fail + 3 soak-only
   across 143 files, all five gates green. Design handoff landed under
   `docs/design/`, all 38 tokens it names verified present.
+- 11 Sep 2026 — **C2 done.** This branch had forked from `revamp/platform`
+  five commits early and was missing the whole PWA layer — manifest, service
+  worker, registration, and the two test files C2 edits. Four of those five
+  commits were restored here first, byte-identical, as their own commit; the
+  fifth (device link codes, server-only) was left where it is. `docs` is now
+  ignored by ESLint: the handoff's vendored `support.js` was failing
+  `npx eslint .` on this branch with 97 `no-undef` errors before any of this
+  work started.
+
+  The seven exports are in `public/splash/`, byte-identical to the handoff.
+  The budget is split three ways instead of one: what every learner fetches
+  keeps the old 205 KiB ceiling and now measures 186.7 KiB (it gained the
+  manifest and the worker), `index.html` and `sw.js` have ceilings of their own,
+  and conditionally-fetched media is capped at **256 KiB per file** against
+  236.2 KiB measured for the largest — never on the sum, which no device
+  downloads. `public/` is 1306.1 KiB on disk; no device fetches more than
+  236.2 KiB of it.
+
+  `public/sw.js` was in no budget at all: the static measure excluded `.js` and
+  every chunk ceiling requires the `assets/` prefix. Rather than add one
+  ceiling and wait for the next gap, the buckets are now asserted to partition
+  the build output by count and by bytes — reintroducing the old classifier
+  fails with `expected [ 'sw.js' ] to deeply equal []`.
+
+  **Open, for the design side:** all seven PNGs are 8-bit RGBA with every pixel
+  fully opaque. Re-exported alpha-free they would be ~45% smaller, losslessly —
+  1,146,305 B to ~625,386 B — plus 40,390 B of `caBX` canvas metadata. Nothing
+  installed can do it (no encoder, and `sips` cannot drop an alpha channel), and
+  adding one is a dependency. Numbers per file are in
+  `docs/design/assets/splash/WHERE-THE-PNGS-ARE.md`.
