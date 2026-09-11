@@ -220,6 +220,103 @@ describe("dismissing", () => {
   });
 });
 
+describe("a toast that asks for an answer", () => {
+  /**
+   * Added for the service-worker update prompt (src/pwa/register.ts), which is
+   * the first status in this app that needs an answer rather than only a
+   * reading: a waiting version must be accepted by the learner, never applied
+   * under them mid-take. The alternative was a second notification surface,
+   * which would have needed its own `aria-live` region and its own tap
+   * targets.
+   */
+  it("renders the action as a real button, named by its label", () => {
+    // Named by what it does, so a screen reader announces "Update now" rather
+    // than "OK" or the toast's whole text.
+    mount();
+    push({ title: "New version ready", duration: 0, action: { label: "Update now", onClick: () => undefined } });
+
+    expect(screen.getByRole("button", { name: "Update now" })).toBeInTheDocument();
+  });
+
+  it("calls the action when it is pressed", () => {
+    mount();
+    const onClick = vi.fn();
+    push({ title: "New version ready", duration: 0, action: { label: "Update now", onClick } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Update now" }));
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("dismisses itself once the action has run", () => {
+    // The question has been answered; leaving the toast up invites a second
+    // press of something that has already happened.
+    mount();
+    push({ title: "New version ready", duration: 0, action: { label: "Update now", onClick: () => undefined } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Update now" }));
+
+    expect(screen.queryByText("New version ready")).not.toBeInTheDocument();
+  });
+
+  it("acts before it dismisses", () => {
+    /**
+     * Order matters and is invisible: dismissing first unmounts the button
+     * mid-handler, and for the update case the action reloads the page — so a
+     * dismissal that ran first would be the last thing to happen on a page
+     * that is about to be replaced anyway, while an action that never ran is
+     * a button that does nothing.
+     */
+    mount();
+    let visibleWhenCalled = false;
+    push({
+      title: "New version ready",
+      duration: 0,
+      action: {
+        label: "Update now",
+        onClick: () => {
+          visibleWhenCalled = screen.queryByText("New version ready") !== null;
+        },
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Update now" }));
+
+    expect(visibleWhenCalled).toBe(true);
+  });
+
+  it("is still dismissible without answering", () => {
+    // Ignoring the question is a valid answer, and the close button is how.
+    mount();
+    const onClick = vi.fn();
+    push({ title: "New version ready", duration: 0, action: { label: "Update now", onClick } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }));
+
+    expect(screen.queryByText("New version ready")).not.toBeInTheDocument();
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("adds no second button to a toast that has no action", () => {
+    // Every other toast in the app is status. A stray empty button in each one
+    // would be a keyboard stop on the way to the close button.
+    mount();
+    push({ title: "Listening…", duration: 0 });
+
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Dismiss notification" })).toBeInTheDocument();
+  });
+
+  it("keeps the action inside the announced region", () => {
+    // The button's label is part of what a screen reader reads out, so the
+    // learner is told there is something to press.
+    mount();
+    push({ title: "New version ready", duration: 0, action: { label: "Update now", onClick: () => undefined } });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Update now");
+  });
+});
+
 describe("announcing to a screen reader", () => {
   it("interrupts for a failure and waits its turn for status", () => {
     /**

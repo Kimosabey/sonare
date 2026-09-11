@@ -14,11 +14,28 @@ import type { ReactNode } from "react";
 
 export type ToastKind = "info" | "success" | "warn" | "error";
 
+/**
+ * One thing a toast offers to do, as a button inside it.
+ *
+ * Added for the service-worker update prompt, which is the first status in
+ * this app that needs an *answer* rather than only a reading: a waiting
+ * version must be accepted by the learner, never applied under them mid-take
+ * (src/pwa/register.ts). Putting it here rather than building a second
+ * notification surface means the announcement comes free — this is already the
+ * app's `aria-live` channel.
+ */
+export interface ToastAction {
+  /** Reads as the thing it does: "Update now", not "OK". */
+  label: string;
+  onClick: () => void;
+}
+
 export interface Toast {
   id: number;
   kind: ToastKind;
   title: string;
   detail?: string;
+  action?: ToastAction;
   /** Milliseconds on screen. 0 pins it until dismissed. */
   duration: number;
 }
@@ -27,6 +44,12 @@ export interface ToastInput {
   kind?: ToastKind;
   title: string;
   detail?: string;
+  /**
+   * An affordance inside the toast. Pair it with `duration: 0` — a toast that
+   * asks for an answer and then leaves before one is given is worse than not
+   * asking.
+   */
+  action?: ToastAction;
   duration?: number;
   /**
    * Replaces any existing toast with the same key instead of stacking. Use for
@@ -93,6 +116,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         kind,
         title: input.title,
         ...(input.detail === undefined ? {} : { detail: input.detail }),
+        ...(input.action === undefined ? {} : { action: input.action }),
         duration,
       };
 
@@ -154,6 +178,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div className="toast-body">
               <strong>{t.title}</strong>
               {t.detail && <div className="toast-detail">{t.detail}</div>}
+              {/* Inside the body, below the text, rather than a fourth column
+                  in the toast's row: on a narrow phone a button beside a 44px
+                  close target leaves the title about 90px to wrap in. */}
+              {t.action && (
+                <button
+                  type="button"
+                  className="toast-action"
+                  onClick={() => {
+                    /**
+                     * Act first, dismiss second. The update action reloads the
+                     * page, so the dismissal never runs there — and if an
+                     * action throws, the toast staying put is the better
+                     * failure: the learner can see it and try again.
+                     */
+                    t.action?.onClick();
+                    dismiss(t.id);
+                  }}
+                >
+                  {t.action.label}
+                </button>
+              )}
             </div>
             <button
               type="button"
