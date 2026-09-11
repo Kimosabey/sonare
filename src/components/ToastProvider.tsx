@@ -187,10 +187,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   className="toast-action"
                   onClick={() => {
                     /**
-                     * Act first, dismiss second. The update action reloads the
-                     * page, so the dismissal never runs there — and if an
-                     * action throws, the toast staying put is the better
-                     * failure: the learner can see it and try again.
+                     * Act first, dismiss second, and the only case where the
+                     * order shows is a failing action: the dismissal never
+                     * runs, so the toast stays up and the learner can see it
+                     * and press again. Dismiss-first and the affordance is
+                     * gone with nothing on screen to say the action did not
+                     * happen. (For the update action the question is moot —
+                     * it reloads the page.) Pinned by the test of the same
+                     * name in ToastProvider.test.tsx, which records the two
+                     * earlier attempts at this that asserted nothing.
                      */
                     t.action?.onClick();
                     dismiss(t.id);

@@ -341,6 +341,26 @@ describe("accepting the update", () => {
 
     expect(reload).not.toHaveBeenCalled();
   });
+
+  it("announces nothing when disposal beats the registration", async () => {
+    /**
+     * The half `removeEventListener` cannot cover, and the reason the disposer
+     * sets a flag as well as detaching.
+     *
+     * `register()` is a promise: a component that mounts and unmounts before
+     * it resolves — a fast navigation, a StrictMode double-mount — would
+     * otherwise have `watch` run against a torn-down caller and push a toast
+     * into an unmounted tree.
+     */
+    container.controller = new FakeWorker();
+    container.registration.waiting = new FakeWorker();
+
+    const dispose = registerServiceWorker(options(), platform());
+    dispose();
+    await flush();
+
+    expect(updates).toEqual([]);
+  });
 });
 
 describe("nothing here can break the app", () => {

@@ -259,30 +259,59 @@ describe("a toast that asks for an answer", () => {
     expect(screen.queryByText("New version ready")).not.toBeInTheDocument();
   });
 
-  it("acts before it dismisses", () => {
+  it("keeps the toast on screen when the action fails", () => {
     /**
-     * Order matters and is invisible: dismissing first unmounts the button
-     * mid-handler, and for the update case the action reloads the page — so a
-     * dismissal that ran first would be the last thing to happen on a page
-     * that is about to be replaced anyway, while an action that never ran is
-     * a button that does nothing.
+     * The one observable consequence of the click handler running the action
+     * before the dismissal, and the reason that is the right order: an action
+     * that throws leaves the toast up, so the learner can see it and press
+     * again. Dismiss-first and the affordance is gone, with nothing on screen
+     * to say the update did not happen.
+     *
+     * Two earlier attempts at this asserted nothing, and both are worth
+     * recording because the shape recurs in this repository. Querying the DOM
+     * from inside the handler cannot distinguish the two orders — React
+     * batches, so the toast is still rendered either way until the handler
+     * returns. Nor can the keyed-replacement bookkeeping: `dismiss` mutates
+     * `keyed` synchronously while `push` reads it inside its own updater, so
+     * both orders end up appending. Swapping the two lines in ToastProvider
+     * left both versions green.
+     *
+     * The error handling below is what the throw costs: React converts an
+     * uncaught handler error into a window `error` event rather than
+     * rethrowing to `fireEvent`, and vitest fails a run that leaves one
+     * unhandled, so it has to be caught here rather than around the click.
      */
     mount();
-    let visibleWhenCalled = false;
-    push({
-      title: "New version ready",
-      duration: 0,
-      action: {
-        label: "Update now",
-        onClick: () => {
-          visibleWhenCalled = screen.queryByText("New version ready") !== null;
+    const errors: string[] = [];
+    const onError = (event: ErrorEvent): void => {
+      errors.push(event.message);
+      event.preventDefault();
+    };
+    window.addEventListener("error", onError);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      push({
+        title: "New version ready",
+        duration: 0,
+        action: {
+          label: "Update now",
+          onClick: () => {
+            throw new Error("worker is gone");
+          },
         },
-      },
-    });
+      });
 
-    fireEvent.click(screen.getByRole("button", { name: "Update now" }));
+      fireEvent.click(screen.getByRole("button", { name: "Update now" }));
 
-    expect(visibleWhenCalled).toBe(true);
+      // The action really did fail — otherwise this test would pass on a
+      // handler that quietly did nothing.
+      expect(errors.join(" ")).toMatch(/worker is gone/);
+      expect(screen.getByText("New version ready")).toBeInTheDocument();
+    } finally {
+      window.removeEventListener("error", onError);
+      consoleError.mockRestore();
+    }
   });
 
   it("is still dismissible without answering", () => {
