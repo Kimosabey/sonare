@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+body{margin:0;background:#efedf3;font-family:Nunito,system-ui,sans-serif;color:#1a0b2e}
+a{color:#41009a}a:hover{color:#2c0068}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+.dv-tid{font:700 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a0b2e;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:700 13px/1.2 Nunito,system-ui,sans-serif}
+.dv-note{margin:0 0 22px;font:400 12px/1.55 Nunito,system-ui,sans-serif;color:#5c5468;max-width:74ch}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:700 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(26,11,46,.09);color:#1a0b2e;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.35 Nunito,system-ui,sans-serif;color:#5c5468;max-width:420px}
+.dv-opt:target .dv-oid{background:#41009a;color:#fff}
+.dv-next{margin:26px 0 0;font:12px/1.6 Nunito,system-ui,sans-serif;color:#5c5468}
+.dv-grp{font:700 10px ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:#8b8397;flex-basis:100%;margin:14px 0 -4px}
+</style></helmet>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Teacher view, end to end — group sound difficulty and attendance, and no route to a per-pupil ranking</span></div>
+<p class="dv-note">The plan says design this last, and says why: a class view is an authority figure holding a number about a child produced by a scorer whose fairness across accents is unmeasured. So the design constraint is stronger than &ldquo;no leaderboard&rdquo; — <b>no pronunciation figure about an identified pupil appears anywhere in this view</b>, which means there is no column to sort, no average to compute, and no ranking to build out of what the teacher is given. What a teacher gets instead is the thing they can actually act on in a lesson: which sounds the <i>group</i> finds hard, and who is turning up. Pupils join by choice, see exactly what their teacher can see, and can leave. Desktop 1280 is the primary width; the pupil side is a phone.</p>
+<div class="dv-opts">
+
+<div class="dv-grp">Setting up — the contract first</div>
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Teacher first run · 1280. The limits are the first screen, not a settings page nobody opens — because a teacher who expects a gradebook and finds none will otherwise spend a week looking for it.</div>
+<div style="container-type:inline-size;width:1280px;height:520px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:14px;padding:16px clamp(20px,2.2cqw,30px);border-bottom:1px solid #dddddd;background:#ffffff">
+    <img src="brand/wordmark-purple.png" alt="Lingotran" style="height:20px;display:block">
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#666666">Sonare for a class</span>
+  </div>
+  <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(20px,2.4cqw,34px);padding:clamp(22px,2.6cqw,34px);min-height:0">
+    <div style="flex:1 1 420px;min-width:0">
+      <h1 style="margin:0;font-size:clamp(23px,2.6cqw,30px);font-weight:800;letter-spacing:-.02em">What you will see, and what you will not</h1>
+      <p style="margin:10px 0 0;font-size:clamp(15px,1.4cqw,16.5px);color:#443a52;max-width:56ch">Sonare scores pronunciation syllable by syllable. Whether that scorer is fair across accents has not been measured — so it does not put a number about a named child in front of you. Everything below follows from that one sentence.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:clamp(18px,2.2cqw,26px)">
+        <div style="flex:1 1 240px;min-width:0;padding:14px 16px;border:1px solid #b4dbcb;border-radius:10px;background:#e7f3ee">
+          <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#1b7a5a">You will see</div>
+          <ul style="margin:8px 0 0;padding-left:18px;font-size:15px;line-height:1.7">
+            <li>Which sounds the class finds hard, as a group</li>
+            <li>The words those sounds show up in</li>
+            <li>Who has practised, and when</li>
+            <li>Which lessons the class has been through</li>
+          </ul>
+        </div>
+        <div style="flex:1 1 240px;min-width:0;padding:14px 16px;border:1px solid #eec0c7;border-radius:10px;background:#fbe9ec">
+          <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#c0273c">You will not see</div>
+          <ul style="margin:8px 0 0;padding-left:18px;font-size:15px;line-height:1.7">
+            <li>Any pupil&rsquo;s pronunciation score</li>
+            <li>A class average or a ranking</li>
+            <li>Recordings of a pupil&rsquo;s voice</li>
+            <li>Anything a pupil has not chosen to join</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1 1 280px;min-width:0">
+      <div style="padding:16px;border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Why not per pupil</div>
+        <p style="margin:8px 0 0;font-size:15px">A number attached to a child&rsquo;s accent, shown to the adult who grades them, is the one use of this scorer that could do real harm — and the accent fairness needed to rule that out has not been measured. Group difficulty answers the teaching question anyway: <b>what do I reteach on Monday</b>.</p>
+        <p style="margin:10px 0 0;font-size:12.5px;color:#666666">If that measurement is ever done and comes back clean, this decision can be revisited. Until then it is not a missing feature, it is the design.</p>
+      </div>
+      <button style="margin-top:14px;width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,1.4cqw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Create a class</button>
+      <button style="margin-top:10px;width:100%;min-height:44px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Read this as a page I can share with parents</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Create a class · 1280. A join code rather than a roster upload: identity here is anonymous and locally minted, so a class is pupils choosing to attach themselves, never a list a teacher types in about children.</div>
+<div style="container-type:inline-size;width:1280px;height:500px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:12px;padding:16px clamp(20px,2.2cqw,30px);border-bottom:1px solid #dddddd;background:#ffffff">
+    <nav style="display:flex;align-items:center;gap:8px;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.06em;color:#666666"><span style="color:#41009a">Classes</span><span>&rsaquo;</span><span style="color:#1a0b2e;font-weight:600">New class</span></nav>
+  </div>
+  <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(20px,2.4cqw,34px);padding:clamp(22px,2.6cqw,34px);min-height:0">
+    <div style="flex:1 1 380px;min-width:0">
+      <h1 style="margin:0;font-size:clamp(23px,2.6cqw,30px);font-weight:800;letter-spacing:-.02em">Year 9 French</h1>
+      <label style="display:block;margin:18px 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">Class name</label>
+      <input value="Year 9 French" style="width:100%;font-size:16.5px;font-family:Nunito,sans-serif;padding:12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e">
+      <label style="display:block;margin:14px 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">Language</label>
+      <select style="width:100%;min-height:48px;font-size:16.5px;font-family:Nunito,sans-serif;padding:0 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e"><option>French</option><option>Spanish</option><option>German</option><option>Hindi</option><option>Kannada</option></select>
+      <label style="display:block;margin:14px 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">How pupils appear to you</label>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button style="min-height:48px;text-align:left;padding:12px 14px;border:1.5px solid #41009a;border-radius:10px;background:#f0e6ff;font:600 16.5px Nunito,sans-serif;color:#1a0b2e;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.99)">First name only <span style="font-size:12.5px;font-weight:400;color:#666666">· what they typed, if they typed one</span></button>
+        <button style="min-height:48px;text-align:left;padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:400 16.5px Nunito,sans-serif;color:#1a0b2e;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.99)">Not at all <span style="font-size:12.5px;color:#666666">· attendance as a count, nobody named</span></button>
+      </div>
+      <p style="margin:10px 0 0;font-size:12.5px;color:#666666">A name list is itself a privacy surface. Either setting can be changed later, and a pupil can always remove their own name.</p>
+    </div>
+    <div style="flex:1 1 300px;min-width:0">
+      <div style="padding:18px;border:1px solid #41009a;border-radius:14px;background:#ffffff;text-align:center">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Join code</div>
+        <div style="margin-top:8px;font-family:ui-monospace,Menlo,monospace;font-size:clamp(23px,3cqw,38px);font-weight:700;letter-spacing:.16em;color:#41009a">R4M-8TQ</div>
+        <div style="width:132px;height:132px;margin:14px auto 0;background:#1a0b2e;border-radius:6px"></div>
+        <div style="margin-top:10px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;color:#666666">VALID FOR THIS TERM · REGENERATE ANY TIME</div>
+      </div>
+      <p style="margin:12px 0 0;font-size:12.5px;color:#666666">Put it on the board. A pupil enters it in the You tab, reads what joining shares, and decides. Nothing about them reaches you before that.</p>
+      <button style="margin-top:14px;width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,1.4cqw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Open the class</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>The pupil side · 360. Joining is a decision with the consequences listed, in a pupil&rsquo;s words — and the list is the same one the teacher was shown, so neither side is told a different story.</div>
+<div style="container-type:inline-size;width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0">
+    <button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&lsaquo;</button>
+    <div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">You · join a class</div>
+    <span style="width:44px"></span>
+  </div>
+  <div style="flex:1;min-height:0;overflow:hidden;padding:14px clamp(16px,5cqw,22px) 0">
+    <h1 style="margin:0;font-size:clamp(23px,7cqw,30px);font-weight:800;letter-spacing:-.02em">Join Year 9 French?</h1>
+    <p style="margin:8px 0 0;font-size:clamp(15px,4cqw,16.5px);color:#443a52">Mr Okonjo will be able to see some things about your practice. Here is all of it.</p>
+    <div style="margin-top:16px;padding:14px 16px;border:1px solid #b4dbcb;border-radius:10px;background:#e7f3ee">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#1b7a5a">They will see</div>
+      <ul style="margin:8px 0 0;padding-left:18px;font-size:15px;line-height:1.7"><li>The days you practised</li><li>Which lessons you have done</li><li>Your first name, Maya</li></ul>
+    </div>
+    <div style="margin-top:10px;padding:14px 16px;border:1px solid #eec0c7;border-radius:10px;background:#fbe9ec">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#c0273c">They will never see</div>
+      <ul style="margin:8px 0 0;padding-left:18px;font-size:15px;line-height:1.7"><li>Your scores, on anything</li><li>Recordings of your voice</li><li>How you compare to anyone else</li></ul>
+    </div>
+    <p style="margin:14px 0 0;font-size:12.5px;color:#666666">Your sounds are yours. What the class shares is how hard each sound is for the whole group, with nobody named in it.</p>
+    <p style="margin:10px 0 0;font-size:12.5px;color:#666666">You can leave the class at any time, and remove your name without leaving.</p>
+  </div>
+  <div style="padding:16px clamp(16px,5cqw,22px) 24px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,4cqw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Join the class</button>
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:transparent;color:#41009a;font:700 clamp(15px,4cqw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Join without my name</button>
+    <button style="width:100%;min-height:44px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Not now</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">The class, as a teacher uses it</div>
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Class overview · 1280. Sound difficulty across the group leads, because it is the only thing here that changes what happens in the next lesson. Attendance is a count and a strip, never a column beside a score.</div>
+<div style="container-type:inline-size;width:1280px;height:640px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="width:220px;flex:none;border-right:1px solid #dddddd;background:#ffffff;padding:20px 14px;display:flex;flex-direction:column;gap:4px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px"><img src="brand/icon.png" alt="" style="width:30px;height:30px;display:block"><span style="font-size:16.5px;font-weight:800;letter-spacing:-.01em">Sonare</span></div>
+    <button style="min-height:44px;text-align:left;padding:0 12px;border:none;border-radius:10px;background:#f0e6ff;color:#41009a;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Year 9 French</button>
+    <button style="min-height:44px;text-align:left;padding:0 12px;border:none;border-radius:10px;background:none;color:#1a0b2e;font:400 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Year 8 French</button>
+    <button style="min-height:44px;text-align:left;padding:0 12px;border:none;border-radius:10px;background:none;color:#1a0b2e;font:400 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Year 10 Spanish</button>
+    <div style="margin-top:auto;padding-top:16px;border-top:1px solid #dddddd;font-size:12.5px;color:#666666">No pupil score exists in this view, so there is nothing here to sort a class by.</div>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:12px;padding:16px clamp(20px,2.2cqw,30px) 0">
+      <div><div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#666666">Year 9 French · 28 joined of 31</div><h1 style="margin:2px 0 0;font-size:clamp(23px,2.4cqw,30px);font-weight:800;letter-spacing:-.02em">What the class finds hard</h1></div>
+      <select style="margin-left:auto;min-height:44px;font-size:16.5px;font-family:Nunito,sans-serif;padding:0 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e"><option>Last 2 weeks</option><option>This term</option></select>
+    </div>
+    <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(18px,2.2cqw,30px);padding:clamp(16px,2cqw,24px) clamp(20px,2.2cqw,30px) clamp(20px,2.2cqw,30px);min-height:0">
+      <div style="flex:1 1 480px;min-width:0">
+        <table style="width:100%;border-collapse:collapse;font-size:15px">
+          <thead><tr>
+            <th style="text-align:left;padding:8px 0;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666;font-weight:600">Sound</th>
+            <th style="text-align:left;padding:8px 0;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666;font-weight:600">Heard in</th>
+            <th style="text-align:left;padding:8px 0;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666;font-weight:600">How much of the class is still working on it</th>
+            <th style="text-align:right;padding:8px 0;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666;font-weight:600">Takes</th>
+          </tr></thead>
+          <tbody>
+            <tr><td style="padding:12px 0;border-bottom:1px solid #dddddd"><b lang="fr-FR">r</b></td><td style="padding:12px 0;border-bottom:1px solid #dddddd;font-size:12.5px;color:#666666" lang="fr-FR">voudrais · très · proche</td><td style="padding:12px 0;border-bottom:1px solid #dddddd"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:10px;border-radius:5px;background:#f0e6ff;overflow:hidden;max-width:200px"><div style="width:79%;height:100%;background:#c0273c"></div></div><span style="font-size:12.5px;color:#443a52">22 of 28</span></div></td><td style="text-align:right;padding:12px 0;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#666666">214</td></tr>
+            <tr><td style="padding:12px 0;border-bottom:1px solid #dddddd"><b lang="fr-FR">ui</b></td><td style="padding:12px 0;border-bottom:1px solid #dddddd;font-size:12.5px;color:#666666" lang="fr-FR">aujourd&rsquo;hui · huit</td><td style="padding:12px 0;border-bottom:1px solid #dddddd"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:10px;border-radius:5px;background:#f0e6ff;overflow:hidden;max-width:200px"><div style="width:57%;height:100%;background:#8a5200"></div></div><span style="font-size:12.5px;color:#443a52">16 of 28</span></div></td><td style="text-align:right;padding:12px 0;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#666666">141</td></tr>
+            <tr><td style="padding:12px 0;border-bottom:1px solid #dddddd"><b lang="fr-FR">an</b></td><td style="padding:12px 0;border-bottom:1px solid #dddddd;font-size:12.5px;color:#666666" lang="fr-FR">croissant · quarante</td><td style="padding:12px 0;border-bottom:1px solid #dddddd"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:10px;border-radius:5px;background:#f0e6ff;overflow:hidden;max-width:200px"><div style="width:39%;height:100%;background:#8a5200"></div></div><span style="font-size:12.5px;color:#443a52">11 of 28</span></div></td><td style="text-align:right;padding:12px 0;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#666666">96</td></tr>
+            <tr><td style="padding:12px 0;border-bottom:1px solid #dddddd"><b lang="fr-FR">eu</b></td><td style="padding:12px 0;border-bottom:1px solid #dddddd;font-size:12.5px;color:#666666" lang="fr-FR">deux · heures</td><td style="padding:12px 0;border-bottom:1px solid #dddddd"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:10px;border-radius:5px;background:#f0e6ff;overflow:hidden;max-width:200px"><div style="width:21%;height:100%;background:#1b7a5a"></div></div><span style="font-size:12.5px;color:#443a52">6 of 28</span></div></td><td style="text-align:right;padding:12px 0;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#666666">74</td></tr>
+            <tr><td style="padding:12px 0;border-bottom:1px solid #dddddd"><b lang="fr-FR">é</b></td><td style="padding:12px 0;border-bottom:1px solid #dddddd;font-size:12.5px;color:#666666" lang="fr-FR">café · soirée</td><td style="padding:12px 0;border-bottom:1px solid #dddddd"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:10px;border-radius:5px;background:#f0e6ff;overflow:hidden;max-width:200px"><div style="width:11%;height:100%;background:#1b7a5a"></div></div><span style="font-size:12.5px;color:#443a52">3 of 28</span></div></td><td style="text-align:right;padding:12px 0;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#666666">188</td></tr>
+          </tbody>
+        </table>
+        <p style="margin:12px 0 0;font-size:12.5px;color:#666666">A count of pupils still working on a sound, not an average of their scores — so the figure cannot be turned back into anybody&rsquo;s number. Rows are ordered by that count and the order is fixed; there is no sort control, because the only other thing to sort by does not exist here.</p>
+      </div>
+      <div style="flex:1 1 260px;min-width:0">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Turning up</div>
+        <div style="margin-top:10px;padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+          <div style="font-size:clamp(23px,2.4cqw,30px);font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums">19 <span style="font-size:15px;font-weight:400;color:#666666">of 28 this week</span></div>
+          <div style="display:flex;gap:3px;margin-top:12px">
+            <span style="flex:1;height:28px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:28px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:28px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:28px;border-radius:3px;background:#f0e6ff"></span><span style="flex:1;height:28px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:28px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:28px;border-radius:3px;background:#f0e6ff"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#666666"><span>MON</span><span>SUN</span></div>
+          <p style="margin:10px 0 0;font-size:12.5px;color:#666666">Practice days only. No pupil&rsquo;s attendance is shown beside a performance figure, because there is no performance figure.</p>
+        </div>
+        <div style="margin-top:14px;padding:14px 16px;background:#f0e6ff;border-left:3px solid #41009a;border-radius:4px">
+          <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#41009a">Worth a lesson</div>
+          <p style="margin:6px 0 0;font-size:15px">The <b lang="fr-FR">r</b> is hard for 22 of 28 — a class problem, not 22 individual ones. Unit 2 Lesson 2 targets it directly.</p>
+          <button style="margin-top:10px;width:100%;min-height:44px;border:1.5px solid #41009a;border-radius:10px;background:#ffffff;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Set it for the class</button>
+        </div>
+        <div style="margin-top:14px;padding:12px 14px;border:1px solid #ead2a4;background:#fcf3e3;border-radius:10px;font-size:12.5px">3 pupils have not joined. Nothing about them appears here, including the fact that they have or have not practised.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Sound detail · 1280. One sound, opened up: where it appears, how the class distributes on it, and what to do in the room. The distribution is bucketed and unlabelled by pupil, so the shape is readable and no bar leads anywhere.</div>
+<div style="container-type:inline-size;width:1280px;height:560px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:12px;padding:16px clamp(20px,2.2cqw,30px);border-bottom:1px solid #dddddd;background:#ffffff">
+    <button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&lsaquo;</button>
+    <nav style="display:flex;align-items:center;gap:8px;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.06em;color:#666666"><span style="color:#41009a">Year 9 French</span><span>&rsaquo;</span><span style="color:#1a0b2e;font-weight:600">The r in voudrais</span></nav>
+  </div>
+  <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(20px,2.4cqw,34px);padding:clamp(20px,2.4cqw,30px);min-height:0">
+    <div style="flex:1 1 400px;min-width:0">
+      <h1 style="margin:0;font-size:clamp(23px,2.6cqw,30px);font-weight:800;letter-spacing:-.02em">The French <span lang="fr-FR">r</span></h1>
+      <p style="margin:8px 0 0;font-size:clamp(15px,1.4cqw,16.5px);color:#443a52;max-width:54ch">Made at the back of the throat, not with the tongue tip. English speakers reliably substitute their own r, which is the single commonest substitution in this class.</p>
+      <div style="margin-top:clamp(16px,2cqw,24px);font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">How the class sits on it</div>
+      <div style="margin-top:10px;padding:16px;border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+        <div style="display:flex;align-items:flex-end;gap:clamp(8px,1.2cqw,16px);height:clamp(120px,14cqw,170px)">
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;text-align:center;color:#443a52">9</span><div style="height:41%;background:#c0273c;border-radius:3px"></div></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;text-align:center;color:#443a52">13</span><div style="height:59%;background:#8a5200;border-radius:3px"></div></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;text-align:center;color:#443a52">6</span><div style="height:27%;background:#1b7a5a;border-radius:3px"></div></div>
+        </div>
+        <div style="display:flex;gap:clamp(8px,1.2cqw,16px);margin-top:8px">
+          <div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.06em;color:#666666">JUST STARTED</div>
+          <div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.06em;color:#666666">GETTING THERE</div>
+          <div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.06em;color:#666666">HOLDING</div>
+        </div>
+        <p style="margin:12px 0 0;font-size:12.5px;color:#666666">Three buckets, named rather than numbered, and no bar is clickable — a drill-through would be a list of children at a level, which is the ranking this view exists without. The shape is what tells you whether to reteach or move on.</p>
+      </div>
+    </div>
+    <div style="flex:1 1 280px;min-width:0">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Where it turns up</div>
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:7px">
+        <span lang="fr-FR" style="padding:9px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font-size:15px">voudrais</span>
+        <span lang="fr-FR" style="padding:9px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font-size:15px">très</span>
+        <span lang="fr-FR" style="padding:9px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font-size:15px">froid</span>
+        <span lang="fr-FR" style="padding:9px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font-size:15px">proche</span>
+        <span lang="fr-FR" style="padding:9px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font-size:15px">croissant</span>
+        <span lang="fr-FR" style="padding:9px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font-size:15px">marron</span>
+      </div>
+      <div style="margin-top:16px;padding:14px 16px;border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">In the room</div>
+        <ul style="margin:8px 0 0;padding-left:18px;font-size:15px;line-height:1.7">
+          <li>Start from a gargle, then shorten it until it is a consonant.</li>
+          <li>Contrast <b lang="fr-FR">rue</b> against English <i>rue</i> — same spelling, different place in the mouth.</li>
+          <li>Chorus it before anyone says it alone.</li>
+        </ul>
+        <p style="margin:10px 0 0;font-size:12.5px;color:#666666">Teaching notes, not pupil data. They are the same for every class.</p>
+      </div>
+      <button style="margin-top:14px;width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,1.4cqw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Set a sitting on this sound</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1f">
+<div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Setting a sitting · 1280. A suggestion to the class, not an assignment with a deadline — no gate, and a pupil who cannot speak today still has a way through, so the teacher&rsquo;s request cannot strand anyone.</div>
+<div style="container-type:inline-size;width:1280px;height:500px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:12px;padding:16px clamp(20px,2.2cqw,30px);border-bottom:1px solid #dddddd;background:#ffffff">
+    <nav style="display:flex;align-items:center;gap:8px;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.06em;color:#666666"><span style="color:#41009a">Year 9 French</span><span>&rsaquo;</span><span style="color:#1a0b2e;font-weight:600">Set a sitting</span></nav>
+  </div>
+  <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(20px,2.4cqw,34px);padding:clamp(22px,2.6cqw,32px);min-height:0">
+    <div style="flex:1 1 420px;min-width:0">
+      <h1 style="margin:0;font-size:clamp(23px,2.6cqw,30px);font-weight:800;letter-spacing:-.02em">Ordering food · Lesson 2</h1>
+      <p style="margin:8px 0 0;font-size:clamp(15px,1.4cqw,16.5px);color:#443a52">Four activities, about five minutes. Targets the <b lang="fr-FR">r</b> and the <b lang="fr-FR">an</b>.</p>
+      <div style="margin-top:clamp(16px,2cqw,22px);border:1px solid #dddddd;border-radius:14px;background:#ffffff;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #dddddd"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#f0e6ff;color:#41009a">repeat</span><span lang="fr-FR" style="font-size:15px">Je voudrais un café</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #dddddd"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#e7f3ee;color:#1b7a5a">listen</span><span style="font-size:15px">Pick the meaning &mdash; no microphone needed</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #dddddd"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#f0e6ff;color:#41009a">respond</span><span lang="fr-FR" style="font-size:15px">Un café, s&rsquo;il vous plaît</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#f0e6ff;color:#41009a">recall</span><span style="font-size:15px">&ldquo;and a croissant&rdquo; &#8594; say it in French</span></div>
+      </div>
+      <p style="margin:10px 0 0;font-size:12.5px;color:#666666">One activity needs no microphone, which is what makes this settable for homework on a bus or a shared room.</p>
+    </div>
+    <div style="flex:1 1 280px;min-width:0">
+      <label style="display:block;margin:0 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">Suggest it for</label>
+      <select style="width:100%;min-height:48px;font-size:16.5px;font-family:Nunito,sans-serif;padding:0 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e"><option>This week</option><option>Before next lesson</option><option>No particular time</option></select>
+      <div style="margin-top:14px;padding:14px 16px;border:1px solid #ead2a4;background:#fcf3e3;border-radius:10px">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a5200">What this is not</div>
+        <p style="margin:6px 0 0;font-size:15px">It is a suggestion on their Today screen, not a lock. Pupils can do it late, do it partly, or move on from an activity after three tries — and you will see that they practised, never a mark for how it went.</p>
+      </div>
+      <div style="margin-top:12px;padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">You will be able to see</div>
+        <p style="margin:6px 0 0;font-size:15px">How many did it, and whether the <b lang="fr-FR">r</b> bucket shape moved afterwards. That is the feedback loop — the class&rsquo;s, not a pupil&rsquo;s.</p>
+      </div>
+      <button style="margin-top:14px;width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,1.4cqw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Suggest to 28 pupils</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">The pupil list, and the limits made visible</div>
+
+<div class="dv-opt" id="1g">
+<div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Pupil list and one pupil · 768. The list carries attendance and what each pupil is working on — no figure, so no ordering by attainment is possible. Opening a pupil gives a teacher one thing to do: have a word.</div>
+<div style="container-type:inline-size;width:768px;height:600px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:12px;padding:14px clamp(18px,2.6cqw,26px);border-bottom:1px solid #dddddd;background:#ffffff">
+    <button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&lsaquo;</button>
+    <div><div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Year 9 French</div><div style="font-size:16.5px;font-weight:700">28 pupils joined</div></div>
+  </div>
+  <div style="flex:1;display:flex;flex-wrap:wrap;min-height:0">
+    <div style="flex:1 1 300px;min-width:0;padding:clamp(16px,2.4cqw,22px);overflow:hidden">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Alphabetical · the only order there is</div>
+      <div style="margin-top:10px;display:flex;flex-direction:column">
+        <button style="min-height:56px;display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;border-bottom:1px solid #dddddd;background:none;text-align:left;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.99)"><span style="flex:1;font-size:15px">Amara</span><span style="display:flex;gap:2px"><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#f0e6ff"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span></span><span style="font-size:12.5px;color:#666666">4 days</span></button>
+        <button style="min-height:56px;display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;border-bottom:1px solid #dddddd;background:#ffffff;text-align:left;cursor:pointer;border-left:3px solid #41009a;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.99)"><span style="flex:1;font-size:15px;font-weight:700">Ben</span><span style="display:flex;gap:2px"><span style="width:8px;height:16px;border-radius:2px;background:#f0e6ff"></span><span style="width:8px;height:16px;border-radius:2px;background:#f0e6ff"></span><span style="width:8px;height:16px;border-radius:2px;background:#f0e6ff"></span><span style="width:8px;height:16px;border-radius:2px;background:#f0e6ff"></span><span style="width:8px;height:16px;border-radius:2px;background:#f0e6ff"></span></span><span style="font-size:12.5px;color:#8a5200">0 days</span></button>
+        <button style="min-height:56px;display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;border-bottom:1px solid #dddddd;background:none;text-align:left;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.99)"><span style="flex:1;font-size:15px">Chloe</span><span style="display:flex;gap:2px"><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span></span><span style="font-size:12.5px;color:#666666">5 days</span></button>
+        <button style="min-height:56px;display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;border-bottom:1px solid #dddddd;background:none;text-align:left;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.99)"><span style="flex:1;font-size:15px;color:#666666">Pupil 4</span><span style="display:flex;gap:2px"><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#f0e6ff"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#f0e6ff"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span></span><span style="font-size:12.5px;color:#666666">3 days</span></button>
+        <button style="min-height:56px;display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;border-bottom:1px solid #dddddd;background:none;text-align:left;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.99)"><span style="flex:1;font-size:15px">Maya</span><span style="display:flex;gap:2px"><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span><span style="width:8px;height:16px;border-radius:2px;background:#f0e6ff"></span><span style="width:8px;height:16px;border-radius:2px;background:#41009a"></span></span><span style="font-size:12.5px;color:#666666">4 days</span></button>
+      </div>
+      <p style="margin:10px 0 0;font-size:12.5px;color:#666666">&ldquo;Pupil 4&rdquo; joined without a name, which is their right and needs no explanation. The strip is five weekdays of attendance and nothing else.</p>
+    </div>
+    <div style="flex:1 1 280px;min-width:0;padding:clamp(16px,2.4cqw,22px);border-left:1px solid #dddddd;background:#ffffff">
+      <h2 style="margin:0;font-size:clamp(16.5px,2.4cqw,23px);font-weight:800;letter-spacing:-.02em">Ben</h2>
+      <p style="margin:6px 0 0;font-size:15px;color:#443a52">Has not practised in 12 days. Last sitting: Ordering food, Lesson 1.</p>
+      <div style="margin-top:14px;padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#fcfbfe">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Working on</div>
+        <p style="margin:6px 0 0;font-size:15px">The <b lang="fr-FR">r</b> and the <b lang="fr-FR">an</b> — the same two the class is on.</p>
+        <p style="margin:6px 0 0;font-size:12.5px;color:#666666">Which sounds, not how well. There is no figure on this page.</p>
+      </div>
+      <div style="margin-top:12px;padding:12px 14px;border:1px solid #ead2a4;background:#fcf3e3;border-radius:10px">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a5200">Worth knowing</div>
+        <p style="margin:6px 0 0;font-size:15px">Six of Ben&rsquo;s last eight takes came back unusable. That is usually a microphone or a room, not a pupil — and it is the one thing on this screen that might explain a pupil quietly giving up.</p>
+      </div>
+      <button style="margin-top:14px;width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">How to help him check his microphone</button>
+      <p style="margin:10px 0 0;font-size:12.5px;color:#666666">The action this page offers is a conversation and a device check. It offers nothing that could be read out to a room.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1h">
+<div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>The limits, and the mirror. Left: what a teacher can ask for and what the answer is. Right: the same list on the pupil&rsquo;s phone, reachable from their You tab — so a pupil can check the promise rather than take it.</div>
+<div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+  <div style="container-type:inline-size;width:520px;background:#ffffff;border:1px solid #dddddd;border-radius:14px;padding:clamp(18px,3cqw,24px);box-shadow:0 1px 3px rgba(22,32,43,.12)">
+    <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8b8397">Teacher · what you can ask for</div>
+    <h2 style="margin:6px 0 0;font-size:clamp(16.5px,4cqw,23px);font-weight:800;letter-spacing:-.02em">Requests, and their answers</h2>
+    <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:15px">
+      <tbody>
+        <tr><td style="padding:10px 0;border-bottom:1px solid #dddddd;width:52%">Export the class&rsquo;s sound difficulty</td><td style="padding:10px 0;border-bottom:1px solid #dddddd;color:#1b7a5a;font-weight:600">Yes — a CSV of the group table</td></tr>
+        <tr><td style="padding:10px 0;border-bottom:1px solid #dddddd">Export attendance</td><td style="padding:10px 0;border-bottom:1px solid #dddddd;color:#1b7a5a;font-weight:600">Yes — days practised, per pupil</td></tr>
+        <tr><td style="padding:10px 0;border-bottom:1px solid #dddddd">See a pupil&rsquo;s pronunciation score</td><td style="padding:10px 0;border-bottom:1px solid #dddddd;color:#c0273c;font-weight:600">No — not stored against a class</td></tr>
+        <tr><td style="padding:10px 0;border-bottom:1px solid #dddddd">Rank or sort the class by progress</td><td style="padding:10px 0;border-bottom:1px solid #dddddd;color:#c0273c;font-weight:600">No — nothing to rank on</td></tr>
+        <tr><td style="padding:10px 0;border-bottom:1px solid #dddddd">Hear a pupil&rsquo;s recording</td><td style="padding:10px 0;border-bottom:1px solid #dddddd;color:#c0273c;font-weight:600">No — never leaves their record</td></tr>
+        <tr><td style="padding:10px 0">Remove a pupil from the class</td><td style="padding:10px 0;color:#1b7a5a;font-weight:600">Yes — and they are told</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:12px 0 0;font-size:12.5px;color:#666666">Three of these are not switches an administrator can turn on. The class view is not given the data, so there is no setting that would reveal it — which is the difference between a policy and a design.</p>
+  </div>
+  <div style="container-type:inline-size;width:360px;height:640px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+    <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0">
+      <button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&lsaquo;</button>
+      <div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">You · your class</div>
+      <span style="width:44px"></span>
+    </div>
+    <div style="flex:1;min-height:0;overflow:hidden;padding:14px clamp(16px,5cqw,22px) 0">
+      <h2 style="margin:0;font-size:clamp(16.5px,5.5cqw,23px);font-weight:800;letter-spacing:-.02em">Year 9 French</h2>
+      <p style="margin:6px 0 0;font-size:15px;color:#443a52">Joined 4 March · as <b>Maya</b></p>
+      <div style="margin-top:14px;padding:12px 14px;border:1px solid #b4dbcb;border-radius:10px;background:#e7f3ee">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#1b7a5a">Mr Okonjo can see</div>
+        <ul style="margin:6px 0 0;padding-left:18px;font-size:15px;line-height:1.6"><li>The days you practised</li><li>Which lessons you did</li><li>Your first name</li></ul>
+      </div>
+      <div style="margin-top:10px;padding:12px 14px;border:1px solid #eec0c7;border-radius:10px;background:#fbe9ec">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#c0273c">And cannot</div>
+        <ul style="margin:6px 0 0;padding-left:18px;font-size:15px;line-height:1.6"><li>Your scores</li><li>Your recordings</li><li>How you compare to anyone</li></ul>
+      </div>
+      <p style="margin:12px 0 0;font-size:12.5px;color:#666666">Last checked just now. This screen reads the same list the class view is built from.</p>
+    </div>
+    <div style="padding:14px clamp(16px,5cqw,22px) 20px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+      <button style="width:100%;min-height:48px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Remove my name</button>
+      <button style="width:100%;min-height:48px;border:1.5px solid #c0273c;border-radius:10px;background:transparent;color:#c0273c;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Leave the class</button>
+      <p style="margin:0;font-size:12.5px;color:#666666">Leaving keeps everything you have learned. It only stops the sharing.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1i">
+<div class="dv-olabel"><a class="dv-oid" href="#1i">1i</a>Teacher on a phone · 360. What is worth a glance between lessons: who is in the room today, and the one sound to spend five minutes on. Nothing that needs a desk.</div>
+<div style="container-type:inline-size;width:360px;height:640px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="padding:16px clamp(16px,5cqw,22px) 0">
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#666666">Thursday · Year 9 French</span>
+    <h1 style="margin:4px 0 0;font-size:clamp(23px,7cqw,30px);font-weight:800;letter-spacing:-.02em">Before the lesson</h1>
+  </div>
+  <div style="flex:1;padding:14px clamp(16px,5cqw,22px) 0;display:flex;flex-direction:column;gap:12px">
+    <div style="padding:14px 16px;border:1px solid #41009a;border-radius:14px;background:#ffffff">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#41009a">Spend five minutes on</div>
+      <div style="margin-top:6px;font-size:clamp(23px,7cqw,30px);font-weight:800;letter-spacing:-.02em" lang="fr-FR">the r</div>
+      <div style="margin-top:2px;font-size:15px;color:#443a52">Hard for 22 of 28. Chorus <b lang="fr-FR">très</b> and <b lang="fr-FR">voudrais</b> before anyone says it alone.</div>
+    </div>
+    <div style="padding:14px 16px;border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Practised this week</div>
+      <div style="margin-top:6px;font-size:clamp(23px,7cqw,30px);font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums">19 <span style="font-size:15px;font-weight:400;color:#666666">of 28</span></div>
+      <div style="display:flex;gap:3px;margin-top:10px"><span style="flex:1;height:22px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:22px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:22px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:22px;border-radius:3px;background:#f0e6ff"></span><span style="flex:1;height:22px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:22px;border-radius:3px;background:#41009a"></span><span style="flex:1;height:22px;border-radius:3px;background:#f0e6ff"></span></div>
+    </div>
+    <div style="padding:14px 16px;border:1px solid #ead2a4;border-radius:14px;background:#fcf3e3">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a5200">Two quiet ones</div>
+      <p style="margin:6px 0 0;font-size:15px"><b>Ben</b> and <b>Pupil 12</b> have not practised in over a week. Ben&rsquo;s takes keep coming back unusable, which is worth asking about before anything else.</p>
+    </div>
+    <p style="margin:auto 0 0;font-size:12.5px;color:#666666">That is the whole phone view. Anything more would be data a teacher cannot act on standing in a doorway.</p>
+  </div>
+  <div style="display:flex;border-top:1px solid #dddddd;background:#ffffff;padding-bottom:10px">
+    <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#41009a;font:700 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9635;</span>Class</button>
+    <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#666666;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9776;</span>Sounds</button>
+    <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#666666;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9651;</span>Pupils</button>
+    <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#666666;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9881;</span>You</button>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: &ldquo;a parent version of <a class="dv-oid" href="#1h">1h</a>&rdquo; · &ldquo;what a head of department sees across classes&rdquo; · &ldquo;drop the pupil list entirely and keep only the group view&rdquo;</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000}}"></script>
+</body>
+</html>

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+body{margin:0;background:#efedf3;font-family:Nunito,system-ui,sans-serif;color:#1a0b2e}
+a{color:#41009a}a:hover{color:#2c0068}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+.dv-tid{font:700 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a0b2e;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:700 13px/1.2 Nunito,system-ui,sans-serif}
+.dv-note{margin:0 0 22px;font:400 12px/1.55 Nunito,system-ui,sans-serif;color:#5c5468;max-width:70ch}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:700 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(26,11,46,.09);color:#1a0b2e;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.35 Nunito,system-ui,sans-serif;color:#5c5468;max-width:420px}
+.dv-opt:target .dv-oid{background:#41009a;color:#fff}
+.dv-next{margin:26px 0 0;font:12px/1.6 Nunito,system-ui,sans-serif;color:#5c5468}
+.dv-grp{font:700 10px ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:#8b8397;flex-basis:100%;margin:14px 0 -4px}
+</style></helmet>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">D7 Navigation across four widths · D9 Splash and first run · D8 Authoring</span></div>
+<p class="dv-note">Four destinations, never five. Bottom tabs under 620px, a side rail above it, a labelled sidebar on desktop with breadcrumbs instead of back. The session is never a tab — it runs over them, with its own back affordance on every screen, because an installed iOS PWA has no browser back button. Safe-area insets are drawn, not assumed.</p>
+<div class="dv-opts">
+
+<div class="dv-grp">D7 · the four widths</div>
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>360 · bottom tabs, padded for the home indicator. Four destinations, 56px rows inside a bar that reserves 34px of inset below them.</div>
+<div style="width:360px;height:420px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="height:34px;background:#f0e6ff;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#41009a"><span>9:41</span><span>SAFE AREA · TOP INSET</span></div>
+  <div style="flex:1;padding:16px 20px"><div style="font-size:23px;font-weight:800;letter-spacing:-.02em">Today</div><p style="font-size:12.5px;color:#666666">Tab root. No back affordance here — on Android, system back from a tab root closes the app, and it confirms first if a sitting is in progress.</p></div>
+  <div style="border-top:1px solid #dddddd;background:#ffffff">
+    <div style="display:flex">
+      <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#41009a;font:700 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9635;</span>Today</button>
+      <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#666666;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9776;</span>Journey</button>
+      <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#666666;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9651;</span>Progress</button>
+      <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#666666;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9881;</span>You</button>
+    </div>
+    <div style="height:34px;background:#f0e6ff;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#41009a">SAFE AREA · HOME INDICATOR</div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>430 · same four, more room per label. The session over the top of them, with its own back and close — the only two ways out.</div>
+<div style="width:430px;height:420px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12);position:relative">
+  <div style="height:34px;background:#f0e6ff;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#41009a"><span>9:41</span><span>DYNAMIC ISLAND INSET</span></div>
+  <div style="position:absolute;left:0;right:0;top:34px;bottom:0;background:#ffffff;border-top:2px solid #41009a;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:6px;padding:10px 10px 0">
+      <button style="width:48px;height:48px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&lsaquo;</button>
+      <div style="flex:1;text-align:center"><div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Activity 3 of 4</div><div style="font-size:15px;font-weight:700">Ordering a coffee</div></div>
+      <button style="width:48px;height:48px;border:none;background:none;color:#666666;font:400 20px/1 Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&#10005;</button>
+    </div>
+    <div style="flex:1;padding:18px 22px"><p style="margin:0;font-size:15px;color:#443a52">The sitting is a modal flow over the tabs, so the tab bar is <b>gone</b> while it runs — a sitting has a finish line, and a tab bar invites leaving it half-done. Back steps within the sitting; close asks whether to keep the progress.</p>
+      <div style="margin-top:14px;padding:12px 14px;border:1px solid #ead2a4;background:#fcf3e3;border-radius:10px;font-size:12.5px">Left edge keeps 20px clear of any horizontal gesture — iOS edge-swipe back owns that strip.</div>
+    </div>
+    <div style="height:34px;background:#f0e6ff;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#41009a">HOME INDICATOR</div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>768 tablet · the bar becomes a rail on the left. Same four destinations, icons with labels under them, content gets the width.</div>
+<div style="width:768px;height:460px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="width:88px;flex:none;border-right:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:6px">
+    <img src="brand/icon.png" alt="Lingotran" style="width:32px;height:32px;display:block;margin-bottom:12px">
+    <button style="width:72px;min-height:64px;border:none;border-radius:10px;background:#f0e6ff;color:#41009a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:700 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:19px">&#9635;</span>Today</button>
+    <button style="width:72px;min-height:64px;border:none;border-radius:10px;background:none;color:#666666;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:19px">&#9776;</span>Journey</button>
+    <button style="width:72px;min-height:64px;border:none;border-radius:10px;background:none;color:#666666;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:19px">&#9651;</span>Progress</button>
+    <button style="width:72px;min-height:64px;border:none;border-radius:10px;background:none;color:#666666;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:19px">&#9881;</span>You</button>
+  </div>
+  <div style="flex:1;padding:24px 28px;min-width:0">
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#666666">Thursday · French</span>
+    <h1 style="margin:4px 0 16px;font-size:30px;font-weight:800;letter-spacing:-.02em">Welcome back, Maya</h1>
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px">
+      <div style="border:1px solid #41009a;border-radius:14px;background:#ffffff;padding:16px">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#41009a">Today&rsquo;s sitting</div>
+        <div style="margin-top:6px;font-size:23px;font-weight:800;letter-spacing:-.02em">Ordering food · Lesson 2</div>
+        <div style="margin-top:4px;font-size:15px;color:#443a52">Four activities, about five minutes. Two new, two due.</div>
+        <button style="margin-top:14px;min-height:48px;padding:0 22px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Start the sitting</button>
+      </div>
+      <div style="border:1px solid #dddddd;border-radius:14px;background:#ffffff;padding:16px">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Attendance</div>
+        <div style="margin-top:8px;font-size:30px;font-weight:600;line-height:1">6<span style="font-size:15px;font-weight:400;color:#666666"> days in a row</span></div>
+        <div style="margin-top:4px;font-size:12.5px;color:#666666">4 of the last 7 days · best run 9</div>
+      </div>
+    </div>
+    <p style="margin:18px 0 0;font-size:12.5px;color:#666666">Rail above 620px. A microphone device picker appears here and on desktop, where a learner plausibly has more than one.</p>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>1280 desktop · persistent labelled sidebar, breadcrumbs instead of back, visible focus and shortcuts. The sitting still takes the whole content column, not a dialog.</div>
+<div style="width:1280px;height:560px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="width:232px;flex:none;border-right:1px solid #dddddd;background:#ffffff;padding:20px 14px;display:flex;flex-direction:column;gap:4px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px"><img src="brand/icon.png" alt="" style="width:30px;height:30px;display:block"><span style="font-size:16.5px;font-weight:800;letter-spacing:-.01em">Sonare</span></div>
+    <button style="min-height:44px;text-align:left;padding:0 12px;border:none;border-radius:10px;background:#f0e6ff;color:#41009a;font:700 15px Nunito,sans-serif;display:flex;align-items:center;gap:10px;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span>&#9635;</span>Today</button>
+    <button style="min-height:44px;text-align:left;padding:0 12px;border:none;border-radius:10px;background:none;color:#1a0b2e;font:400 15px Nunito,sans-serif;display:flex;align-items:center;gap:10px;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="color:#666666">&#9776;</span>Journey</button>
+    <button style="min-height:44px;text-align:left;padding:0 12px;border:none;border-radius:10px;background:none;color:#1a0b2e;font:400 15px Nunito,sans-serif;display:flex;align-items:center;gap:10px;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="color:#666666">&#9651;</span>Progress</button>
+    <button style="min-height:44px;text-align:left;padding:0 12px;border:none;border-radius:10px;background:none;color:#1a0b2e;font:400 15px Nunito,sans-serif;display:flex;align-items:center;gap:10px;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="color:#666666">&#9881;</span>You</button>
+    <div style="margin-top:auto;padding-top:16px;border-top:1px solid #dddddd">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Shortcuts</div>
+      <div style="margin-top:6px;font-size:12.5px;color:#666666;line-height:1.7"><b style="font-family:ui-monospace,Menlo,monospace">Space</b> record · <b style="font-family:ui-monospace,Menlo,monospace">L</b> listen<br><b style="font-family:ui-monospace,Menlo,monospace">&#8594;</b> next · <b style="font-family:ui-monospace,Menlo,monospace">Esc</b> leave sitting</div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="padding:16px 28px 0;display:flex;justify-content:space-between;align-items:center">
+      <nav style="display:flex;align-items:center;gap:8px;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.06em;color:#666666"><span style="color:#41009a">Today</span><span>&rsaquo;</span><span style="color:#41009a">French</span><span>&rsaquo;</span><span style="color:#41009a">Ordering food</span><span>&rsaquo;</span><span style="color:#1a0b2e;font-weight:600">Lesson 2</span></nav>
+      <div style="display:flex;align-items:center;gap:10px">
+        <select style="min-height:44px;font-size:16.5px;font-family:Nunito,sans-serif;padding:0 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e"><option>MacBook Pro Microphone</option><option>AirPods Pro</option></select>
+        <button style="min-height:44px;padding:0 16px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Leave sitting</button>
+      </div>
+    </div>
+    <div style="flex:1;display:grid;grid-template-columns:1.5fr 1fr;gap:28px;padding:20px 28px 24px;min-height:0">
+      <div>
+        <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#666666">Say it after the model</p>
+        <p lang="fr-FR" style="margin:12px 0 0;font-size:38px;font-weight:700;line-height:1.22;letter-spacing:-.02em;max-width:22ch">Je voudrais un café et un croissant, s&rsquo;il vous plaît</p>
+        <p style="margin:14px 0 0;font-size:16.5px;font-style:italic;color:#666666">&ldquo;I would like a coffee and a croissant, please.&rdquo;</p>
+        <div style="display:flex;gap:12px;margin-top:24px">
+          <button style="min-height:48px;padding:0 22px;border:1.5px solid #41009a;border-radius:10px;background:#f0e6ff;color:#41009a;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Listen <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;opacity:.7">L</span></button>
+          <button style="min-height:48px;padding:0 26px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 15px Nunito,sans-serif;outline:2px solid #41009a;outline-offset:2px;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Say it <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;opacity:.8">SPACE</span></button>
+        </div>
+        <p style="margin:14px 0 0;font-size:12.5px;color:#666666">Focus ring shown as it renders: 2px accent, 2px offset, on every interactive role.</p>
+      </div>
+      <div style="border-left:1px solid #dddddd;padding-left:24px">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">This sitting</div>
+        <ol style="margin:10px 0 0;padding-left:18px;font-size:15px;line-height:1.9">
+          <li style="color:#1b7a5a">Hear and repeat · done</li>
+          <li style="color:#1b7a5a">Pick the meaning · done</li>
+          <li style="font-weight:700">Order a coffee</li>
+          <li style="color:#666666">Say the <b lang="fr-FR">r</b> again · due</li>
+        </ol>
+        <div style="margin-top:18px;padding:12px 14px;background:#f0e6ff;border-left:3px solid #41009a;border-radius:4px;font-size:15px">3 tries left. An unclear recording never costs one.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Back behaviour, written down — the part of D7 that is a rule, not a picture.</div>
+<div style="width:430px;background:#ffffff;border:1px solid #dddddd;border-radius:14px;padding:20px;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <h2 style="margin:0;font-size:23px;font-weight:800;letter-spacing:-.02em">Leaving a screen</h2>
+  <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:15px">
+    <tbody>
+      <tr><td style="padding:10px 0;border-bottom:1px solid #dddddd;width:44%"><b>Tab root</b><div style="font-size:12.5px;color:#666666">Today, Journey, Progress, You</div></td><td style="padding:10px 0;border-bottom:1px solid #dddddd">No in-app back. Android system back closes the app; if a sitting is in progress it confirms first.</td></tr>
+      <tr><td style="padding:10px 0;border-bottom:1px solid #dddddd"><b>Inside a tab</b><div style="font-size:12.5px;color:#666666">Unit, lesson, sound detail</div></td><td style="padding:10px 0;border-bottom:1px solid #dddddd">Back chevron, top left, 44px, always present — an installed iOS PWA has no browser back.</td></tr>
+      <tr><td style="padding:10px 0;border-bottom:1px solid #dddddd"><b>In a sitting</b></td><td style="padding:10px 0;border-bottom:1px solid #dddddd">Back steps within the sitting. Close asks: keep your progress and come back, or discard this activity.</td></tr>
+      <tr><td style="padding:10px 0;border-bottom:1px solid #dddddd"><b>Mid-take</b></td><td style="padding:10px 0;border-bottom:1px solid #dddddd">Both disabled visibly, not silently. The take finishes or is cancelled first.</td></tr>
+      <tr><td style="padding:10px 0"><b>Desktop</b></td><td style="padding:10px 0">Breadcrumbs instead of back. Esc leaves the sitting, with the same confirmation.</td></tr>
+    </tbody>
+  </table>
+</div>
+</div>
+
+<div class="dv-grp">D9 · splash and first run</div>
+
+<div class="dv-opt" id="1f">
+<div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Splash composition — wordmark centred on the real page ground, no motion, because the OS shows a static image. The ground is the point: <b>#fcfbfe</b> in the manifest too, or there is a visible flash at first paint.</div>
+<div style="display:flex;gap:18px;align-items:flex-start">
+  <div style="width:270px;height:585px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+    <img src="brand/icon.png" alt="" style="width:64px;height:64px;display:block">
+    <div style="font-size:30px;font-weight:800;letter-spacing:-.02em;color:#41009a">Sonare</div>
+    <img src="brand/wordmark-purple.png" alt="Lingotran" style="height:16px;display:block;opacity:.75">
+  </div>
+  <div style="width:300px;background:#ffffff;border:1px solid #dddddd;border-radius:14px;padding:18px">
+    <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">What to export</div>
+    <ul style="margin:8px 0 0;padding-left:18px;font-size:15px;line-height:1.65">
+      <li>1170&times;2532 — iPhone 12/13/14/15</li>
+      <li>1290&times;2796 — Pro Max</li>
+      <li>1179&times;2556 — 15/16 Pro</li>
+      <li>1125&times;2436 — X/XS/11 Pro</li>
+      <li>828&times;1792 — XR/11</li>
+    </ul>
+    <p style="margin:10px 0 0;font-size:12.5px;color:#666666">Five, chosen deliberately. Anything older falls back to the browser default rather than joining a list of forty nobody audits.</p>
+    <div style="margin-top:14px;padding:12px 14px;background:#f0e6ff;border-left:3px solid #41009a;border-radius:4px;font-size:12.5px">Android needs none of this — it generates the splash from the manifest. <b>background_color: #fcfbfe</b> (the page ground), <b>theme_color: #41009a</b> (OS chrome). Getting those two the wrong way round is the flash.</div>
+    <div style="margin-top:14px;display:flex;gap:12px;align-items:center">
+      <div style="width:84px;height:84px;border:1px dashed #41009a;border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative;background:#fcfbfe">
+        <div style="position:absolute;inset:17px;border-radius:50%;border:1px dashed #c0273c"></div>
+        <img src="brand/icon.png" alt="" style="width:36px;height:36px;display:block">
+      </div>
+      <p style="margin:0;font-size:12.5px;color:#666666">Maskable icon: 20% safe zone, art inside the circle. Not declared maskable until this padded version exists — today&rsquo;s 512&times;512 was not drawn for it.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1g">
+<div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>The handover after the splash — and the device-transfer code, which is the one MVP screen with no existing home. Identity stays anonymous; the code moves it.</div>
+<div style="display:flex;gap:18px;align-items:flex-start">
+  <div style="width:270px;height:585px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+    <div style="flex:1;padding:22px 18px 0">
+      <img src="brand/wordmark-purple.png" alt="Lingotran" style="height:22px;display:block">
+      <h2 style="margin:14px 0 0;font-size:23px;font-weight:800;letter-spacing:-.02em">Your record, on your next phone</h2>
+      <p style="margin:8px 0 0;font-size:15px;color:#443a52">No account, no email. Show this code on the new device within ten minutes.</p>
+      <div style="margin-top:16px;padding:16px;border:1px solid #41009a;border-radius:12px;background:#ffffff;text-align:center">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:23px;font-weight:700;letter-spacing:.18em;color:#41009a">7KQ2&nbsp;9FTB</div>
+        <div style="width:92px;height:92px;margin:12px auto 0;background:#1a0b2e;border-radius:6px"></div>
+        <div style="margin-top:10px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;color:#666666">EXPIRES IN 9:48</div>
+      </div>
+      <p style="margin:14px 0 0;font-size:12.5px;color:#666666">Sits in You, beside export and delete. Without it, changing phone silently loses everything.</p>
+    </div>
+    <div style="padding:14px 18px 20px;border-top:1px solid #dddddd;background:#ffffff">
+      <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">I have the new device ready</button>
+    </div>
+  </div>
+  <div style="width:300px;background:#ffffff;border:1px solid #dddddd;border-radius:14px;padding:18px">
+    <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">The seam after the splash</div>
+    <p style="margin:8px 0 0;font-size:15px">A splash covers until first paint. If the app then shows a route-level &ldquo;Loading…&rdquo;, the learner sees two loading states in a row. The splash ground matching the page ground is what makes the seam invisible — so the first screen must paint content, not a spinner.</p>
+    <div style="margin-top:14px;padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#fcfbfe">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Also in You</div>
+      <ul style="margin:8px 0 0;padding-left:18px;font-size:15px;line-height:1.7"><li>Export everything as a file</li><li>Erase my record, with counts</li><li>Move to a new device</li></ul>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">D8 · authoring</div>
+
+<div class="dv-opt" id="1h">
+<div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>Authoring · 1280. Operator density: units and lessons on the left, the activity being edited on the right, with the sounds it targets as a first-class field. An operator surface, held to the same care as a learner one.</div>
+<div style="width:1280px;height:540px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid #dddddd;background:#ffffff">
+    <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:16.5px;font-weight:800;letter-spacing:-.01em">Content</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#666666">FRENCH · v7 PUBLISHED · 3 UNSAVED CHANGES</span></div>
+    <div style="display:flex;gap:10px"><button style="min-height:44px;padding:0 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:700 13px Nunito,sans-serif;color:#1a0b2e;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Preview as learner</button><button style="min-height:44px;padding:0 16px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Publish v8</button></div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:280px 1fr 320px;min-height:0">
+    <div style="border-right:1px solid #dddddd;background:#ffffff;overflow:hidden;padding:14px 0">
+      <div style="padding:0 16px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Units</div>
+      <div style="margin-top:8px">
+        <div style="padding:9px 16px;font-size:15px;display:flex;justify-content:space-between"><span>1 · Greetings</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#666666">4</span></div>
+        <div style="padding:9px 16px;font-size:15px;font-weight:700;background:#f0e6ff;color:#41009a;display:flex;justify-content:space-between"><span>2 · Ordering food</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px">4</span></div>
+        <div style="padding:6px 16px 6px 30px;font-size:13px;color:#443a52">L1 · Saying hello in a café</div>
+        <div style="padding:6px 16px 6px 30px;font-size:13px;font-weight:700;border-left:3px solid #41009a">L2 · Ordering a coffee</div>
+        <div style="padding:6px 16px 6px 30px;font-size:13px;color:#443a52">L3 · Asking what it costs</div>
+        <div style="padding:6px 16px 6px 30px;font-size:13px;color:#443a52">L4 · Asking for the bill</div>
+        <div style="padding:9px 16px;font-size:15px;display:flex;justify-content:space-between"><span>3 · Directions</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#666666">4</span></div>
+        <button style="margin:10px 16px 0;min-height:44px;width:calc(100% - 32px);border:1px dashed #41009a;border-radius:10px;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">+ Add unit</button>
+      </div>
+    </div>
+    <div style="padding:18px 22px;overflow:hidden;min-width:0">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Lesson 2 · outcome</div>
+      <input value="You can say the four phrases you need to order a coffee." style="margin-top:6px;width:100%;font-size:16.5px;font-family:Nunito,sans-serif;padding:10px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e">
+      <div style="margin-top:16px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Activities</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px">
+        <thead><tr><th style="text-align:left;padding:8px 6px;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666;font-weight:600">#</th><th style="text-align:left;padding:8px 6px;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666;font-weight:600">Kind</th><th style="text-align:left;padding:8px 6px;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666;font-weight:600">Target</th><th style="text-align:left;padding:8px 6px;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666;font-weight:600">Sounds targeted</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:9px 6px;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#666666">1</td><td style="padding:9px 6px;border-bottom:1px solid #dddddd"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#f0e6ff;color:#41009a">repeat</span></td><td lang="fr-FR" style="padding:9px 6px;border-bottom:1px solid #dddddd">Je voudrais un café</td><td style="padding:9px 6px;border-bottom:1px solid #dddddd"><span lang="fr-FR" style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:2px 6px;border:1px solid #dddddd;border-radius:4px;margin-right:4px">r</span><span lang="fr-FR" style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:2px 6px;border:1px solid #dddddd;border-radius:4px">é</span></td></tr>
+          <tr style="background:#ffffff"><td style="padding:9px 6px;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#41009a;font-weight:700">2</td><td style="padding:9px 6px;border-bottom:1px solid #dddddd"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#e7f3ee;color:#1b7a5a">listen</span></td><td lang="fr-FR" style="padding:9px 6px;border-bottom:1px solid #dddddd">Je voudrais un café et un croissant</td><td style="padding:9px 6px;border-bottom:1px solid #dddddd;color:#666666">— no mic, no sounds scored</td></tr>
+          <tr><td style="padding:9px 6px;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#666666">3</td><td style="padding:9px 6px;border-bottom:1px solid #dddddd"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#f0e6ff;color:#41009a">respond</span></td><td lang="fr-FR" style="padding:9px 6px;border-bottom:1px solid #dddddd">Un café, s&rsquo;il vous plaît</td><td style="padding:9px 6px;border-bottom:1px solid #dddddd"><span lang="fr-FR" style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:2px 6px;border:1px solid #dddddd;border-radius:4px">ui</span></td></tr>
+          <tr><td style="padding:9px 6px;border-bottom:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#666666">4</td><td style="padding:9px 6px;border-bottom:1px solid #dddddd"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#f0e6ff;color:#41009a">recall</span></td><td style="padding:9px 6px;border-bottom:1px solid #dddddd;color:#666666">&ldquo;and a croissant&rdquo; &#8594; target</td><td style="padding:9px 6px;border-bottom:1px solid #dddddd"><span lang="fr-FR" style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:2px 6px;border:1px solid #dddddd;border-radius:4px">an</span></td></tr>
+        </tbody>
+      </table>
+      <button style="margin-top:12px;min-height:44px;padding:0 16px;border:1px dashed #41009a;border-radius:10px;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">+ Add activity</button>
+    </div>
+    <div style="border-left:1px solid #dddddd;background:#ffffff;padding:18px 18px;overflow:hidden">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Activity 2 · listen</div>
+      <label style="display:block;margin:12px 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">Prompt heard</label>
+      <input lang="fr-FR" value="Je voudrais un café et un croissant" style="width:100%;font-size:16.5px;font-family:Nunito,sans-serif;padding:10px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e">
+      <label style="display:block;margin:12px 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">Right answer</label>
+      <input value="I would like a coffee and a croissant." style="width:100%;font-size:16.5px;font-family:Nunito,sans-serif;padding:10px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e">
+      <label style="display:block;margin:12px 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">Distractors</label>
+      <input value="I would like a coffee, please." style="width:100%;font-size:16.5px;font-family:Nunito,sans-serif;padding:10px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e;margin-bottom:6px">
+      <input value="Could I have the bill, please?" style="width:100%;font-size:16.5px;font-family:Nunito,sans-serif;padding:10px 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e">
+      <div style="margin-top:14px;padding:11px 13px;border:1px solid #ead2a4;background:#fcf3e3;border-radius:10px;font-size:12.5px">This language returns unlabelled sounds, so per-sound advice is suppressed here and syllables are numbered in order. Confirm before promising sound targets on a French activity.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">The two screens the rules referred to and nothing drew</div>
+
+<div class="dv-opt" id="1i">
+<div class="dv-olabel"><a class="dv-oid" href="#1i">1i</a>Leaving a sitting. The dialog Android system back and desktop Esc both land on. It never discards silently, and the default is the safe one — nothing here is destructive by accident.</div>
+<div style="container-type:inline-size;width:360px;height:600px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12);position:relative">
+  <div style="flex:1;padding:clamp(16px,4cqw,22px) clamp(16px,5cqw,22px);filter:blur(1px);opacity:.45">
+    <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#666666">Say it after the model</p>
+    <p lang="fr-FR" style="margin:10px 0 0;font-size:clamp(23px,7cqw,30px);font-weight:700;line-height:1.22;letter-spacing:-.02em">Je voudrais un café et un croissant, s&rsquo;il vous plaît</p>
+    <p style="margin:16px 0 0;font-size:15px;font-style:italic;color:#666666">&ldquo;I would like a coffee and a croissant, please.&rdquo;</p>
+  </div>
+  <div style="position:absolute;inset:0;background:rgba(26,11,46,.34);display:flex;align-items:flex-end;padding:clamp(12px,4cqw,20px)">
+    <div style="width:100%;background:#ffffff;border-radius:14px;padding:clamp(16px,5cqw,22px);box-shadow:0 8px 28px rgba(22,32,43,.18)">
+      <h2 style="margin:0;font-size:clamp(16.5px,5cqw,23px);font-weight:800;letter-spacing:-.02em">Leave this sitting?</h2>
+      <p style="margin:8px 0 0;font-size:clamp(15px,4cqw,16.5px);color:#443a52">You are two activities into four. Your progress is kept either way — the question is only whether you carry on now.</p>
+      <div style="margin-top:14px;padding:11px 13px;border:1px solid #dddddd;border-radius:10px;background:#fcfbfe;font-size:12.5px;color:#666666">The take you just recorded has already been scored and counted. Nothing in flight is lost by leaving.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+        <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,4cqw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Keep going</button>
+        <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:transparent;color:#41009a;font:700 clamp(15px,4cqw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Leave and come back later</button>
+      </div>
+      <p style="margin:12px 0 0;font-size:12.5px;color:#666666">Focus lands on <b>Keep going</b>. There is no third option that throws work away, because nothing here needs one.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1j">
+<div class="dv-olabel"><a class="dv-oid" href="#1j">1j</a>You · the fourth tab, as a real screen. Export, the transfer code and deletion, in that order — the destructive one last, with what it erases counted before it runs.</div>
+<div style="container-type:inline-size;width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="padding:clamp(14px,5cqw,20px) clamp(16px,5cqw,22px) 0">
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#666666">Your record</span>
+    <h1 style="margin:4px 0 0;font-size:clamp(23px,8cqw,30px);font-weight:800;letter-spacing:-.02em">Maya</h1>
+    <p style="margin:6px 0 0;font-size:12.5px;color:#666666">No email, no password, no sign-in. This record lives on this device and syncs anonymously.</p>
+  </div>
+  <div style="flex:1;padding:clamp(14px,4cqw,20px) clamp(16px,5cqw,22px) 0;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+    <div style="padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">What is held</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:15px">
+        <tbody>
+          <tr><td style="padding:6px 0;border-bottom:1px solid #dddddd">Sounds measured</td><td style="padding:6px 0;border-bottom:1px solid #dddddd;text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">21</td></tr>
+          <tr><td style="padding:6px 0;border-bottom:1px solid #dddddd">Practice days</td><td style="padding:6px 0;border-bottom:1px solid #dddddd;text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">31</td></tr>
+          <tr><td style="padding:6px 0;border-bottom:1px solid #dddddd">Takes, last 90 days</td><td style="padding:6px 0;border-bottom:1px solid #dddddd;text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">146</td></tr>
+          <tr><td style="padding:6px 0">Recordings older than 90 days</td><td style="padding:6px 0;text-align:right;font-family:ui-monospace,Menlo,monospace">deleted</td></tr>
+        </tbody>
+      </table>
+      <p style="margin:8px 0 0;font-size:12.5px;color:#666666">Your sound history and practice days are never expired on a timer. The recordings are.</p>
+    </div>
+    <button style="min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:700 clamp(15px,4cqw,16.5px) Nunito,sans-serif;color:#1a0b2e;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Export everything as a file<span style="color:#41009a">&rsaquo;</span></button>
+    <button style="min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;border:1.5px solid #41009a;border-radius:10px;background:#f0e6ff;font:700 clamp(15px,4cqw,16.5px) Nunito,sans-serif;color:#41009a;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Move to a new device<span>&rsaquo;</span></button>
+    <p style="margin:0;font-size:12.5px;color:#666666">Changing phone without this loses everything — there is no account to log back into. It is the one thing on this screen worth doing before you need it.</p>
+    <button style="min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:400 clamp(15px,4cqw,16.5px) Nunito,sans-serif;color:#1a0b2e;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Run the sound check again<span style="color:#41009a">&rsaquo;</span></button>
+    <button style="min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:400 clamp(15px,4cqw,16.5px) Nunito,sans-serif;color:#1a0b2e;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Change your name<span style="color:#41009a">&rsaquo;</span></button>
+    <div style="margin-top:auto;padding:14px 16px;border:1px solid #eec0c7;border-radius:10px;background:#fbe9ec">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#c0273c">Erase my record</div>
+      <p style="margin:6px 0 10px;font-size:15px">Removes all 21 sounds, 31 days and 146 takes across every collection, and tells you the counts it removed. It cannot be undone and there is no copy.</p>
+      <button style="width:100%;min-height:48px;border:1.5px solid #c0273c;border-radius:10px;background:transparent;color:#c0273c;font:700 clamp(15px,4cqw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.98)">Erase everything</button>
+      <p style="margin:8px 0 0;font-size:12.5px;color:#666666">Focus ring on this control is red, not violet — the one place the ring changes colour.</p>
+    </div>
+  </div>
+  <div style="display:flex;border-top:1px solid #dddddd;background:#ffffff;padding-bottom:10px">
+    <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#666666;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9635;</span>Today</button>
+    <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#666666;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9776;</span>Journey</button>
+    <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#666666;font:400 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9651;</span>Progress</button>
+    <button style="flex:1;min-height:56px;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#41009a;font:700 11px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)"><span style="font-size:17px">&#9881;</span>You</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">D8 · what an operator sees before publishing</div>
+
+<div class="dv-opt" id="1k">
+<div class="dv-olabel"><a class="dv-oid" href="#1k">1k</a>Publish diff · 1280. The rule it is built on: publishing never blocks and never reaches into a sitting in flight — a client holds the version it resolved until the sitting ends. So this screen&rsquo;s job is not a gate, it is making one irreversible case visible.</div>
+<div style="container-type:inline-size;width:1280px;height:600px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px clamp(20px,2.2cqw,28px);border-bottom:1px solid #dddddd;background:#ffffff">
+    <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:16.5px;font-weight:800;letter-spacing:-.01em">Publish French content</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#666666">v7 &#8594; v8 · 3 CHANGES</span></div>
+    <button style="min-height:44px;padding:0 16px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Back to editing</button>
+  </div>
+  <div style="flex:1;display:flex;flex-wrap:wrap;min-height:0">
+    <div style="flex:1 1 560px;min-width:0;padding:clamp(18px,2.2cqw,26px);overflow:hidden">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Changes, field by field</div>
+
+      <div style="margin-top:12px;border:1px solid #b4dbcb;border-radius:10px;background:#ffffff;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#e7f3ee;border-bottom:1px solid #b4dbcb"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;color:#1b7a5a">ADDED</span><span style="font-size:15px;font-weight:700">Unit 2 · Lesson 2 · activity 2</span><span style="margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#ffffff;color:#1b7a5a">listen</span></div>
+        <div style="padding:10px 14px;font-size:15px">Hears <span lang="fr-FR" style="font-weight:600">Je voudrais un café et un croissant</span>, picks the meaning. No microphone, no sounds scored.</div>
+      </div>
+
+      <div style="margin-top:10px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f0e6ff;border-bottom:1px solid #dddddd"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;color:#41009a">CHANGED</span><span style="font-size:15px;font-weight:700">Unit 2 · Lesson 2 · activity 3 · gloss</span></div>
+        <div style="padding:10px 14px;font-size:15px;font-family:ui-monospace,Menlo,monospace">
+          <div style="color:#c0273c">&minus; &ldquo;A coffee please.&rdquo;</div>
+          <div style="color:#1b7a5a;margin-top:4px">+ &ldquo;A coffee, please.&rdquo;</div>
+        </div>
+        <div style="padding:0 14px 10px;font-size:12.5px;color:#666666">Target text untouched, so no sound history is affected. A change to <b>target</b> would be — it re-keys the syllables that activity measures, and this panel says so when it happens.</div>
+      </div>
+
+      <div style="margin-top:10px;border:1px solid #eec0c7;border-radius:10px;background:#ffffff;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fbe9ec;border-bottom:1px solid #eec0c7"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;color:#c0273c">REMOVED</span><span style="font-size:15px;font-weight:700">Unit 3 · Lesson 1 · activity 4</span><span style="margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:3px 7px;border-radius:999px;background:#ffffff;color:#c0273c">respond</span></div>
+        <div style="padding:10px 14px;font-size:15px"><span lang="fr-FR">Où se trouve la pharmacie la plus proche</span></div>
+        <div style="padding:0 14px 12px;font-size:15px">
+          <div style="padding:10px 12px;border:1px solid #eec0c7;border-radius:8px;background:#fbe9ec"><b>41 learners have attempts against this activity.</b> Their takes and sound history stay in their record — nothing is erased — but the activity stops resolving, so it disappears from their lesson and from any outcome that counted it.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1 1 320px;min-width:0;padding:clamp(18px,2.2cqw,26px);border-left:1px solid #dddddd;background:#ffffff">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Who this reaches</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:15px">
+        <tbody>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #dddddd">In a sitting right now</td><td style="padding:8px 0;border-bottom:1px solid #dddddd;text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">12</td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #dddddd">Mid-lesson, not in a sitting</td><td style="padding:8px 0;border-bottom:1px solid #dddddd;text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">308</td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #dddddd">Offline, on v6 or older</td><td style="padding:8px 0;border-bottom:1px solid #dddddd;text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">74</td></tr>
+          <tr><td style="padding:8px 0">Losing a started activity</td><td style="padding:8px 0;text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;color:#c0273c;font-weight:700">41</td></tr>
+        </tbody>
+      </table>
+      <p style="margin:10px 0 0;font-size:12.5px;color:#666666">The twelve in a sitting finish on v7 and pick up v8 on their next one. Nothing mid-take is interrupted, and an offline learner keeps practising from their bundle either way.</p>
+
+      <div style="margin-top:clamp(14px,1.8cqw,20px);padding:12px 14px;border:1px solid #ead2a4;background:#fcf3e3;border-radius:10px">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a5200">Forward only</div>
+        <p style="margin:6px 0 0;font-size:15px">There is no unpublish. Correcting a mistake means publishing v9, so the number only ever goes up — which is exactly why the removal above gets a typed confirmation rather than a second click.</p>
+      </div>
+
+      <label style="display:block;margin:clamp(14px,1.8cqw,20px) 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">Type PUBLISH V8 to confirm the removal</label>
+      <input placeholder="PUBLISH V8" style="width:100%;font-size:16.5px;font-family:ui-monospace,Menlo,monospace;padding:12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e">
+      <button style="margin-top:12px;width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;opacity:.4">Publish v8</button>
+      <p style="margin:8px 0 0;font-size:12.5px;color:#666666">Disabled until the phrase matches. Without a removal in the diff, publishing is one click and no typing — the friction is attached to the irreversible case, not to the act of publishing.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: &ldquo;the rail should carry the sitting too&rdquo; · &ldquo;show the leave-sitting confirmation&rdquo; · &ldquo;authoring needs a diff before publish&rdquo;</p>
+</section>
+
+</x-dc>
+</body>
+</html>

@@ -52,3 +52,7 @@ voice-cache/
 # also ignored — committing it would hand a fresh clone a page whose every
 # audio player is broken. Regenerate after a voice run instead.
 voice-check.html
+# The design handoff arrives as a zip; its contents are committed under
+# docs/design/ where they can be diffed and cited. The archive itself is a
+# 1.4 MB binary duplicate of files already in the tree.
+docs/*.zip

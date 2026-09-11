@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+body{margin:0;background:#efedf3;font-family:Nunito,system-ui,sans-serif;color:#1a0b2e}
+a{color:#41009a}a:hover{color:#2c0068}
+@keyframes screen-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes rise-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes rise-in-cta{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes draw-rule{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes rec-pulse{0%,100%{box-shadow:0 0 0 0 rgb(192 39 60 / 35%)}50%{box-shadow:0 0 0 10px rgb(192 39 60 / 0%)}}
+@keyframes lvl{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes sk-sweep{to{transform:translateX(100%)}}
+@keyframes celebrate-pop{0%{transform:scale(.92)}55%{transform:scale(1.035)}100%{transform:scale(1)}}
+@keyframes sy-sound{to{box-shadow:0 0 0 8px rgb(65 0 154 / 0%)}}
+[data-rm="1"] *{animation:none !important;transition:none !important}
+</style></helmet>
+
+<div data-rm="{{ rm }}" style="min-height:100vh;box-sizing:border-box;padding:clamp(16px,2.5vw,40px);display:flex;flex-direction:column;gap:clamp(16px,2vw,28px)">
+
+<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+  <div style="min-width:0">
+    <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#8b8397">Sonare · motion and responsive behaviour</div>
+    <div style="font-size:clamp(16.5px,1.6vw,23px);font-weight:800;letter-spacing:-.02em;margin-top:2px">{{ stepTitle }}</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <button onClick="{{ back }}" style="min-height:44px;padding:0 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&lsaquo; Back</button>
+    <button onClick="{{ next }}" style="min-height:44px;padding:0 18px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">{{ nextLabel }}</button>
+    <button onClick="{{ toggleRm }}" style="min-height:44px;padding:0 16px;border:1.5px solid #41009a;border-radius:10px;background:{{ rmBg }};color:{{ rmFg }};font:700 13px Nunito,sans-serif;cursor:pointer">Reduced motion: {{ rmLabel }}</button>
+  </div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:clamp(16px,2vw,28px);align-items:flex-start">
+
+<div style="flex:1 1 320px;min-width:0;max-width:1040px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;box-shadow:0 8px 28px rgba(22,32,43,.14);display:flex;flex-direction:column;min-height:640px;position:relative">
+
+  <div style="display:flex;align-items:center;gap:8px;padding:clamp(10px,1.4vw,18px) clamp(12px,1.6vw,24px) 0;position:relative">
+    <button style="width:48px;height:48px;flex:none;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif;border-radius:10px;cursor:pointer;transition:background-color 150ms cubic-bezier(.4,0,.2,1)" style-hover="background-color:#f0e6ff">&lsaquo;</button>
+    <div style="flex:1;min-width:0;text-align:center">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">{{ crumb }}</div>
+      <div style="font-size:clamp(15px,1.2vw,16.5px);font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ shellTitle }}</div>
+    </div>
+    <button style="width:48px;height:48px;flex:none;border:none;background:none;color:#666666;font:400 20px/1 Nunito,sans-serif;border-radius:10px;cursor:pointer;transition:background-color 150ms cubic-bezier(.4,0,.2,1)" style-hover="background-color:#f0e6ff">&#10005;</button>
+  </div>
+
+  <div style="height:2px;margin:clamp(8px,1vw,14px) clamp(12px,1.6vw,24px) 0;background:#41009a;transform-origin:left;animation:draw-rule 500ms cubic-bezier(.4,0,.2,1) 260ms both"></div>
+
+  <div key="{{ step }}" style="flex:1;display:flex;flex-direction:column;animation:screen-in 350ms cubic-bezier(.4,0,.2,1) both;min-height:0">
+
+    <sc-if value="{{ isHear }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(16px,2vw,32px);padding:clamp(20px,2.6vw,40px) clamp(20px,2.6vw,40px) 0">
+        <div style="flex:1 1 280px;min-width:0">
+          <h1 style="margin:0;font-size:clamp(26px,3.2vw,38px);font-weight:800;letter-spacing:-.02em;line-height:1.14;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 60ms both">Hear it first.</h1>
+          <p style="margin:10px 0 0;font-size:clamp(15px,1.3vw,16.5px);color:#443a52;max-width:46ch;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 120ms both">A French phrase said by a native speaker. Play it as many times as you like — before any name, any language, any permission.</p>
+          <div style="margin-top:clamp(16px,2vw,24px);padding:clamp(14px,1.8vw,22px);border:1px solid #dddddd;border-radius:14px;background:#ffffff;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 180ms both">
+            <p lang="fr-FR" style="margin:0;font-size:clamp(23px,2.6vw,30px);font-weight:700;line-height:1.22;letter-spacing:-.02em">Je voudrais un <span style="border-radius:4px;background:#f0e6ff;color:#41009a;box-shadow:0 0 0 3px #f0e6ff;transition:background-color 150ms cubic-bezier(.4,0,.2,1),color 150ms cubic-bezier(.4,0,.2,1)">café</span></p>
+            <p style="margin:8px 0 0;font-size:clamp(15px,1.2vw,16.5px);font-style:italic;color:#666666">&ldquo;I would like a coffee.&rdquo;</p>
+            <button style="margin-top:14px;width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#f0e6ff;color:#41009a;font:700 clamp(15px,1.2vw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1),background-color 150ms cubic-bezier(.4,0,.2,1)" style-hover="background-color:#e6d4ff" style-active="transform:scale(.97)">&#9654; Play it</button>
+          </div>
+        </div>
+        <div style="flex:1 1 260px;min-width:0;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 240ms both">
+          <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Word highlight, 150ms per handover</div>
+          <div style="margin-top:10px;padding:clamp(14px,1.6vw,20px);border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+            <p style="margin:0;font-size:clamp(15px,1.2vw,16.5px)">The highlight follows the voice&rsquo;s own per-character timings, not a guessed interval. It is a <b>position</b>, not a verdict, so it takes the lilac panel and never a score colour.</p>
+            <p style="margin:10px 0 0;font-size:12.5px;color:#666666">Under reduced motion the colour change is instant and the word is still marked — the 150ms transition only softens the handover and carries nothing.</p>
+            <p style="margin:10px 0 0;font-size:12.5px;color:#666666">Padding is <b>box-shadow</b>, not padding: horizontal padding on an inline word would shuffle the rest of the line as the voice moved through it.</p>
+          </div>
+        </div>
+      </div>
+      <div style="padding:clamp(14px,1.6vw,22px) clamp(20px,2.6vw,40px) clamp(20px,2.4vw,32px);border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-wrap:wrap;gap:12px">
+        <button onClick="{{ next }}" style="flex:1 1 220px;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,1.3vw,16.5px) Nunito,sans-serif;cursor:pointer;animation:rise-in-cta 500ms cubic-bezier(.4,0,.2,1) 250ms both;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Sounds useful — start</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isAsk }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(16px,2vw,32px);padding:clamp(20px,2.6vw,40px) clamp(20px,2.6vw,40px) 0">
+        <div style="flex:1 1 300px;min-width:0">
+          <h1 style="margin:0;font-size:clamp(26px,3.2vw,38px);font-weight:800;letter-spacing:-.02em;line-height:1.15;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 60ms both">Next, your microphone</h1>
+          <p style="margin:10px 0 0;font-size:clamp(15px,1.3vw,16.5px);color:#443a52;max-width:46ch;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 120ms both">Scoring a sound means hearing you make it. There is no way around the microphone, so here is exactly what happens.</p>
+          <ul style="margin:clamp(14px,1.8vw,22px) 0 0;padding:0;list-style:none;font-size:clamp(15px,1.2vw,16.5px)">
+            <li style="display:flex;gap:10px;padding:10px 0;border-top:1px solid #dddddd;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 160ms both"><span style="color:#41009a;flex:none">1</span><span>Each take is recorded on this device and uploaded to be scored. Nothing is uploaded until you speak.</span></li>
+            <li style="display:flex;gap:10px;padding:10px 0;border-top:1px solid #dddddd;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 210ms both"><span style="color:#41009a;flex:none">2</span><span>Takes are kept for 90 days and then deleted. Your sound history — the numbers, not the audio — is never expired on a timer.</span></li>
+            <li style="display:flex;gap:10px;padding:10px 0;border-top:1px solid #dddddd;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 260ms both"><span style="color:#41009a;flex:none">3</span><span>When diagnostics are switched on by whoever runs this service, a copy of a recording can also be written to their disk. So we will not tell you nothing is ever stored.</span></li>
+            <li style="display:flex;gap:10px;padding:10px 0;border-top:1px solid #dddddd;border-bottom:1px solid #dddddd;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 310ms both"><span style="color:#41009a;flex:none">4</span><span>You can export everything, or erase all of it, from the You tab — with the counts of what was deleted.</span></li>
+          </ul>
+        </div>
+        <div style="flex:1 1 260px;min-width:0;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 340ms both">
+          <div style="padding:clamp(14px,1.6vw,20px);border:1px solid #ead2a4;background:#fcf3e3;border-radius:14px">
+            <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a5200">Your browser will ask once</p>
+            <p style="margin:8px 0 0;font-size:clamp(15px,1.2vw,16.5px)">If you say no, this page cannot ask again — turning it back on means a trip through your device settings.</p>
+          </div>
+          <div style="margin-top:12px;padding:clamp(14px,1.6vw,20px);border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Arrival motion</div>
+            <p style="margin:8px 0 0;font-size:12.5px;color:#666666">One direction, 350ms, 12px and a fade. The four points stagger 50ms apart — a coordinated reveal, not a queue. No exit animation anywhere: an exit has to finish before the next screen can start, which doubles every tap.</p>
+          </div>
+        </div>
+      </div>
+      <div style="padding:clamp(14px,1.6vw,22px) clamp(20px,2.6vw,40px) clamp(20px,2.4vw,32px);border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-wrap:wrap;gap:12px">
+        <button onClick="{{ next }}" style="flex:1 1 240px;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,1.3vw,16.5px) Nunito,sans-serif;cursor:pointer;animation:rise-in-cta 500ms cubic-bezier(.4,0,.2,1) 250ms both;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Ask for the microphone</button>
+        <button style="flex:1 1 180px;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:transparent;color:#41009a;font:700 clamp(13px,1.1vw,15px) Nunito,sans-serif;cursor:pointer">Not yet — listening only</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isCheck }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(16px,2vw,32px);padding:clamp(20px,2.6vw,40px) clamp(20px,2.6vw,40px) 0">
+        <div style="flex:1 1 300px;min-width:0">
+          <h1 style="margin:0;font-size:clamp(26px,3.2vw,38px);font-weight:800;letter-spacing:-.02em;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 60ms both">Say anything</h1>
+          <p style="margin:10px 0 0;font-size:clamp(15px,1.3vw,16.5px);color:#443a52;max-width:46ch">Count to three. We are checking the microphone, not you — nothing here is scored or kept.</p>
+          <div style="margin-top:clamp(16px,2vw,24px);padding:clamp(16px,2vw,24px);border:1px solid #41009a;border-radius:14px;background:#ffffff">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+              <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Level</span>
+              <span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-variant-numeric:tabular-nums">&#8722;16 dB · 15 of 24 bars</span>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:clamp(3px,.4vw,5px);height:clamp(56px,7vw,104px);margin-top:12px">
+              <span style="flex:1;height:30%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) infinite"></span>
+              <span style="flex:1;height:52%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) 80ms infinite"></span>
+              <span style="flex:1;height:74%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) 160ms infinite"></span>
+              <span style="flex:1;height:96%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) 40ms infinite"></span>
+              <span style="flex:1;height:82%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) 200ms infinite"></span>
+              <span style="flex:1;height:60%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) 120ms infinite"></span>
+              <span style="flex:1;height:70%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) 260ms infinite"></span>
+              <span style="flex:1;height:44%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) 300ms infinite"></span>
+              <span style="flex:1;height:28%;background:#41009a;border-radius:2px"></span>
+              <span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span>
+              <span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span>
+              <span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span>
+            </div>
+            <p style="margin:12px 0 0;font-size:clamp(15px,1.3vw,16.5px);font-weight:700;color:#1b7a5a">Speech detected · 2.9s</p>
+            <p style="margin:4px 0 0;font-size:12.5px;color:#666666">Room noise &#8722;41 dB. Two more seconds for a verdict.</p>
+          </div>
+        </div>
+        <div style="flex:1 1 260px;min-width:0">
+          <div style="padding:clamp(14px,1.6vw,20px);border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">The one place movement is information</div>
+            <p style="margin:8px 0 0;font-size:clamp(15px,1.2vw,16.5px)">So it carries a static equivalent in the same box: the dB figure, the bar count, and the words &ldquo;speech detected&rdquo;. Switch reduced motion on — the meter freezes at its last reading and the screen still says everything it said before.</p>
+            <p style="margin:10px 0 0;font-size:12.5px;color:#666666">Bars animate on <b>transform</b> only, never height, so no frame of this costs a layout pass.</p>
+          </div>
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:clamp(12px,1.4vw,18px);border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+            <div><div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Input</div><div style="font-size:clamp(15px,1.2vw,16.5px);margin-top:2px">iPhone Microphone</div></div>
+            <button style="min-height:48px;padding:0 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:700 13px Nunito,sans-serif;color:#41009a;cursor:pointer;transition:background-color 150ms cubic-bezier(.4,0,.2,1)" style-hover="background-color:#f0e6ff">Change</button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:clamp(14px,1.6vw,22px) clamp(20px,2.6vw,40px) clamp(20px,2.4vw,32px);border-top:1px solid #dddddd;background:#ffffff">
+        <button onClick="{{ next }}" style="width:100%;min-height:48px;border:1.5px solid #c0273c;border-radius:10px;background:#c0273c;color:#ffffff;font:700 clamp(15px,1.3vw,16.5px) Nunito,sans-serif;cursor:pointer;animation:rec-pulse 1.6s cubic-bezier(.4,0,.2,1) infinite;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Stop</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isScoring }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(16px,2vw,32px);padding:clamp(20px,2.6vw,40px) clamp(20px,2.6vw,40px) 0">
+        <div style="flex:1 1 300px;min-width:0">
+          <p role="status" style="margin:0;font-size:clamp(16.5px,1.5vw,23px);font-weight:700">Scoring your take…</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:#dddddd;border:1px solid #dddddd;border-radius:10px;overflow:hidden;margin:clamp(14px,1.8vw,22px) 0">
+            <div style="background:#ffffff;padding:14px 10px;text-align:center">
+              <div style="position:relative;overflow:hidden;height:25px;width:60%;margin:0 auto;background:#dddddd;border-radius:4px"><div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,#f0e6ff 45%,#f0e6ff 55%,transparent);animation:sk-sweep 1.25s cubic-bezier(.4,0,.2,1) infinite"></div></div>
+              <div style="margin-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666">sounds</div>
+            </div>
+            <div style="background:#ffffff;padding:14px 10px;text-align:center">
+              <div style="position:relative;overflow:hidden;height:25px;width:60%;margin:0 auto;background:#dddddd;border-radius:4px"><div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,#f0e6ff 45%,#f0e6ff 55%,transparent);animation:sk-sweep 1.25s cubic-bezier(.4,0,.2,1) 120ms infinite"></div></div>
+              <div style="margin-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666">words said</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span style="height:44px;width:78px;background:#dddddd;border-radius:10px;display:block"></span><span style="height:44px;width:104px;background:#dddddd;border-radius:10px;display:block"></span><span style="height:44px;width:62px;background:#dddddd;border-radius:10px;display:block"></span><span style="height:44px;width:86px;background:#dddddd;border-radius:10px;display:block"></span>
+          </div>
+          <p style="margin:clamp(14px,1.6vw,20px) 0 0;font-size:12.5px;color:#666666">Usually about a second and a half.</p>
+        </div>
+        <div style="flex:1 1 260px;min-width:0">
+          <div style="padding:clamp(14px,1.6vw,20px);border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">A skeleton, never a progress bar</div>
+            <p style="margin:8px 0 0;font-size:clamp(15px,1.2vw,16.5px)">Shaped like what arrives — two cells at the height of the real figures, chips at the height of the real chips — so the numbers replace it in place and nothing jumps.</p>
+            <p style="margin:10px 0 0;font-size:12.5px;color:#666666">The sweep is a transform on a pseudo-element, not a moving background: one composited layer instead of a repaint per frame. It is deliberately not animated as though it were progress — nothing here knows how far along the scorer is.</p>
+            <p style="margin:10px 0 0;font-size:12.5px;color:#666666">Under reduced motion the sweep disappears and the status line carries the whole message.</p>
+          </div>
+        </div>
+      </div>
+      <div style="padding:clamp(14px,1.6vw,22px) clamp(20px,2.6vw,40px) clamp(20px,2.4vw,32px);border-top:1px solid #dddddd;background:#ffffff">
+        <button onClick="{{ next }}" disabled style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,1.3vw,16.5px) Nunito,sans-serif;opacity:.3">Scoring…</button>
+        <button onClick="{{ next }}" style="margin-top:10px;width:100%;min-height:44px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer">Skip the wait &rsaquo;</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isResult }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-wrap:wrap;gap:clamp(16px,2vw,32px);padding:clamp(20px,2.6vw,40px) clamp(20px,2.6vw,40px) 0">
+        <div style="flex:1 1 300px;min-width:0">
+          <div style="display:flex;gap:9px;padding:12px 14px;border:1px solid #b4dbcb;background:#e7f3ee;border-radius:10px;animation:rise-in-cta 350ms cubic-bezier(.4,0,.2,1) both,celebrate-pop 420ms cubic-bezier(.4,0,.2,1) both">
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;font-weight:700;color:#1b7a5a;padding-top:2px;flex:none">FIRST TRY</div>
+            <div style="font-size:clamp(15px,1.2vw,16.5px)">Understandable. Move on when you are ready.</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:#dddddd;border:1px solid #dddddd;border-radius:10px;overflow:hidden;margin:clamp(14px,1.8vw,22px) 0">
+            <div style="background:#ffffff;padding:14px 10px;text-align:center;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) both"><div style="font-family:ui-monospace,Menlo,monospace;font-size:clamp(23px,2.2vw,30px);font-weight:600;line-height:1.1">74<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;color:#1b7a5a;margin-left:4px;vertical-align:super;display:inline-block;animation:trend-in 300ms cubic-bezier(.4,0,.2,1) 420ms both">+22</span></div><div style="margin-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666">sounds</div></div>
+            <div style="background:#ffffff;padding:14px 10px;text-align:center;animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 70ms both"><div style="font-family:ui-monospace,Menlo,monospace;font-size:clamp(23px,2.2vw,30px);font-weight:600;line-height:1.1">10/10</div><div style="margin-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#666666">words said</div></div>
+          </div>
+          <p style="margin:0 0 12px;padding:10px 14px;background:#f0e6ff;border-left:3px solid #41009a;border-radius:4px;font-size:clamp(15px,1.2vw,16.5px);animation:rise-in 350ms cubic-bezier(.4,0,.2,1) 140ms both">The <b lang="fr-FR">r</b> in <b lang="fr-FR">voudrais</b> came out as an English r. Try it further back, almost a gargle.</p>
+          <p style="margin:0 0 8px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Tap a syllable to hear yourself say it</p>
+          <div style="display:flex;flex-wrap:wrap;gap:7px">
+            <button lang="fr-FR" style="position:relative;min-height:44px;padding:8px 12px;border:1px solid #41009a;border-bottom:3px solid #c0273c;border-radius:10px;background:#ffffff;font:400 clamp(15px,1.2vw,16.5px) Nunito,sans-serif;display:inline-flex;align-items:center;gap:6px;cursor:pointer;outline:2px solid #41009a;outline-offset:2px;animation:rise-in 150ms cubic-bezier(.4,0,.2,1) 180ms both">drais<b style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#c0273c">41</b><span style="position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 0 rgb(65 0 154 / 22%);animation:sy-sound 700ms cubic-bezier(.4,0,.2,1) infinite;pointer-events:none"></span></button>
+            <button lang="fr-FR" style="min-height:44px;padding:8px 12px;border:1px solid #dddddd;border-bottom:3px solid #8a5200;border-radius:10px;background:#ffffff;font:400 clamp(15px,1.2vw,16.5px) Nunito,sans-serif;display:inline-flex;align-items:center;gap:6px;cursor:pointer;animation:rise-in 150ms cubic-bezier(.4,0,.2,1) 215ms both">crois<b style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#8a5200">66</b></button>
+            <button lang="fr-FR" style="min-height:44px;padding:8px 12px;border:1px solid #dddddd;border-bottom:3px solid #1b7a5a;border-radius:10px;background:#ffffff;font:400 clamp(15px,1.2vw,16.5px) Nunito,sans-serif;display:inline-flex;align-items:center;gap:6px;cursor:pointer;animation:rise-in 150ms cubic-bezier(.4,0,.2,1) 250ms both">fé<b style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#1b7a5a">93</b></button>
+          </div>
+        </div>
+        <div style="flex:1 1 260px;min-width:0">
+          <div style="padding:clamp(14px,1.6vw,20px);border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Three things happen here</div>
+            <p style="margin:8px 0 0;font-size:clamp(15px,1.2vw,16.5px)"><b>The banner</b> — 350ms rise plus one 420ms pop, and the pop is reserved for a first try or a personal best so it does not wear out on every pass.</p>
+            <p style="margin:8px 0 0;font-size:clamp(15px,1.2vw,16.5px)"><b>The gain</b> — the <span style="color:#1b7a5a;font-weight:600">+22</span> wipes in at 420ms as a clip, not a slide: the row did not move, so nothing should look like it did.</p>
+            <p style="margin:8px 0 0;font-size:clamp(15px,1.2vw,16.5px)"><b>The playing syllable</b> — a ring in a different channel from the band colour, because the band colour is the score and must keep saying that. Reduced motion leaves the static ring, which is the part carrying the meaning.</p>
+          </div>
+        </div>
+      </div>
+      <div style="padding:clamp(14px,1.6vw,22px) clamp(20px,2.6vw,40px) clamp(20px,2.4vw,32px);border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-wrap:wrap;gap:12px">
+        <button style="flex:1 1 160px;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:transparent;color:#41009a;font:700 clamp(15px,1.2vw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Try again</button>
+        <button onClick="{{ next }}" style="flex:1 1 200px;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 clamp(15px,1.2vw,16.5px) Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Next</button>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+
+<div style="flex:1 1 280px;min-width:0;max-width:420px;display:flex;flex-direction:column;gap:clamp(12px,1.4vw,18px)">
+  <div style="padding:clamp(16px,1.8vw,22px);border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+    <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8b8397">Motion, as one decision</div>
+    <p style="margin:8px 0 14px;font-size:12.5px;color:#666666">One curve — <b style="font-family:ui-monospace,Menlo,monospace">cubic-bezier(.4, 0, .2, 1)</b> — and three durations. Everything below is stripped by the blanket reduced-motion rule, so each row states what remains.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <tbody>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#41009a;width:62px">150ms</td><td style="padding:8px 0;border-top:1px solid #dddddd">Taps, chips, word handover, hover tints. Static: the colour or scale it lands on.</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#41009a">350ms</td><td style="padding:8px 0;border-top:1px solid #dddddd">Screen arrival, 12px and a fade, one direction, no exit. Static: the screen, already there.</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#41009a">500ms</td><td style="padding:8px 0;border-top:1px solid #dddddd">A pass, once — and the brand rule drawing in under the header. Static: the banner and the rule.</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace;color:#c0273c">loop</td><td style="padding:8px 0;border-top:1px solid #dddddd">Only three: the live meter, the mic-is-open pulse, the playing syllable. Each has a static twin in the same box.</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:12px 0 0;font-size:12.5px;color:#666666">Every animation here is transform or opacity. Nothing animates height, width or a background position, so no frame of this flow costs a layout pass — which is what &ldquo;smooth&rdquo; actually means on the device this is tested on.</p>
+  </div>
+  <div style="padding:clamp(16px,1.8vw,22px);border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+    <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8b8397">Responsive, as one decision</div>
+    <p style="margin:8px 0 14px;font-size:12.5px;color:#666666">Drag the preview narrow and wide — this shell is the same markup at 360 and 1280. Nothing here is a fixed-width frame.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <tbody>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd;width:96px"><b>Page padding</b></td><td style="padding:8px 0;border-top:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace">clamp(20px, 2.6vw, 40px)</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd"><b>Heading</b></td><td style="padding:8px 0;border-top:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace">clamp(26px, 3.2vw, 38px)</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd"><b>Body</b></td><td style="padding:8px 0;border-top:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace">clamp(15px, 1.3vw, 16.5px)</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd"><b>Meter height</b></td><td style="padding:8px 0;border-top:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace">clamp(56px, 7vw, 104px)</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd"><b>Columns</b></td><td style="padding:8px 0;border-top:1px solid #dddddd">flex-wrap at a 280&ndash;300px basis — one column on a phone, two from about 700px, no media query</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #dddddd"><b>Figure cells</b></td><td style="padding:8px 0;border-top:1px solid #dddddd;font-family:ui-monospace,Menlo,monospace">minmax(120px, 1fr)</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:12px 0 0;font-size:12.5px;color:#666666">Two things deliberately do <b>not</b> scale: the 48px tap floor, which is a minimum and not a proportion, and the 16.5px input size, which is the iOS zoom floor. A fluid type scale that dips under either one breaks the product on the device it matters on.</p>
+  </div>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900}}">
+const STEPS = [
+  { key: "hear", title: "1 · Hear it first — arrival stagger and the word handover", crumb: "Before any ask", shell: "Sonare" },
+  { key: "ask", title: "2 · The microphone ask — 350ms arrival, 50ms stagger", crumb: "Step 4 of 5", shell: "Getting started" },
+  { key: "check", title: "3 · The check — the one place movement is information", crumb: "Step 5 of 5 · sound check", shell: "Sound check" },
+  { key: "scoring", title: "4 · Scoring — a skeleton, never a progress bar", crumb: "Take 1", shell: "Greetings" },
+  { key: "result", title: "5 · Result — banner, gain wipe, playing ring", crumb: "Take 1 of 3", shell: "Greetings" },
+];
+
+class Component extends DCLogic {
+  state = { step: 0, rm: false };
+
+  go = (delta) => {
+    this.setState((s) => ({ step: (s.step + delta + STEPS.length) % STEPS.length }));
+  };
+
+  renderVals() {
+    const { step, rm } = this.state;
+    const current = STEPS[step];
+    return {
+      step,
+      rm: rm ? "1" : "0",
+      rmLabel: rm ? "on" : "off",
+      rmBg: rm ? "#41009a" : "transparent",
+      rmFg: rm ? "#ffffff" : "#41009a",
+      toggleRm: () => this.setState((s) => ({ rm: !s.rm })),
+      next: () => this.go(1),
+      back: () => this.go(-1),
+      nextLabel: step === STEPS.length - 1 ? "Back to start \u203a" : "Next \u203a",
+      stepTitle: current.title,
+      crumb: current.crumb,
+      shellTitle: current.shell,
+      isHear: current.key === "hear",
+      isAsk: current.key === "ask",
+      isCheck: current.key === "check",
+      isScoring: current.key === "scoring",
+      isResult: current.key === "result",
+    };
+  }
+}
+</script>
+</body>
+</html>

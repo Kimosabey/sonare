@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+body{margin:0;background:#efedf3;font-family:Nunito,system-ui,sans-serif;color:#1a0b2e}
+a{color:#41009a}a:hover{color:#2c0068}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+.dv-tid{font:700 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a0b2e;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:700 13px/1.2 Nunito,system-ui,sans-serif}
+.dv-note{margin:0 0 22px;font:400 12px/1.55 Nunito,system-ui,sans-serif;color:#5c5468;max-width:74ch}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:700 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(26,11,46,.09);color:#1a0b2e;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.35 Nunito,system-ui,sans-serif;color:#5c5468;max-width:360px}
+.dv-opt:target .dv-oid{background:#41009a;color:#fff}
+.dv-next{margin:26px 0 0;font:12px/1.6 Nunito,system-ui,sans-serif;color:#5c5468}
+.dv-grp{font:700 10px ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:#8b8397;flex-basis:100%;margin:14px 0 -4px}
+@keyframes lvl{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+</style></helmet>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Onboarding and the microphone check — six steps, then eight states</span></div>
+<p class="dv-note">Demonstrate, then request: the learner hears a phrase and sees what syllable-level scoring looks like before being asked for a language, a name or a permission. The name is optional and says so. The permission is explained <b>before</b> the browser prompt fires, because on iOS that prompt happens once — a denial cannot be re-asked from the page, and recovery is a walk through Settings. Then a check that ends in a plain verdict, carried forward into the first activity. Nothing here is gamified: no streak, no count, no progress bar implying a course that has not started. Screens are 360&times;760 unless labelled.</p>
+<div class="dv-opts">
+
+<div class="dv-grp">Step 1 · hear it first</div>
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Before any ask. One phrase, played on tap, with a real scored example underneath — this is the product, shown rather than described.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="padding:24px 22px 0"><img src="brand/wordmark-purple.png" alt="Lingotran" style="height:20px;display:block"></div>
+  <div style="flex:1;padding:20px 22px 0;min-height:0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.14">Hear it first.</h1>
+    <p style="margin:10px 0 0;font-size:16.5px;color:#443a52">This is a French phrase said by a native speaker. Play it as many times as you like.</p>
+    <div style="margin-top:18px;padding:18px 16px;border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+      <p lang="fr-FR" style="margin:0;font-size:26px;font-weight:700;line-height:1.22;letter-spacing:-.02em">Je voudrais un café</p>
+      <p style="margin:8px 0 0;font-size:15px;font-style:italic;color:#666666">&ldquo;I would like a coffee.&rdquo;</p>
+      <button style="margin-top:14px;width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#f0e6ff;color:#41009a;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&#9654; Play it</button>
+    </div>
+    <p style="margin:20px 0 0;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">When you say it back, you get this</p>
+    <div style="margin-top:8px;padding:14px 16px;border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <span lang="fr-FR" style="padding:8px 10px;border:1px solid #dddddd;border-bottom:3px solid #1b7a5a;border-radius:10px;display:inline-flex;gap:6px;align-items:center;font-size:15px">Je<b style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#1b7a5a">91</b></span>
+        <span lang="fr-FR" style="padding:8px 10px;border:1px solid #dddddd;border-bottom:3px solid #c0273c;border-radius:10px;display:inline-flex;gap:6px;align-items:center;font-size:15px">vou<b style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#c0273c">54</b></span>
+        <span lang="fr-FR" style="padding:8px 10px;border:1px solid #dddddd;border-bottom:3px solid #8a5200;border-radius:10px;display:inline-flex;gap:6px;align-items:center;font-size:15px">drais<b style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#8a5200">66</b></span>
+        <span lang="fr-FR" style="padding:8px 10px;border:1px solid #dddddd;border-bottom:3px solid #1b7a5a;border-radius:10px;display:inline-flex;gap:6px;align-items:center;font-size:15px">ca<b style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#1b7a5a">88</b></span>
+        <span lang="fr-FR" style="padding:8px 10px;border:1px solid #dddddd;border-bottom:3px solid #1b7a5a;border-radius:10px;display:inline-flex;gap:6px;align-items:center;font-size:15px">fé<b style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#1b7a5a">93</b></span>
+      </div>
+      <p style="margin:12px 0 0;font-size:15px">Syllable by syllable — <b>which</b> sound went wrong, not a mark out of a hundred for you.</p>
+      <p style="margin:8px 0 0;font-size:12.5px;color:#666666">The goal is being understood easily, not sounding native.</p>
+    </div>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Sounds useful — start</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">Steps 2 and 3 · language, then an optional name</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Pick a language. Five, each with its own script shown in its own type, so a Kannada or Hindi learner sees their language rendered properly at the first opportunity.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0">
+    <button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&lsaquo;</button>
+    <div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Step 2 of 5</div>
+    <span style="width:44px"></span>
+  </div>
+  <div style="flex:1;padding:14px 22px 0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em">Which language?</h1>
+    <p style="margin:8px 0 0;font-size:16.5px;color:#443a52">You can add another later, and switch any time.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px">
+      <button style="min-height:60px;display:flex;align-items:center;gap:14px;padding:12px 14px;border:1.5px solid #41009a;border-radius:12px;background:#f0e6ff;cursor:pointer;text-align:left"><span lang="fr-FR" style="font-size:23px;font-weight:700;color:#41009a;width:56px">Bon<wbr>jour</span><span><span style="display:block;font-size:16.5px;font-weight:700">French</span><span style="display:block;font-size:12.5px;color:#666666">10 phrases ready</span></span></button>
+      <button style="min-height:60px;display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid #dddddd;border-radius:12px;background:#ffffff;cursor:pointer;text-align:left"><span lang="es-ES" style="font-size:23px;font-weight:700;color:#41009a;width:56px">Hola</span><span><span style="display:block;font-size:16.5px;font-weight:700">Spanish</span><span style="display:block;font-size:12.5px;color:#666666">10 phrases ready</span></span></button>
+      <button style="min-height:60px;display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid #dddddd;border-radius:12px;background:#ffffff;cursor:pointer;text-align:left"><span lang="de-DE" style="font-size:23px;font-weight:700;color:#41009a;width:56px">Hallo</span><span><span style="display:block;font-size:16.5px;font-weight:700">German</span><span style="display:block;font-size:12.5px;color:#666666">10 phrases ready</span></span></button>
+      <button style="min-height:60px;display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid #dddddd;border-radius:12px;background:#ffffff;cursor:pointer;text-align:left"><span lang="hi-IN" style="font-size:23px;font-weight:700;color:#41009a;width:56px">नमस्ते</span><span><span style="display:block;font-size:16.5px;font-weight:700">Hindi</span><span style="display:block;font-size:12.5px;color:#666666">10 phrases ready</span></span></button>
+      <button style="min-height:60px;display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid #dddddd;border-radius:12px;background:#ffffff;cursor:pointer;text-align:left"><span lang="kn-IN" style="font-size:23px;font-weight:700;color:#41009a;width:56px">ನಮಸ್ಕಾರ</span><span><span style="display:block;font-size:16.5px;font-weight:700">Kannada</span><span style="display:block;font-size:12.5px;color:#666666">10 phrases ready</span></span></button>
+    </div>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Continue with French</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Name — optional, and it says so in the label rather than in fine print. Skipping is a full-width button, not a link hiding at the bottom.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0">
+    <button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&lsaquo;</button>
+    <div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Step 3 of 5</div>
+    <span style="width:44px"></span>
+  </div>
+  <div style="flex:1;padding:14px 22px 0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em">A name, if you want one</h1>
+    <p style="margin:8px 0 0;font-size:16.5px;color:#443a52">It is only used to greet you, and to tell people apart on a shared tablet. Nothing is sent anywhere with it.</p>
+    <label style="display:block;margin:20px 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">First name · optional</label>
+    <input placeholder="Maya" style="width:100%;font-size:16.5px;font-family:Nunito,sans-serif;padding:12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e">
+    <p style="margin:8px 0 0;font-size:12.5px;color:#666666">16.5px, so iOS does not zoom the page when you tap it.</p>
+    <div style="margin-top:20px;padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">No account, either way</p>
+      <p style="margin:6px 0 0;font-size:15px">There is no email, no password and no sign-in. Your practice lives on this device, and you can export it or erase it whenever you like.</p>
+    </div>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Save and carry on</button>
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:transparent;color:#41009a;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Skip — no name</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">Step 4 · the ask, explained before the prompt fires</div>
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>The load-bearing screen. What the microphone is for, what happens to a recording — stated so it is true and checkable, not reassuring — and the warning that the browser asks once.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0">
+    <button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">&lsaquo;</button>
+    <div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Step 4 of 5</div>
+    <span style="width:44px"></span>
+  </div>
+  <div style="flex:1;padding:14px 22px 0;min-height:0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15">Next, your microphone</h1>
+    <p style="margin:10px 0 0;font-size:16.5px;color:#443a52">Scoring a sound means hearing you make it. There is no way around the microphone, so here is exactly what happens.</p>
+    <ul style="margin:18px 0 0;padding:0;list-style:none;font-size:15px">
+      <li style="display:flex;gap:10px;padding:9px 0;border-top:1px solid #dddddd"><span style="color:#41009a;flex:none">1</span><span>Each take is recorded on this device and uploaded to be scored. Nothing is uploaded until you speak.</span></li>
+      <li style="display:flex;gap:10px;padding:9px 0;border-top:1px solid #dddddd"><span style="color:#41009a;flex:none">2</span><span>Takes are kept for 90 days and then deleted automatically. Your sound history — the numbers, not the audio — is yours and is never expired on a timer.</span></li>
+      <li style="display:flex;gap:10px;padding:9px 0;border-top:1px solid #dddddd"><span style="color:#41009a;flex:none">3</span><span>When diagnostics are switched on by whoever runs this service, a copy of a recording can also be written to their disk. So we will not tell you nothing is ever stored.</span></li>
+      <li style="display:flex;gap:10px;padding:9px 0;border-top:1px solid #dddddd;border-bottom:1px solid #dddddd"><span style="color:#41009a;flex:none">4</span><span>You can export everything, or erase all of it, from the You tab — and see the counts of what was deleted.</span></li>
+    </ul>
+    <div style="margin-top:16px;padding:12px 14px;border:1px solid #ead2a4;background:#fcf3e3;border-radius:10px">
+      <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a5200">Your browser will ask once</p>
+      <p style="margin:6px 0 0;font-size:15px">If you say no, this page cannot ask again — turning it back on means a trip through your device settings. Say yes when the prompt appears, then say anything you like to check it works.</p>
+    </div>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Ask for the microphone</button>
+    <button style="width:100%;min-height:44px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Not yet — start with listening only</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">Step 5 · the check, all eight states</div>
+
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Idle. Permission just granted, nothing said yet. The instruction is &ldquo;say anything&rdquo; — no phrase to get right, because this is about the device, not the learner.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0"><button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button><div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Step 5 of 5 · sound check</div><span style="width:44px"></span></div>
+  <div style="flex:1;padding:14px 22px 0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em">Say anything</h1>
+    <p style="margin:8px 0 0;font-size:16.5px;color:#443a52">Count to three, or read this line aloud. We are checking the microphone, not you — nothing here is scored or kept.</p>
+    <div style="margin-top:20px;padding:16px;border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Level</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#666666">waiting</span></div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:56px;margin-top:10px">
+        <span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span>
+      </div>
+      <p style="margin:12px 0 0;font-size:15px;color:#666666">The bars move when the microphone hears something.</p>
+    </div>
+    <div style="margin-top:14px;padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div><div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Input</div><div style="font-size:15px;margin-top:2px">iPhone Microphone</div></div>
+        <button style="min-height:44px;padding:0 14px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:700 13px Nunito,sans-serif;color:#41009a;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Change</button>
+      </div>
+    </div>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Start the check</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1f">
+<div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Listening. The one place live movement is the information — so the bar count and the reading are printed beside it, and both survive reduced motion.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0"><button style="width:44px;height:44px;border:none;background:none;color:#dddddd;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button><div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#c0273c">● Listening</div><span style="width:44px"></span></div>
+  <div style="flex:1;padding:14px 22px 0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em">Keep going</h1>
+    <p style="margin:8px 0 0;font-size:16.5px;color:#443a52">Two more seconds of speech and we can tell you where you stand.</p>
+    <div style="margin-top:20px;padding:16px;border:1px solid #41009a;border-radius:14px;background:#ffffff">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Level</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-variant-numeric:tabular-nums;color:#1a0b2e">−16 dB · 15 of 24 bars</span></div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:56px;margin-top:10px">
+        <span style="flex:1;height:34%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:58%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:80%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:100%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) infinite"></span><span style="flex:1;height:86%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:64%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:72%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:48%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:30%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span>
+      </div>
+      <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#1b7a5a">Speech detected</p>
+      <p style="margin:4px 0 0;font-size:12.5px;color:#666666">2.9s of sound · room noise measured at −41 dB</p>
+    </div>
+    <div style="margin-top:14px;padding:12px 14px;background:#f0e6ff;border-left:3px solid #41009a;border-radius:4px;font-size:15px">Nothing from this check is uploaded or scored. It never leaves the device.</div>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff">
+    <button style="width:100%;min-height:48px;border:1.5px solid #c0273c;border-radius:10px;background:#c0273c;color:#ffffff;font:700 16.5px Nunito,sans-serif;box-shadow:0 0 0 6px rgba(192,39,60,.16);cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Stop</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1g">
+<div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Good signal — a plain verdict, with what was actually granted recorded for the session (iOS routinely hands back something other than what was asked for).</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0"><button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button><div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Sound check</div><span style="width:44px"></span></div>
+  <div style="flex:1;padding:14px 22px 0">
+    <div style="display:flex;gap:9px;padding:12px 14px;border:1px solid #b4dbcb;background:#e7f3ee;border-radius:10px">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;font-weight:700;color:#1b7a5a;padding-top:2px;flex:none">GOOD</div>
+      <div><div style="font-size:16.5px;font-weight:700">This device can be scored.</div><div style="margin-top:4px;font-size:15px">Your voice came through about 25 dB above the room — plenty of room for the scorer to work with.</div></div>
+    </div>
+    <div style="margin-top:16px;padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">What we measured</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:15px">
+        <tbody>
+          <tr><td style="padding:7px 0;border-bottom:1px solid #dddddd">Your voice</td><td style="padding:7px 0;border-bottom:1px solid #dddddd;text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">−16 dB</td></tr>
+          <tr><td style="padding:7px 0;border-bottom:1px solid #dddddd">The room</td><td style="padding:7px 0;border-bottom:1px solid #dddddd;text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">−41 dB</td></tr>
+          <tr><td style="padding:7px 0;border-bottom:1px solid #dddddd">Clipping</td><td style="padding:7px 0;border-bottom:1px solid #dddddd;text-align:right;font-family:ui-monospace,Menlo,monospace">none</td></tr>
+          <tr><td style="padding:7px 0">Input</td><td style="padding:7px 0;text-align:right;font-family:ui-monospace,Menlo,monospace">iPhone Microphone</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <details style="margin-top:14px"><summary style="min-height:44px;display:flex;align-items:center;font-size:13px;color:#41009a;cursor:pointer">What the browser actually gave us</summary>
+      <div style="padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#443a52;line-height:1.7">asked 16 kHz mono, plain<br>granted 48 kHz mono, noise suppression <b>on</b><br>noted for this session</div>
+      <p style="margin:8px 0 0;font-size:12.5px;color:#666666">Kept because iOS often ignores what was asked for. If a take later comes back unusable, this is the first thing support looks at.</p>
+    </details>
+    <p style="margin:16px 0 0;font-size:12.5px;color:#666666">About one take in fourteen still comes back unusable — usually the recording, not the scoring. When that happens you are told so, and it costs you nothing.</p>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Say your first phrase</button>
+    <button style="width:100%;min-height:44px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Check again</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1h">
+<div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>Too quiet — heard, but not clear of the room. Fixable, and the fixes are ordered by how often they work. Carrying on is still allowed.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0"><button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button><div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Sound check</div><span style="width:44px"></span></div>
+  <div style="flex:1;padding:14px 22px 0">
+    <div style="display:flex;gap:9px;padding:12px 14px;border:1px solid #ead2a4;background:#fcf3e3;border-radius:10px">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;font-weight:700;color:#8a5200;padding-top:2px;flex:none">QUIET</div>
+      <div><div style="font-size:16.5px;font-weight:700">We heard you, but only just.</div><div style="margin-top:4px;font-size:15px">Your voice was about 8 dB above the room. Takes will work, and more of them than usual will come back unclear.</div></div>
+    </div>
+    <div style="margin-top:16px;padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <div style="display:flex;align-items:flex-end;gap:3px;height:44px">
+        <span style="flex:1;height:26%;background:#8a5200;border-radius:2px"></span><span style="flex:1;height:34%;background:#8a5200;border-radius:2px"></span><span style="flex:1;height:30%;background:#8a5200;border-radius:2px"></span><span style="flex:1;height:40%;background:#8a5200;border-radius:2px"></span><span style="flex:1;height:28%;background:#8a5200;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:14%;background:#f0e6ff;border-radius:2px"></span>
+      </div>
+      <p style="margin:10px 0 0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-variant-numeric:tabular-nums;color:#666666">voice −34 dB · room −42 dB · 5 of 24 bars</p>
+    </div>
+    <p style="margin:18px 0 8px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Worth trying, in this order</p>
+    <ol style="margin:0;padding-left:20px;font-size:15px;line-height:1.7">
+      <li style="margin-bottom:6px">Hold the phone closer — a hand&rsquo;s width from your mouth.</li>
+      <li style="margin-bottom:6px">Take your hand or a case off the bottom edge, where the microphone is.</li>
+      <li style="margin-bottom:6px">Headphones with a built-in microphone, if you have them.</li>
+      <li>Somewhere quieter, if the room is the loud part.</li>
+    </ol>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Try the check again</button>
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:transparent;color:#41009a;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Carry on anyway</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1i">
+<div class="dv-olabel"><a class="dv-oid" href="#1i">1i</a>No signal at all — the state that hides two very different causes. A muted microphone and the wrong input device look identical in the level meter, so both are offered, with the device list right here.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0"><button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button><div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Sound check</div><span style="width:44px"></span></div>
+  <div style="flex:1;padding:14px 22px 0">
+    <div style="display:flex;gap:9px;padding:12px 14px;border:1px solid #eec0c7;background:#fbe9ec;border-radius:10px">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;font-weight:700;color:#c0273c;padding-top:2px;flex:none">SILENT</div>
+      <div><div style="font-size:16.5px;font-weight:700">Nothing reached us at all.</div><div style="margin-top:4px;font-size:15px">Not quiet — flat. That is almost always one of two things, and they look identical from here.</div></div>
+    </div>
+    <div style="margin-top:14px;padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <div style="display:flex;align-items:flex-end;gap:3px;height:36px">
+        <span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span><span style="flex:1;height:8%;background:#dddddd;border-radius:2px"></span>
+      </div>
+      <p style="margin:10px 0 0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#666666">0 of 24 bars for 6 seconds · digital silence</p>
+    </div>
+    <div style="margin-top:16px;padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <p style="margin:0;font-size:15px;font-weight:700">1 · The microphone is muted</p>
+      <p style="margin:4px 0 0;font-size:15px;color:#443a52">A hardware switch, a headset&rsquo;s inline mute, or a system mute. The level stays flat however loudly you speak.</p>
+    </div>
+    <div style="margin-top:10px;padding:14px 16px;border:1px solid #41009a;border-radius:10px;background:#ffffff">
+      <p style="margin:0;font-size:15px;font-weight:700">2 · We are listening to the wrong thing</p>
+      <p style="margin:4px 0 8px;font-size:15px;color:#443a52">Something else is selected as the input — a connected headset, a virtual device, a TV.</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button style="min-height:48px;text-align:left;padding:12px 14px;border:1.5px solid #41009a;border-radius:10px;background:#f0e6ff;font:700 15px Nunito,sans-serif;color:#41009a;display:flex;justify-content:space-between;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">AirPods Pro<span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px">IN USE</span></button>
+        <button style="min-height:48px;text-align:left;padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:400 15px Nunito,sans-serif;color:#1a0b2e;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">iPhone Microphone</button>
+        <button style="min-height:48px;text-align:left;padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:400 15px Nunito,sans-serif;color:#1a0b2e;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Headset Microphone</button>
+      </div>
+    </div>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Check again</button>
+    <button style="width:100%;min-height:44px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Practise listening instead — no microphone needed</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1j">
+<div class="dv-olabel"><a class="dv-oid" href="#1j">1j</a>Permission denied. The page cannot ask again, so the screen is a route through Settings — named steps for the actual browser, not a generic &ldquo;check your permissions&rdquo;.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0"><button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button><div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Microphone blocked</div><span style="width:44px"></span></div>
+  <div style="flex:1;padding:14px 22px 0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15">The microphone was turned down</h1>
+    <p style="margin:10px 0 0;font-size:16.5px;color:#443a52">Safari only asks once, so we cannot put the question back up. Turning it on takes four taps in Settings.</p>
+    <ol style="margin:18px 0 0;padding-left:20px;font-size:15px;line-height:1.65">
+      <li style="margin-bottom:8px">Open <b>Settings</b> on your phone.</li>
+      <li style="margin-bottom:8px">Scroll to <b>Safari</b>, then <b>Microphone</b>.</li>
+      <li style="margin-bottom:8px">Set it to <b>Ask</b> or <b>Allow</b>.</li>
+      <li>Come back here and tap the button below.</li>
+    </ol>
+    <div style="margin-top:18px;padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">On Android Chrome instead</p>
+      <p style="margin:6px 0 0;font-size:15px">Tap the padlock beside the address, then <b>Permissions</b>, then allow the microphone. Chrome will ask again after that.</p>
+    </div>
+    <div style="margin-top:14px;padding:12px 14px;background:#f0e6ff;border-left:3px solid #41009a;border-radius:4px;font-size:15px">If you would rather not, that is a fine answer. The listening activities need no microphone, and everything else stays available.</div>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">I&rsquo;ve changed it — try again</button>
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:transparent;color:#41009a;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Start with listening only</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1k">
+<div class="dv-olabel"><a class="dv-oid" href="#1k">1k</a>No microphone hardware. Nobody&rsquo;s fault, and phrased that way — no instructions to follow, because there is nothing the learner did or can undo.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0"><button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button><div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Sound check</div><span style="width:44px"></span></div>
+  <div style="flex:1;padding:22px 22px 0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15">This device has no microphone</h1>
+    <p style="margin:10px 0 0;font-size:16.5px;color:#443a52">Nothing is switched off and nothing is blocked — the browser reports no input device at all. Plugging in headphones with a microphone, or moving to a phone, is all it takes.</p>
+    <div style="margin-top:20px;padding:16px;border:1px solid #dddddd;border-radius:14px;background:#ffffff">
+      <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">What still works, fully</p>
+      <ul style="margin:8px 0 0;padding-left:18px;font-size:15px;line-height:1.7">
+        <li>Every listening activity — hear a phrase, pick the meaning.</li>
+        <li>The model voice, on every phrase in the course.</li>
+        <li>Your sound history, if you have practised on another device.</li>
+      </ul>
+      <p style="margin:10px 0 0;font-size:12.5px;color:#666666">What you cannot do is be scored, because that needs to hear you.</p>
+    </div>
+    <div style="margin-top:14px;padding:12px 14px;background:#f0e6ff;border-left:3px solid #41009a;border-radius:4px;font-size:15px">If you plug something in, tap below and we will look again — no reload needed.</div>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Start with listening</button>
+    <button style="width:100%;min-height:44px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Look for a microphone again</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1l">
+<div class="dv-olabel"><a class="dv-oid" href="#1l">1l</a>Insecure context — also nobody&rsquo;s fault, and the one state that is a property of the address rather than the device. A first-class screen, with the address to use instead.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0"><button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button><div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Sound check</div><span style="width:44px"></span></div>
+  <div style="flex:1;padding:22px 22px 0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15">This address cannot use a microphone</h1>
+    <p style="margin:10px 0 0;font-size:16.5px;color:#443a52">Browsers only hand out a microphone over a secure <b>https</b> connection. This page was opened over a plain one, so there is no microphone here to grant — by design, and nothing to do with your device.</p>
+    <div style="margin-top:18px;padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">You opened</div>
+      <div style="margin-top:4px;font-family:ui-monospace,Menlo,monospace;font-size:15px;color:#c0273c;word-break:break-all">http://192.168.1.24:5180</div>
+      <div style="margin-top:12px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Open instead</div>
+      <div style="margin-top:4px;font-family:ui-monospace,Menlo,monospace;font-size:15px;color:#1b7a5a;word-break:break-all">https://sonare.lingotran.com</div>
+      <button style="margin-top:12px;width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#f0e6ff;color:#41009a;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Copy the secure address</button>
+    </div>
+    <p style="margin:14px 0 0;font-size:12.5px;color:#666666">If you were sent this link by someone testing the app, that is worth telling them — the link, not the phone, is the problem.</p>
+  </div>
+  <div style="padding:16px 20px 24px;border-top:1px solid #dddddd;background:#ffffff;display:flex;flex-direction:column;gap:10px">
+    <button style="width:100%;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Practise listening here</button>
+    <button style="width:100%;min-height:44px;border:none;background:none;color:#41009a;font:700 13px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">What is a secure connection?</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">Step 6 · into the first activity, carrying the check forward</div>
+
+<div class="dv-opt" id="1m">
+<div class="dv-olabel"><a class="dv-oid" href="#1m">1m</a>The first take. The check&rsquo;s verdict travels with the learner as one quiet line — and if it was the quiet verdict, the same line says so instead, so an unclear first result is already half-explained.</div>
+<div style="width:360px;height:760px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:10px 10px 0">
+    <button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button>
+    <div style="flex:1;text-align:center"><div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Your first phrase</div><div style="font-size:15px;font-weight:700">Greetings</div></div>
+    <button style="width:44px;height:44px;border:none;background:none;color:#666666;font:400 20px/1 Nunito,sans-serif">&#10005;</button>
+  </div>
+  <div style="flex:1;padding:22px 20px 0">
+    <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#666666">Say it after the model</p>
+    <p lang="fr-FR" style="margin:10px 0 0;font-size:30px;font-weight:700;line-height:1.22;letter-spacing:-.02em;text-wrap:balance">Bonjour, comment allez-vous</p>
+    <p style="margin:16px 0 0;font-size:15px;font-style:italic;color:#666666">&ldquo;Hello, how are you?&rdquo;</p>
+    <div style="margin-top:22px;padding:12px 14px;border:1px solid #b4dbcb;background:#e7f3ee;border-radius:10px;display:flex;gap:9px">
+      <span style="color:#1b7a5a;font-size:15px;flex:none">&#10003;</span>
+      <span style="font-size:15px">Sound check passed on <b>iPhone Microphone</b>. If a take comes back unclear, it is the take — not your setup.</span>
+    </div>
+    <div style="margin-top:10px;padding:12px 14px;border:1px solid #ead2a4;background:#fcf3e3;border-radius:10px;display:flex;gap:9px">
+      <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;color:#8a5200;flex:none;padding-top:3px">OR</span>
+      <span style="font-size:15px">Your check came out quiet. Hold the phone closer than feels necessary — <button style="min-height:24px;padding:0;border:none;background:none;color:#41009a;font:700 15px Nunito,sans-serif;text-decoration:underline;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">run it again</button>.</span>
+    </div>
+    <p style="margin:16px 0 0;font-size:12.5px;color:#666666">No streak, no count and no progress bar on this screen. Nothing has been earned yet, and pretending otherwise is what the first session cannot afford.</p>
+  </div>
+  <div style="padding:14px 16px 22px;border-top:1px solid #dddddd;background:#ffffff">
+    <p style="margin:0 0 10px;font-size:12.5px;color:#666666">3 tries · an unclear recording never costs one</p>
+    <div style="display:flex;gap:10px">
+      <button style="flex:1;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#f0e6ff;color:#41009a;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Listen</button>
+      <button style="flex:1.4;min-height:48px;border:1.5px solid #41009a;border-radius:10px;background:#41009a;color:#ffffff;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Say it</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-grp">The check at the other three widths</div>
+
+<div class="dv-opt" id="1n">
+<div class="dv-olabel"><a class="dv-oid" href="#1n">1n</a>430 · the extra 70px goes to the meter and the verdict, not to more content.</div>
+<div style="width:430px;height:700px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:6px;padding:12px 10px 0"><button style="width:48px;height:48px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button><div style="flex:1;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Step 5 of 5 · sound check</div><span style="width:48px"></span></div>
+  <div style="flex:1;padding:18px 26px 0">
+    <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em">Say anything</h1>
+    <p style="margin:8px 0 0;font-size:16.5px;color:#443a52">Count to three. We are checking the microphone, not you.</p>
+    <div style="margin-top:22px;padding:18px;border:1px solid #41009a;border-radius:14px;background:#ffffff">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Level</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-variant-numeric:tabular-nums">−16 dB · 15 of 24 bars</span></div>
+      <div style="display:flex;align-items:flex-end;gap:4px;height:72px;margin-top:12px">
+        <span style="flex:1;height:30%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:52%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:74%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:96%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) infinite"></span><span style="flex:1;height:82%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:60%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:70%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:44%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:28%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span>
+      </div>
+      <p style="margin:12px 0 0;font-size:16.5px;font-weight:700;color:#1b7a5a">Speech detected · 2.9s</p>
+      <p style="margin:4px 0 0;font-size:12.5px;color:#666666">Room noise −41 dB. Two more seconds for a verdict.</p>
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff">
+      <div><div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Input</div><div style="font-size:16.5px;margin-top:2px">iPhone Microphone</div></div>
+      <button style="min-height:48px;padding:0 16px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;font:700 13px Nunito,sans-serif;color:#41009a;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Change</button>
+    </div>
+  </div>
+  <div style="padding:16px 24px 26px;border-top:1px solid #dddddd;background:#ffffff">
+    <button style="width:100%;min-height:48px;border:1.5px solid #c0273c;border-radius:10px;background:#c0273c;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Stop</button>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1o">
+<div class="dv-olabel"><a class="dv-oid" href="#1o">1o</a>768 · the check and its verdict side by side, so nothing about the device is a scroll away. The rail stays hidden: onboarding is not a destination.</div>
+<div style="width:768px;height:520px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:10px;padding:16px 24px;border-bottom:1px solid #dddddd;background:#ffffff">
+    <button style="width:44px;height:44px;border:none;background:none;color:#41009a;font:700 24px/1 Nunito,sans-serif">&lsaquo;</button>
+    <img src="brand/wordmark-purple.png" alt="Lingotran" style="height:18px;display:block">
+    <span style="margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Step 5 of 5 · sound check</span>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1.15fr 1fr;gap:0;min-height:0">
+    <div style="padding:24px 26px">
+      <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em">Say anything</h1>
+      <p style="margin:8px 0 0;font-size:16.5px;color:#443a52">Read this line aloud if nothing comes to mind. Nothing here is scored or kept.</p>
+      <div style="margin-top:20px;padding:18px;border:1px solid #41009a;border-radius:14px;background:#ffffff">
+        <div style="display:flex;align-items:flex-end;gap:4px;height:80px">
+          <span style="flex:1;height:32%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:56%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:78%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:98%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) infinite"></span><span style="flex:1;height:84%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:62%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:72%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:46%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:26%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:12%;background:#f0e6ff;border-radius:2px"></span>
+        </div>
+        <p style="margin:12px 0 0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-variant-numeric:tabular-nums;color:#1a0b2e">−16 dB · 15 of 24 bars · room −41 dB</p>
+      </div>
+      <button style="margin-top:18px;min-height:48px;padding:0 26px;border:1.5px solid #c0273c;border-radius:10px;background:#c0273c;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Stop</button>
+    </div>
+    <div style="padding:24px 26px;border-left:1px solid #dddddd;background:#ffffff">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Verdict, as it fills in</div>
+      <div style="margin-top:10px;display:flex;gap:9px;padding:12px 14px;border:1px solid #b4dbcb;background:#e7f3ee;border-radius:10px">
+        <span style="color:#1b7a5a;flex:none">&#10003;</span><span style="font-size:15px"><b>Clear of the room</b> — 25 dB above it.</span>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:9px;padding:12px 14px;border:1px solid #b4dbcb;background:#e7f3ee;border-radius:10px">
+        <span style="color:#1b7a5a;flex:none">&#10003;</span><span style="font-size:15px"><b>No clipping</b> — nothing is being driven too hard.</span>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:9px;padding:12px 14px;border:1px solid #dddddd;background:#fcfbfe;border-radius:10px">
+        <span style="color:#666666;flex:none">&#8226;</span><span style="font-size:15px;color:#666666"><b>Length</b> — 2.9s so far, 4s is enough.</span>
+      </div>
+      <div style="margin-top:16px;padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#fcfbfe;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#443a52;line-height:1.7">asked 16 kHz mono, plain<br>granted 48 kHz mono, noise suppression on</div>
+      <p style="margin:10px 0 0;font-size:12.5px;color:#666666">Recorded for this session because iOS often ignores what was asked for.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1p">
+<div class="dv-olabel"><a class="dv-oid" href="#1p">1p</a>1280 · same check, with the device picker promoted to a real control — on a desktop a learner plausibly has three inputs and the wrong one selected is the commonest cause of a silent check.</div>
+<div style="width:1280px;height:560px;background:#fcfbfe;border:1px solid #dddddd;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(22,32,43,.12)">
+  <div style="display:flex;align-items:center;gap:14px;padding:16px 28px;border-bottom:1px solid #dddddd;background:#ffffff">
+    <img src="brand/wordmark-purple.png" alt="Lingotran" style="height:20px;display:block">
+    <nav style="display:flex;align-items:center;gap:8px;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.06em;color:#666666"><span style="color:#41009a">Getting started</span><span>&rsaquo;</span><span style="color:#41009a">French</span><span>&rsaquo;</span><span style="color:#1a0b2e;font-weight:600">Sound check</span></nav>
+    <span style="margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#666666">Step 5 of 5</span>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1.4fr 1fr;min-height:0">
+    <div style="padding:28px 32px">
+      <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em">Say anything for four seconds</h1>
+      <p style="margin:10px 0 0;font-size:16.5px;color:#443a52;max-width:52ch">Count to three, or read this sentence aloud. This is a check of the device and the room — nothing is scored, uploaded or kept.</p>
+      <div style="margin-top:24px;padding:22px;border:1px solid #41009a;border-radius:14px;background:#ffffff">
+        <div style="display:flex;align-items:flex-end;gap:5px;height:110px">
+          <span style="flex:1;height:28%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:48%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:70%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:92%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:100%;background:#41009a;border-radius:2px;transform-origin:bottom;animation:lvl 900ms cubic-bezier(.4,0,.2,1) infinite"></span><span style="flex:1;height:86%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:64%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:74%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:52%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:34%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:18%;background:#41009a;border-radius:2px"></span><span style="flex:1;height:10%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:10%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:10%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:10%;background:#f0e6ff;border-radius:2px"></span><span style="flex:1;height:10%;background:#f0e6ff;border-radius:2px"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:14px">
+          <span style="font-size:16.5px;font-weight:700;color:#1b7a5a">Speech detected</span>
+          <span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-variant-numeric:tabular-nums;color:#443a52">−16 dB · 15 of 24 bars · room −41 dB · 2.9s</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:20px">
+        <button style="min-height:48px;padding:0 26px;border:1.5px solid #c0273c;border-radius:10px;background:#c0273c;color:#ffffff;font:700 16.5px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Stop <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;opacity:.85">SPACE</span></button>
+        <button style="min-height:48px;padding:0 20px;border:1.5px solid #41009a;border-radius:10px;background:transparent;color:#41009a;font:700 15px Nunito,sans-serif;cursor:pointer;transition:transform 150ms cubic-bezier(.4,0,.2,1)" style-active="transform:scale(.97)">Skip the check</button>
+      </div>
+      <p style="margin:14px 0 0;font-size:12.5px;color:#666666">Skipping is allowed. It only means an unclear first take will be harder to explain.</p>
+    </div>
+    <div style="padding:28px 32px;border-left:1px solid #dddddd;background:#ffffff">
+      <label style="display:block;margin:0 0 5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666;font-weight:600">Input device</label>
+      <select style="width:100%;min-height:48px;font-size:16.5px;font-family:Nunito,sans-serif;padding:0 12px;border:1px solid #dddddd;border-radius:10px;background:#ffffff;color:#1a0b2e"><option>MacBook Pro Microphone (built-in)</option><option>AirPods Pro</option><option>Yeti Nano</option></select>
+      <p style="margin:8px 0 0;font-size:12.5px;color:#666666">The wrong device selected is the commonest reason a check comes back silent.</p>
+      <div style="margin-top:20px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#666666">Verdict</div>
+      <div style="margin-top:10px;display:flex;gap:9px;padding:12px 14px;border:1px solid #b4dbcb;background:#e7f3ee;border-radius:10px"><span style="color:#1b7a5a;flex:none">&#10003;</span><span style="font-size:15px"><b>Clear of the room</b> — 25 dB above it</span></div>
+      <div style="margin-top:8px;display:flex;gap:9px;padding:12px 14px;border:1px solid #b4dbcb;background:#e7f3ee;border-radius:10px"><span style="color:#1b7a5a;flex:none">&#10003;</span><span style="font-size:15px"><b>No clipping</b></span></div>
+      <div style="margin-top:8px;display:flex;gap:9px;padding:12px 14px;border:1px solid #dddddd;background:#fcfbfe;border-radius:10px"><span style="color:#666666;flex:none">&#8226;</span><span style="font-size:15px;color:#666666"><b>Length</b> — 2.9s of 4s</span></div>
+      <div style="margin-top:18px;padding:12px 14px;border:1px solid #dddddd;border-radius:10px;background:#fcfbfe;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#443a52;line-height:1.7">asked 16 kHz mono, plain<br>granted 48 kHz mono, noise suppression on<br>secure context yes · permission granted</div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: &ldquo;merge the muted and wrong-device cases into one screen&rdquo; · &ldquo;make <a class="dv-oid" href="#1d">1d</a> shorter — it is a wall of text&rdquo; · &ldquo;show the check as a returning learner re-running it from You&rdquo;</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000}}"></script>
+</body>
+</html>
