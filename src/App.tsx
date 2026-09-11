@@ -271,7 +271,16 @@ function Shell() {
       {/* Suspense wraps only the lazy routes. The learner path (picker and
           activities) is statically imported and never suspends, so it renders
           exactly as before with no fallback flash. */}
-      <Suspense fallback={<p className="dim">Loading…</p>}>
+      {/*
+        `role="status"` because this is the only loading state in the app that
+        announced nothing. `ScoreCardSkeleton` marks its decorative parts
+        `aria-hidden` and puts `aria-live` on the part that is not, and the
+        authoring screen uses `role="status"`/`role="alert"` for its own
+        pending and outcome states — this fallback was the exception.
+        Settings is a lazy route and learner-facing, so a learner on a screen
+        reader tapping it got a silent swap to a screen with nothing on it.
+      */}
+      <Suspense fallback={<RouteFallback />}>
         {/*
           Keyed on the path so each screen animates in on arrival.
           This adds no remounting the app did not already do: a different
@@ -308,6 +317,30 @@ function Shell() {
         <Link to="/settings">Your data</Link>
       </footer>
     </div>
+  );
+}
+
+/**
+ * What a lazy route shows while its chunk arrives.
+ *
+ * A named component rather than inline JSX so a test can assert the real
+ * thing. Inline, the only way to cover it was to render a copy of the markup
+ * in the test and assert on that — which passes whatever `App` actually does,
+ * and is the vacuous shape this repository keeps catching elsewhere.
+ *
+ * `role="status"` because this was the one loading state in the app that
+ * announced nothing. `ScoreCardSkeleton` marks its decorative parts
+ * `aria-hidden` and puts `aria-live` on the part that is not; the authoring
+ * screen uses `role="status"` and `role="alert"` for pending and outcome. This
+ * fallback was the exception, and Settings is both lazy and learner-facing, so
+ * a learner on a screen reader tapping it got a silent swap to an empty
+ * screen.
+ */
+export function RouteFallback() {
+  return (
+    <p className="dim" role="status">
+      Loading&hellip;
+    </p>
   );
 }
 

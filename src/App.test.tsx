@@ -341,3 +341,23 @@ describe("code splitting", () => {
     expect(screen.getByText("today screen")).toBeInTheDocument();
   });
 });
+
+describe("the route fallback", () => {
+  it("announces itself, so a lazy route is not a silent empty screen", async () => {
+    /**
+     * The lazy routes — Settings among them, and it is learner-facing — show
+     * this while their chunk arrives. It carried no role, so a screen reader
+     * had nothing to announce: the screen became empty, then became something
+     * else.
+     *
+     * Asserted on the component `Suspense` is actually handed. Testing it
+     * inline would have meant rendering a copy of the markup here and
+     * asserting on that, which passes whatever App does — the vacuous shape
+     * this repository keeps catching.
+     */
+    const { RouteFallback } = await import("./App.js");
+    render(<RouteFallback />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading");
+  });
+});
