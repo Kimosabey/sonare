@@ -351,6 +351,39 @@ forbid({
       });
   }
 
+  /**
+   * The floor itself, which this rule did not check.
+   *
+   * Every other part of NFR-03 compares a declared size against 44. None of
+   * them looked at `--tap`, the token that *is* the floor and that rules are
+   * told to use instead of a literal — so lowering it to 36px passed the
+   * check, every test, and the whole suite. The rule enforced a number while
+   * leaving the definition of that number unguarded, which is the third
+   * instance of this shape found in this file: a check that cannot see the
+   * thing it is about reports a clean result.
+   */
+  {
+    const tokens = sheets
+      .map((f) => readFileSync(join(ROOT, f), "utf8"))
+      .join("\n");
+    const tap = /--tap:\s*(\d+(?:\.\d+)?)px/.exec(tokens);
+    if (tap === null) {
+      failures.push({
+        rule: "NFR-03",
+        what: "`--tap` is not defined in px anywhere under src/styles/",
+        why: "Rules are told to use var(--tap) rather than a literal. With no definition to read, this check vouches for nothing.",
+        hits: [{ file: "src/styles/", line: 0, text: "no --tap definition found" }],
+      });
+    } else if (Number(tap[1]) < 44) {
+      failures.push({
+        rule: "NFR-03",
+        what: `--tap is ${tap[1]}px, below the 44px floor it exists to enforce`,
+        why: "Every target using var(--tap) shrinks with it, and no other check would notice — the literals they replaced are the only thing this rule was reading.",
+        hits: [{ file: "src/styles/tokens.css", line: 0, text: `--tap: ${tap[1]}px` }],
+      });
+    }
+  }
+
   if (hits.length) {
     failures.push({
       rule: "NFR-03",
