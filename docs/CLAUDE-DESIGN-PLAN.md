@@ -78,6 +78,44 @@ as a required MVP screen, sitting beside export and delete in Settings.
 
 ---
 
+## 1c. Audience — B2C learner-first, teacher secondary
+
+Settled with the design work. Recorded here because both consequences change
+what gets built, not just what gets emphasised.
+
+**The teacher view is not reachable from the learner's tabs.** Different
+audience, different device. The entire learner-side footprint is **a join code
+entered in the You tab**; the class overview lives at its own address that a
+teacher signs into. That keeps four destinations for the learner and keeps
+"never more than four" intact rather than quietly making it five.
+
+**Shared device drops to a family-tablet case** — real, but not a classroom
+risk. The honest B2C minimum is **a name shown on Today and a way to switch in
+the You tab**. Deliberately **no picker on first launch**: a household of two
+does not need one, and a stranger opening the app should not be shown the
+household's names.
+
+Everything else previously listed under the shared-device and teacher personas
+was B2B and can stay unbuilt.
+
+### The one learner-facing gap left
+
+`read` and `recall`. Worth being precise about them, because they are not the
+same size of job:
+
+- **`read`** — reading text aloud with no model first. **The type exists** in
+  `ActivityKind` and **zero content has ever been written for it.** So this is
+  a screen plus authored phrases; no model change.
+- **`recall`** — seeing English and producing the target aloud. **This is not
+  in the model at all.** `ActivityKind` is `"repeat" | "respond" | "read"`, so
+  `recall` needs the type added before anything can be authored against it.
+  It was a proposal in the course plan, not an existing declaration.
+
+Both are small. `read` is the smaller, and it is the one with a type already
+waiting for content — the same shape as `selectActivity` waiting on a field.
+
+---
+
 ## 2. Hard constraints — read before drawing
 
 Each is enforced somewhere in the codebase by a test or a build-time check, and
