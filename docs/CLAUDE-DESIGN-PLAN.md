@@ -11,8 +11,9 @@ audit, design brief.
 
 ## 1. What you are designing
 
-Sonare teaches **spoken pronunciation** in French, Spanish, German, Hindi and
-Kannada. A learner hears a native-quality model voice, says the phrase back,
+Sonare teaches **spoken pronunciation**. **The MVP ships French and German
+only** — Spanish, Hindi and Kannada content exists in the repo and is out of
+scope for now. A learner hears a native-quality model voice, says the phrase back,
 and is scored **syllable by syllable** — not "60%", but *which sound* went
 wrong and what to try instead. It works offline, on a phone, in short sittings.
 
@@ -388,6 +389,69 @@ So this is a real design deliverable, not a config line:
 **And check the handover.** A splash covers until first paint; if the app then
 shows a route-level "Loading…", the learner sees two loading states in a row.
 The splash background matching `--ground` is what makes that seam invisible.
+
+---
+
+## 8c — the model voice, and using ElevenLabs well
+
+**Scope: French and German.** Both are already generated and cached — 10
+phrases each, in the voices the owner chose: **French Darling** for `fr-FR`,
+**Benjamin** for `de-DE`.
+
+### Two things the scope cut resolved
+
+Narrowing to fr + de removed two items that were genuinely blocking:
+
+- **The missing Hindi voice no longer blocks anything.** Hindi is out of scope,
+  so the gap where Hindi fell back to the platform synthesiser — on the
+  language where platform voices are most often absent — is moot for the MVP.
+- **The model is now a free choice.** `eleven_v3` was forced *only* because it
+  is the sole model declaring Kannada. With fr + de, five models qualify.
+
+### Keep `eleven_v3` anyway — and the reason is worth stating
+
+The obvious move is to switch to `eleven_flash_v2_5`: faster, cheaper per
+character. **Resist it.** Audio is generated **once at publish time and
+cached**, so nothing a learner does ever waits on it. The generation run for
+30 phrases took over ten minutes and no learner will ever experience that
+latency. When nothing waits, latency costs nothing — so the axis to optimise
+is **quality**, and that is v3.
+
+Cost at this scope is negligible regardless: fr + de is **20 phrases, ~844
+characters**, generated once per content version.
+
+### The better use of the API, which serves the thesis
+
+"Intelligible, not native" means being understood by native speakers **and
+understanding them**. A learner who only ever hears one voice learns one voice.
+
+So use the voices differently by activity type:
+
+- **`repeat` — one consistent voice per language.** A stable target to imitate.
+  French Darling and Benjamin, as chosen.
+- **`listen` — vary the voice.** This activity trains comprehension, and
+  understanding *different* speakers is the skill. Hearing one voice forever
+  trains the narrowest possible version of it.
+
+An alternative French voice was already supplied — **Sebastien**
+(`BUJMBsQ3Oq4cEeWSb48y`) — reachable through `ELEVENLABS_VOICE_IDS` without a
+code edit. **A second German voice has not been supplied and is the one
+outstanding ask** for this to work in both languages.
+
+### What "used well" already means in the code
+
+- Generated once per content version and cached; never on a learner's request
+  path.
+- Under a **separate** daily spend counter from scoring, so a day of generating
+  audio cannot consume the allowance for scoring learner attempts.
+- Refuses a language with no chosen voice rather than speaking it in the
+  placeholder's English accent.
+- Refuses a model that does not *declare* the language — a model asked for one
+  it cannot speak answers HTTP 200 with a mispronunciation, not an error.
+- Character-level timings come back with the audio and drive the word
+  highlight, so the highlight is data rather than a guessed interval.
+- Only reference text is sent. No learner audio reaches the provider, and no
+  code path accepts any.
 
 ---
 
