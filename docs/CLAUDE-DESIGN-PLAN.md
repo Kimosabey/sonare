@@ -37,6 +37,46 @@ Check every label, celebration and progress metaphor against that sentence.
 
 ---
 
+## 1b. Scope — production-near MVP, paid things held
+
+Two decisions, both made by the owner, that settle questions the rest of this
+file would otherwise leave open.
+
+**PWA, not a native shell.** No Capacitor, no React Native. The app installs
+from the browser. This settles §7's navigation questions rather than leaving
+them open: an installed iOS PWA has **no browser back button**, so an in-app
+back affordance on every non-root screen is mandatory, not a nicety.
+
+**Anything requiring payment is held.** In scope is everything free; out of
+scope for now are payments, email or OAuth accounts, a CDN and object storage,
+push notifications, and paid analytics.
+
+That line is more generous than it sounds, and two things commonly assumed to
+be behind it are not:
+
+- **A browser test runner is free.** It is an open-source dev dependency plus a
+  few hundred megabytes of browsers. It unlocks real-device passes, visual
+  regression, an automated accessibility audit, and the PWA back-button test —
+  four of the eleven testing kinds the plan needs.
+- **Backups are free.** A scheduled `mongodump` with a rehearsed restore costs
+  nothing and addresses the largest single operational risk on the board. It
+  does not need a managed service.
+
+**Accounts are not needed for this MVP.** Identity is already anonymous: a
+locally minted id signed by the server, with working data export and deletion.
+No email, no password, no login screen — and that is a defensible product
+position, not a gap.
+
+**But there is a real gap behind it, and it must be designed.** `ensureLearnerId`
+mints a fresh id per browser, and there is **no transfer, pairing or recovery
+mechanism anywhere in the codebase**. A learner who changes phone silently
+loses everything. For a production-near MVP that is not shippable, and the fix
+needs no accounts and no paid service: **a device-transfer code or QR** — shown
+on the old device, entered on the new one, moving the identity across. Treat it
+as a required MVP screen, sitting beside export and delete in Settings.
+
+---
+
 ## 2. Hard constraints — read before drawing
 
 Each is enforced somewhere in the codebase by a test or a build-time check, and
