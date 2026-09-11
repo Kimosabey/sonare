@@ -31,7 +31,7 @@ language-bearing string carries `lang`.
 
 ## Wave 1 — the critical path and the assets
 
-- [ ] **C1 — Content spine + the field everything waits on.**
+- [x] **C1 — Content spine + the field everything waits on.**
       `Language → Unit → Lesson → Activity`, and `soundTargets` on an activity.
       `server/routes/next.ts` states in its own comment that `selectActivity`
       is "already written and tested" and waits only on this mapping. Content
@@ -148,6 +148,32 @@ curriculum — roughly 60 activities per language against the 20 that exist.
 Both have been the critical path for weeks and neither moves with code.
 
 ## Log
+
+- 11 Sep 2026 — **C1 done** (`a1552b6`). 3352 tests + 1 expected fail + 3
+  soak-only across 144 files, all five gates green. **The field
+  `selectActivity` waited on now exists**, so C3 and C4 are unblocked.
+  The spine **points into** the flat `activities[]` by id rather than
+  containing it, and `units` is optional — so a set with no spine is the shape
+  that already shipped rather than a document to migrate, and an old client
+  resolves a whole language by ignoring a field it has never heard of. Four
+  such mechanisms, each tested.
+  `soundTargets` are graphemes folded to lower case, matching how the skills
+  store keys, and the publish gate refuses a syllable **that does not occur in
+  the phrase** — a mapping to nothing looks exactly like one that works. That
+  rule caught two real cases in the existing Authoring tests.
+  One honest exception recorded rather than papered over: `soundTargets` is
+  required for every activity a lesson references, but not globally, because
+  **hi-IN returns no syllable graphemes at all** (0 of 7 named) and a Hindi
+  list could only be data that never matches.
+  14 mutations, all caught. The one worth naming: `resolve.ts` rebuilt each set
+  from a written-out list of four fields, so it **would have dropped `units`
+  silently** — every activity present, the set valid, the journey empty, and
+  nothing to attribute it to. It now hands the cached set over by omission.
+  **Follow-up nobody should lose:** `--course` is opt-in. `npm run seed-content`
+  behaves exactly as before, so **the spine does not reach a learner until
+  someone runs it with that flag** — and it should not, until C6 ships the
+  `read` screen, because today's session screen would render a Listen button on
+  a `read` activity, which is the one thing that makes it a `repeat`.
 
 - 11 Sep 2026 — **C2 done** (`2ebbc46`). 3252 tests + 1 expected fail + 3
   soak-only across 143 files, all five gates green. Static budget **split
