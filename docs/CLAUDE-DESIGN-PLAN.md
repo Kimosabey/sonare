@@ -300,6 +300,40 @@ offline and the error are the states this product lives or dies on.
 | **D6** | **Corrective detail** — syllable tap-through, vowel chart, yours-against-the-model |
 | **D7** | **Navigation** — tab bar, rail and sidebar across the four platforms, with safe areas and back behaviour |
 | **D8** | **Authoring** — units, lessons, sound targets. Operator density |
+| **D9** | **Splash and first run** — see below. iOS needs real assets; Android does not |
+
+---
+
+### D9 — splash screens, and the asymmetry
+
+**Android / Chromium: free, if the manifest is right.** The browser generates a
+splash from `name`, `background_color` and a ≥512×512 icon. The one detail that
+matters: **`background_color` must equal the app's real page background**
+(`--ground: #fcfbfe`). If it does not, there is a visible colour jump between
+splash and first paint — a flash that reads as a bug and is entirely avoidable.
+Note that `theme_color` is a separate decision: it paints OS chrome, the brand
+violet suits it, and it would be a poor `background_color` for exactly that
+flash reason.
+
+**iOS: not free.** Safari historically ignores the manifest for splash and
+wants explicit `apple-touch-startup-image` links with a `media` query **per
+device resolution** — a long list and a known maintenance burden. Newer iOS
+does better but coverage is inconsistent across versions.
+
+So this is a real design deliverable, not a config line:
+
+- A splash composition — wordmark on `--ground`, centred, no motion (it is a
+  static image the OS shows; nothing can animate).
+- Exported at the iPhone resolutions worth supporting. Decide the cut deliberately
+  rather than exporting forty variants nobody audits.
+- **A maskable icon**, which is separate: Android crops into a square icon
+  unless the artwork carries roughly 20% safe-zone padding. The current
+  `icon.png` is 512×512 and was not drawn for masking, so it should not be
+  declared maskable until a padded version exists.
+
+**And check the handover.** A splash covers until first paint; if the app then
+shows a route-level "Loading…", the learner sees two loading states in a row.
+The splash background matching `--ground` is what makes that seam invisible.
 
 ---
 
