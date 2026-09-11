@@ -169,13 +169,41 @@ describe("data restored from a saved session", () => {
   });
 });
 
-describe("the error type", () => {
-  it("names a real error, since it says what kind of mistake it was", () => {
-    // Omission and mispronunciation call for different advice, and this is the
-    // only place the distinction is shown.
+describe("what happened to this word", () => {
+  /**
+   * This block used to assert `error type: Mispronunciation` was printed, on
+   * the grounds that "this is the only place the distinction is shown". That
+   * was true when it was written and is not now: `WordChips` marks an omitted
+   * word `—` with "not said" and an inserted one `+` with "extra", so the
+   * distinction reaches the learner on the chip they tap.
+   *
+   * What was left was vendor vocabulary in red, and for a mispronunciation it
+   * restated the score sitting directly above it — WordChips' own comment
+   * says a mispronunciation "is a judgement about *how well*, and there the
+   * score is the whole point". The raw value is still on the stored attempt,
+   * which is where support needs it.
+   */
+  it("says an omitted word was not said, rather than blaming the provider", () => {
+    render(<PhonemeDetail word={word({ errorType: "Omission", syllables: [] })} />);
+
+    expect(screen.getByText(/didn’t say this word/)).toBeInTheDocument();
+    // The bug this replaces: zero syllables read as a failed response.
+    expect(screen.queryByText(/no syllable detail returned/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Omission/)).not.toBeInTheDocument();
+  });
+
+  it("says an inserted word is not in the phrase", () => {
+    render(<PhonemeDetail word={word({ errorType: "Insertion" })} />);
+
+    expect(screen.getByText(/isn’t in the phrase/)).toBeInTheDocument();
+    expect(screen.queryByText(/Insertion/)).not.toBeInTheDocument();
+  });
+
+  it("leaves a mispronunciation to its score, and never prints the vendor's word", () => {
     render(<PhonemeDetail word={word({ errorType: "Mispronunciation" })} />);
 
-    expect(screen.getByText(/error type: Mispronunciation/)).toBeInTheDocument();
+    expect(screen.queryByText(/Mispronunciation/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/error type/)).not.toBeInTheDocument();
   });
 
   it('says nothing for "None", rather than reporting a non-error', () => {
@@ -190,6 +218,14 @@ describe("the error type", () => {
     render(<PhonemeDetail word={word({ errorType: undefined })} />);
 
     expect(screen.queryByText(/error type/)).not.toBeInTheDocument();
+  });
+
+  it("says nothing for a type this build has never seen", () => {
+    // Rather than printing itself. A learner cannot act on a word they have
+    // never encountered, and the raw value is already on the attempt record.
+    render(<PhonemeDetail word={word({ errorType: "UnknownFutureThing" })} />);
+
+    expect(screen.queryByText(/UnknownFutureThing/)).not.toBeInTheDocument();
   });
 });
 

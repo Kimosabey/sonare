@@ -39,6 +39,35 @@ function PhonemeDetailBase({ word, id, lang, onSelectSyllable, playingOffsetTick
    * predate a field becoming required, and a type cannot make a claim about
    * JSON written before it existed. Same guard, same reason, in report.ts.
    */
+  /**
+   * What happened to this word, in the learner's language.
+   *
+   * This used to print `error type: Omission` in red, straight from the
+   * provider, to every learner. Two things were wrong with it.
+   *
+   * It is vendor vocabulary. The screen already decided that raw provider
+   * detail is "real support value and the wrong audience" and put the error
+   * code and domain behind `?debug=1`; this panel was showing the same class
+   * of thing unconditionally.
+   *
+   * And it disagreed with the chip the learner had just tapped. `WordChips`
+   * gets this right — an omitted word shows `—` and the note "not said",
+   * because as its comment says, "Azure reports 0, and 0 out of 100 is a
+   * claim about pronunciation that nothing measured." Tapping that chip then
+   * said the system had failed to return data. Same fact, two explanations,
+   * and the worse one was the one you got for asking.
+   *
+   * An unrecognised type says nothing rather than printing itself: the raw
+   * value is already on the stored attempt for support, and a learner cannot
+   * act on a word they have never seen.
+   */
+  const stateNote =
+    word.errorType === "Omission"
+      ? "You didn’t say this word — so there is nothing to score here."
+      : word.errorType === "Insertion"
+        ? "You said this word, but it isn’t in the phrase."
+        : null;
+
   const syllables = word.syllables ?? [];
   const phonemes = word.phonemes ?? [];
 
@@ -48,12 +77,20 @@ function PhonemeDetailBase({ word, id, lang, onSelectSyllable, playingOffsetTick
 
   return (
     <div className="phonemes" id={id}>
+      {/*
+        Skipped for an omitted word. It has zero syllables — because nothing
+        was said — and SyllableChips reads zero as "the provider returned no
+        detail for this word", which is a statement about the response rather
+        than about the take. `stateNote` above says the true thing instead.
+      */}
+      {word.errorType !== "Omission" && (
       <SyllableChips
         syllables={syllables}
         lang={lang}
         {...(onSelectSyllable ? { onSelect: onSelectSyllable } : {})}
         playingOffsetTicks={playingOffsetTicks ?? null}
       />
+      )}
 
       {/* Rendered into this same container, not a nested `.phonemes` one:
           WordChips asserts exactly one expanded panel exists, and a second
@@ -64,9 +101,7 @@ function PhonemeDetailBase({ word, id, lang, onSelectSyllable, playingOffsetTick
         </span>
       ))}
 
-      {word.errorType && word.errorType !== "None" && (
-        <div style={{ marginTop: 8, color: "var(--fail)" }}>error type: {word.errorType}</div>
-      )}
+      {stateNote !== null && <div className="hint word-state">{stateNote}</div>}
     </div>
   );
 }
