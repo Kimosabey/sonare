@@ -301,6 +301,60 @@ offline and the error are the states this product lives or dies on.
 | **D7** | **Navigation** — tab bar, rail and sidebar across the four platforms, with safe areas and back behaviour |
 | **D8** | **Authoring** — units, lessons, sound targets. Operator density |
 | **D9** | **Splash and first run** — see below. iOS needs real assets; Android does not |
+| **D10** | **Onboarding and the microphone check** — the first ninety seconds. See §8b |
+
+---
+
+### D10 — onboarding and the microphone check
+
+**The highest-risk ninety seconds in the product.** Every activity needs a
+microphone, and **7.2% of all takes come back unusable** — about one in
+fourteen, most of them the recording rather than the provider. Today a learner
+whose microphone is dead or muted discovers it *after* speaking, which is the
+worst possible moment.
+
+There is no microphone check screen. There should be, and almost everything it
+needs already exists: a live level meter, a signal-to-noise reading, and a
+record of what the browser **actually granted** (iOS frequently ignores what
+was asked for, which is why that record is kept per session).
+
+Sequence, phone-first:
+
+1. **Hear it first.** Before asking for a name, a language or a permission,
+   let them hear a phrase and see what scoring looks like. Demonstrate, then
+   request. Today the app asks for all three before showing any value.
+2. **Pick a language.**
+3. **Name — optional, and say so.** It genuinely is optional in the code.
+4. **The microphone ask.** Explain before the OS prompt fires.
+5. **The microphone check.** New. Say anything; watch the level move; get a
+   plain verdict on whether this device can be scored.
+6. **Into the first activity**, with the check's result carried forward.
+
+States to draw for the check — these are the real failure modes, not
+hypotheticals:
+
+| State | What the learner needs |
+|---|---|
+| Idle, waiting | What to do, in one line |
+| Listening, level moving | That it is working, visibly and non-visually |
+| Good signal | Move on; do not dwell |
+| Too quiet | Actionable: closer, louder, somewhere quieter |
+| No signal at all | Distinguish a muted mic from a wrong device |
+| Permission denied | How to recover — and on iOS this is a Settings trip |
+| No microphone hardware | Not a failure the learner caused |
+| **Insecure context** | On a plain LAN IP there is **no microphone at all**, by browser design. A first-class screen, not an error |
+
+**iOS gives one permission prompt.** A denied prompt cannot be re-asked from
+the page; recovery means walking the learner through Settings. That makes step
+4's copy load-bearing rather than decorative.
+
+**Do not overclaim about the recording.** There is an operator-enabled
+diagnostic path that can write audio to disk, so "never stored" is not
+supportable as written. Say what is true and checkable.
+
+And nothing gamified here: no streak, no XP, no progress bar implying a course
+before one has begun. The first session's job is to establish that the thing
+works and is worth trusting.
 
 ---
 
