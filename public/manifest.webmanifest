@@ -1,0 +1,21 @@
+{
+  "name": "Sonare — pronunciation practice",
+  "short_name": "Sonare",
+  "description": "Phoneme-level pronunciation scoring. Say a phrase and see which sounds landed.",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education"],
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#41009a",
+  "background_color": "#fcfbfe",
+  "icons": [
+    {
+      "src": "/brand/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
