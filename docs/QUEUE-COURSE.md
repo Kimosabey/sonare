@@ -149,6 +149,31 @@ Both have been the critical path for weeks and neither moves with code.
 
 ## Log
 
+- 12 Sep 2026 — **C11's mechanism landed** (`f197cf2`); its UI stays open.
+  **C12 is parked with a diagnosis, not abandoned.**
+  **Three agents stalled or were rate-limited today, all on large items**, and
+  the salvage cost was the same each time: the tests. C11 committed 528 lines
+  of production code with zero tests and a failing lint gate, having never run
+  one. I wrote its 24 tests and proved three non-vacuous by mutation — strip
+  unknown characters instead of separators, save the token before adopting the
+  identity, move the code into the query string; each fails exactly one test.
+  **Scope the remaining items smaller.** A whole screen plus its mechanism is
+  where this keeps breaking; the mechanism alone, or the screen alone, is not.
+  **C12's formant estimator is on `worktree-agent-aaef63311d55877f0`** and
+  deliberately not here. The method is right — pre-emphasis, Hamming frames,
+  Levinson-Durbin, peaks of 1/|A| — but it avoided root-solving A(z), so there
+  are no bandwidths and nothing to reject a spurious peak with. Nine
+  reference-vowel cases fail with errors from **34.9 Hz** against a 30 Hz
+  tolerance up to **1587 Hz**, which is the wrong peak selected rather than a
+  near miss.
+  Shipping it would contradict the only argument for building it: the vowel
+  chart earns its place by being a *measurement* rather than a grade, which is
+  what lets it stay honest while accent fairness is unmeasured. An estimator
+  that can miss F2 by 1587 Hz is not a measurement, and a confident point in
+  the wrong place is worse than no point. Its test file is the valuable half —
+  whoever resumes starts from a failing specification with published reference
+  vowels in it, not a blank page.
+
 - 11 Sep 2026 — **C1 done** (`a1552b6`). 3352 tests + 1 expected fail + 3
   soak-only across 144 files, all five gates green. **The field
   `selectActivity` waited on now exists**, so C3 and C4 are unblocked.
