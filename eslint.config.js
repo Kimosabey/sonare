@@ -11,7 +11,17 @@ export default tseslint.config(
    * fails for a reason that has nothing to do with the code under review,
    * which is the worst kind of red — it trains you to stop reading it.
    */
-  { ignores: ["dist", "dist-server", "node_modules", "reference", "server/data", ".claude"] },
+  /**
+   * `docs` holds the design handoff, including `designs/support.js` — the
+   * design tool's own vendored runtime, which arrives with the boards and is
+   * explicitly "not for shipping". Linted, it produces 97 `no-undef` errors
+   * for globals that exist in its own environment and not ours.
+   *
+   * Ignored rather than fixed: it is somebody else's build output that we
+   * store so the boards render, in the same category as `reference` and
+   * `dist`. Nothing under `docs` is ours to hold to our rules.
+   */
+  { ignores: ["dist", "dist-server", "node_modules", "reference", "server/data", ".claude", "docs"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
