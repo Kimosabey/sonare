@@ -128,34 +128,15 @@ describe("one focus treatment, on every interactive role", () => {
   });
 
   test("the ring's colour comes from a token, not a literal", () => {
-    // Required to be visible on both themes. A hex here would be correct on
-    // whichever theme it was picked against and wrong on the other.
+    // A hex here would be a second copy of --signal, correct on the day it was
+    // picked and silently wrong the next time the palette moves. It is also
+    // what lets settings.css recolour the ring for the destructive button with
+    // one `outline-color` rather than a redeclaration of the whole treatment.
     const tokens = stripComments(sheets["./tokens.css"] ?? "");
     const ring = /--focus-ring:\s*([^;]+);/.exec(tokens)?.[1];
     expect(ring, "--focus-ring is not defined").toBeDefined();
     expect(ring as string).toContain("var(--");
     expect(ring as string).not.toMatch(/#[0-9a-f]{3,8}|\brgb|\bhsl/i);
-  });
-
-  test("the ring needs no dark counterpart, and neither theme block mentions focus", () => {
-    /**
-     * --focus-ring is spelt `2px solid var(--signal)`, and custom-property
-     * substitution is lazy, so it resolves against whichever --signal is in
-     * force. That is what makes a dark twin unnecessary — and a --dark-focus-*
-     * token appearing later would mean someone had reintroduced a pair that
-     * has to be kept in lockstep by hand.
-     */
-    const tokens = stripComments(sheets["./tokens.css"] ?? "");
-    expect(tokens).not.toContain("--dark-focus");
-    // `\n\}` anchors on a brace in column 0, which is the outer close of each
-    // block — the nested :root inside the media query closes at an indent.
-    for (const block of [
-      /@media \(prefers-color-scheme: dark\)\s*\{([\s\S]*?)\n\}/.exec(tokens)?.[1],
-      /:root\[data-theme="dark"\]\s*\{([\s\S]*?)\n\}/.exec(tokens)?.[1],
-    ]) {
-      expect(block, "a theme block could not be found in tokens.css").toBeDefined();
-      expect(block as string).not.toContain("focus");
-    }
   });
 });
 
@@ -204,5 +185,103 @@ describe("no phantom tokens", () => {
   test("--faint and --rule-strong are gone rather than half-present", () => {
     expect(css).not.toContain("--faint");
     expect(css).not.toContain("--rule-strong");
+  });
+
+  /**
+   * The mirror of the rule above, and the one that had no checker.
+   *
+   * A custom property whose ONLY definition sits inside an `@media` or
+   * `@supports` block resolves to nothing for every visitor the query does not
+   * match. `var(--x)` with no fallback then makes the whole declaration
+   * invalid-at-computed-value-time and the property lands on its initial value
+   * — `color: unset` reading as black, a background reading as transparent.
+   * Nothing fails: the sheet parses, the phantom-token check above sees the
+   * name defined, and the page is simply wrong for whoever fell outside the
+   * query.
+   *
+   * The removed dark palette satisfied this by construction — it held its
+   * values in the bare `:root` and let the two theme blocks point at them, so
+   * there was no literal inside either block to be missing. That construction
+   * is gone with the blocks, and this is what replaces it.
+   */
+  test("no custom property is defined only inside an at-rule", () => {
+    const atRuleOnly = new Set<string>();
+    const everywhereElse = new Set<string>();
+
+    for (const [, source] of ordered) {
+      const sheet = stripComments(source);
+      // Brace-walk rather than regex the blocks: an `@media` body holds whole
+      // rules, so its braces nest and a non-greedy match would stop at the
+      // first inner close.
+      let depth = 0;
+      /** The depth at which the enclosing at-rule opened, or 0 for none. */
+      let insideAtRule = 0;
+      let buf = "";
+      const record = (): void => {
+        const name = /(--[a-z0-9-]+)\s*:/.exec(buf)?.[1];
+        if (name !== undefined) (insideAtRule > 0 ? atRuleOnly : everywhereElse).add(name);
+        buf = "";
+      };
+      for (const ch of sheet) {
+        if (ch === "{") {
+          depth += 1;
+          if (insideAtRule === 0 && /@(?:media|supports|container)\b/.test(buf)) {
+            insideAtRule = depth;
+          }
+          buf = "";
+        } else if (ch === "}") {
+          // Before the reset below, and before the depth changes: a block's
+          // last declaration may carry no trailing semicolon, and the sheets
+          // here write several of those on one line.
+          record();
+          if (insideAtRule === depth) insideAtRule = 0;
+          depth -= 1;
+        } else if (ch === ";") {
+          record();
+        } else {
+          buf += ch;
+        }
+      }
+    }
+
+    const orphaned = [...atRuleOnly].filter((name) => !everywhereElse.has(name)).sort();
+    expect(
+      orphaned,
+      "these resolve to nothing for any visitor the query does not match",
+    ).toEqual([]);
+  });
+});
+
+describe("the page paints its own ground", () => {
+  /**
+   * Two declarations carry the entire "this app is light" decision now that
+   * there is no second palette behind them, and neither was covered by
+   * anything: the suite ran green with both deleted.
+   *
+   * They are not interchangeable. `background-color` is what the page paints;
+   * `color-scheme` is what the *browser* paints around and inside it — the
+   * scrollbars, the select popup, the overscroll canvas, the form-control
+   * defaults — and a stylesheet cannot reach any of that. Drop the first and a
+   * visitor on a dark OS gets --ink text on whatever ground the UA chose.
+   * Drop the second and they get a correctly light page framed in dark chrome.
+   */
+  test("body sets its background explicitly, from a token", () => {
+    const body = /(^|\n)body\s*\{([^}]*)\}/.exec(stripComments(sheets["./base.css"] ?? ""))?.[2];
+    expect(body, "no body rule found in base.css").toBeDefined();
+    expect(body as string).toMatch(/background(-color)?:\s*var\(--/);
+  });
+
+  test("color-scheme is stated, and stated as light", () => {
+    // The leading boundary is load-bearing: without it this matches the
+    // `prefers-color-scheme:` of a media query prelude and reports the page as
+    // declaring a scheme it never sets. Same shape as the height/width guard
+    // in scripts/verify.mjs, for the same reason.
+    const declarations = [...css.matchAll(/(?:^|[;{\s])color-scheme:\s*([^;}]+)/g)].map((m) =>
+      (m[1] ?? "").trim(),
+    );
+    expect(declarations, "nothing declares color-scheme").not.toEqual([]);
+    // Resolved, not spelt: a `var()` here would have to be chased, and the
+    // indirection that made one worth having went with the theme blocks.
+    expect([...new Set(declarations)]).toEqual(["light"]);
   });
 });

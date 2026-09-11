@@ -71,9 +71,8 @@ button.danger {
 
 /* Recolours the shared ring rather than redeclaring it — width, style and
    offset still come from --focus-ring in base.css, so this cannot drift out of
-   step with every other control. --fail measures 5.66 / 5.84 on --ground /
-   --surface in light and 8.35 / 7.54 in dark, all well past the 3:1 floor for
-   a non-text indicator. */
+   step with every other control. --fail measures 5.66 on --ground and 5.84 on
+   --surface, both well past the 3:1 floor for a non-text indicator. */
 button.danger:focus-visible {
   outline-color: var(--fail);
 }

@@ -111,13 +111,13 @@
   box-shadow: var(--elev-1);
 }
 
-/* The knob flips with the track it is riding on. In light both values are
-   the same white and this rule changes nothing; in dark the unchecked track
-   is --panel and the checked one is --signal, which sit on opposite sides of
-   the midpoint, so one colour cannot be found on both (13.34:1 vs 2.29:1 for
-   a near-white knob). Written here as a normal rule rather than inside the
-   dark block, so the theme stays a set of token values and this stays a
-   statement about how a switch works. */
+/* The knob follows the track it is riding on: --panel unchecked, --signal
+   checked, and the knob has to be legible on whichever it is over. On the
+   shipped palette --knob and --knob-on are both #ffffff, so this rule paints
+   nothing new — it is the statement that the two cases are separate, which is
+   the part that is true of the switch rather than of the palette. Collapsing
+   the pair is safe today; see --knob in tokens.css for the measurement that
+   says when it would not be. */
 .switch-track[aria-checked="true"] .switch-thumb {
   background: var(--knob-on);
 }

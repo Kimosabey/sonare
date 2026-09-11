@@ -13,8 +13,9 @@ body {
      no layout, no compositing cost per frame.
 
      The background is set explicitly, from a token, rather than left to the
-     UA: a transparent body borrows whatever ground the host paints, which in
-     dark mode means the wash and the cards float on someone else's colour. */
+     UA: a transparent body borrows whatever ground the host paints, and the
+     wash and the cards above are tuned against --ground rather than against
+     whatever that turns out to be. */
   background-color: var(--ground);
   color: var(--ink);
   font-family: var(--sans);
@@ -436,8 +437,8 @@ button.rec {
  * much higher than the cost of five unmatched selectors now.
  *
  * Colour, width and offset all come from tokens, so the ring follows the
- * theme; see the focus block in tokens.css for the contrast measurements on
- * both ends of the palette.
+ * palette; see the focus block in tokens.css for the contrast measurements
+ * against each surface a ring is seen on.
  */
 a[href]:focus-visible,
 button:focus-visible,

@@ -2,7 +2,7 @@
  *
  * Three layers, and the order between them is the whole point:
  *
- *   tokens        the palette, the scale, the theme switch
+ *   tokens        the palette, the scale, the global resets
  *   base          global element defaults and the app shell
  *   components/   things more than one screen renders
  *   screens       what is genuinely one screen's own

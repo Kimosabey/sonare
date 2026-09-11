@@ -137,9 +137,9 @@
    to discover that the token they had just seen used does not exist.
 
    Resolved to --dim rather than defined, which is the choice that changes no
-   pixel in either theme. Defining them would have altered the light theme on
-   the strength of two names nobody had measured, and this file already carries
-   the precedent for the other answer: --ink-2 is a real, measured step that is
+   pixel. Defining them would have altered the shipped palette on the strength
+   of two names nobody had measured, and this file already carries the
+   precedent for the other answer: --ink-2 is a real, measured step that is
    deliberately unused, because "the step should exist" and "these sites should
    move onto it" are separate decisions. If a fainter ink or a stronger rule is
    wanted, it gets derived and measured in tokens.css the way --warn and
