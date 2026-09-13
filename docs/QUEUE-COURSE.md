@@ -75,7 +75,7 @@ language-bearing string carries `lang`.
 
 ## Wave 3 — the learner's surfaces
 
-- [ ] **C7 — Onboarding and the microphone check**, boards 1a–1q. Eight check
+- [x] **C7 — Onboarding and the microphone check**, boards 1a–1q. Eight check
       states including *no microphone hardware* and *insecure context*, both of
       which are nobody's fault and must not read as though they were.
 - [ ] **C8 — Session screen, every state**, board 2. Prompt, listening,
@@ -395,3 +395,51 @@ Three things worth keeping:
   full-suite load.
 - **The type scale rules did their job twice**: refused a bare `20px`, then
   made the replacement a deliberate line in the diff via their exact count.
+### 2026-09-13 — C7, in three commits
+
+**The verdict logic** (4773b6f). The file's shape is one distinction:
+*availability* is what the environment allows and is knowable before any audio;
+*verdict* is how good a signal is once there is one. The old screen had a single
+"microphone problem" state covering causes with nothing in common, which is how
+a blocked permission came to be rendered as a quiet room.
+
+Three decisions are load-bearing and each fails on its own mutation:
+
+- **Address before permission.** An insecure page has no permission worth
+  reporting and usually no `mediaDevices` at all, so asking permission first
+  classifies every LAN-address visit as *denied* — and marches a learner through
+  settings to fix something that is not broken.
+- **Silence is not a low score.** Muted and wrongly-routed are its causes and
+  neither is fixed by "move closer, speak up".
+- **Clipping fails however clean the ratio looks.** SNR is blind to it: a hard-
+  clipped take measures a superb 37.8 dB on a real recording, because clipping
+  lifts the speech percentile and leaves the floor alone.
+
+"Good" is ten dB above the recorder's own gate rather than its own number — a
+check passing *at* the gate tells a learner their device is fine while sitting
+on the line that rejects takes.
+
+**The screen** (a310ca6), eight states. Insecure address and no hardware give
+**no steps to follow**, because there is nothing the learner did or can undo,
+and a numbered list would imply otherwise — asserted as the absence of an `ol`.
+Denied is the opposite and does route through settings, because it is genuinely
+recoverable and the page genuinely cannot ask again.
+
+The no-upload promise is asserted **against the source**, not through a mock: a
+mock proves the upload layer is absent from the *test's* module graph, which is
+what a mock arranges. That check needed one correction — matching bare
+identifiers flagged the file's own comment explaining why it does not use
+`useRecorder`, which would have left only two ways out, deleting the reasoning
+or weakening the check. It matches import lines now.
+
+**Onboarding** (253d712), boards 1a–1d. The ask comes last. Step 1 asks for
+nothing and shows a **real** scored take with two weak syllables, using the
+product's own `.sy` chips so the example cannot drift into showing something the
+app does not produce. The microphone screen admits a recording can be written to
+the operator's disk when diagnostics are on — "nothing is ever stored" would be
+false whenever that setting is on, and a learner who later found it would have
+no reason to believe any other sentence on the screen.
+
+**Still open from this board:** 1m (the check's verdict carried into the first
+activity as one quiet line) belongs with C8's session states, and 1n–1p (the
+check at 430/768/1280) belong with C10's widths.
