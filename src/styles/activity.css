@@ -411,3 +411,57 @@
 .check ul.what li {
   margin-bottom: var(--space-2);
 }
+
+/*
+ * Onboarding's language picker.
+ *
+ * Each option leads with a word in the language's own script, at reading size,
+ * because a Hindi or Kannada learner seeing their language rendered properly
+ * at the first opportunity is the point — a transliterated label would say the
+ * app does not really handle the script.
+ */
+.onboarding-languages {
+  list-style: none;
+  margin: var(--space-3) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.onboarding-language {
+  width: 100%;
+  min-height: var(--tap);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  text-align: left;
+  padding: var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* Chosen is a border weight and a tint, never the tint alone. */
+.onboarding-language.is-chosen {
+  border-color: var(--signal);
+  border-width: 2px;
+  background: var(--signal-soft);
+}
+
+.onboarding-language-sample {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.onboarding-language-name {
+  font-size: var(--text-md);
+}
+
+/* The four things that happen to a recording, spaced so each is read rather
+   than skimmed as a block of terms. */
+.onboarding-terms li {
+  margin-bottom: var(--space-3);
+}

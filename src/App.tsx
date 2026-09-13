@@ -60,6 +60,13 @@ const Settings = lazy(() => import("./pages/Settings.js").then((m) => ({ default
  * belongs in the bundle downloaded to say a phrase.
  */
 const MicCheck = lazy(() => import("./pages/MicCheck.js").then((m) => ({ default: m.MicCheck })));
+/**
+ * Onboarding. Split for the plainest reason of all: a learner sees it once,
+ * ever, and a returning learner never downloads it again.
+ */
+const Onboarding = lazy(() =>
+  import("./pages/Onboarding.js").then((m) => ({ default: m.Onboarding })),
+);
 import { resolveLanguage, resolveLanguages } from "./content/resolve.js";
 import { useContentSync } from "./content/useContentSync.js";
 
@@ -304,6 +311,7 @@ function Shell() {
           <Route path="/:slug/progress" element={<Progress />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/fixture" element={<FixtureRunner />} />
+          <Route path="/welcome" element={<Onboarding />} />
           <Route path="/check" element={<MicCheck />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/authoring" element={<Authoring />} />
