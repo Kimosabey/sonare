@@ -69,7 +69,7 @@ language-bearing string carries `lang`.
       has a shape. Then the **`listen`** activity, with **authored**
       distractors — a random other phrase is usually absurdly wrong and
       teaches nothing, so the plausible near-miss is the content.
-- [ ] **C6 — `read` and `recall` screens.** `read` has **no Listen button at
+- [x] **C6 — `read` and `recall` screens.** `read` has **no Listen button at
       all** — hearing it first would make it a `repeat` — and the model
       unlocks after the first take.
 
@@ -352,3 +352,46 @@ asserted end-to-end once it exists.
 Two existing tests used `listen` as their stand-in for "a kind this client
 cannot render". Both quietly stopped testing anything the moment it shipped;
 they now use a kind that does not exist at all, and say so.
+### 2026-09-13 — C6, and the listen screen with it
+
+**Every kind was rendered as the easiest one** (54fc16a). `ActivityTest` did not
+branch on `kind` at all: phrase on screen, Listen button beside Record, for all
+five. That is right for `repeat` and silently deletes three other exercises —
+`read` with a Listen button *is* `repeat`, `recall` with the phrase on screen
+*is* `read`, and `listen` was opening a microphone it never uses.
+
+The rules are `affordancesFor` now: exhaustive over the union with no default
+branch, so a sixth kind is a type error rather than another activity quietly
+shown as the easiest one. Extracted rather than inlined for the reason
+`session.ts` was — rules inside a 992-line component can only be exercised by
+rendering it with a mocked recorder and reading the DOM.
+
+The `recall` reveal costs what it should: nothing recorded after one counts,
+the button says so before it is tapped, and `canAdvance` opens — without that
+the escape is a trap, because nothing counts so the attempt limit never
+unlocks and the design forbids hard gates. Nothing about a reveal is stored: it
+is about the sitting, not the learner, and an attempt with a null accuracy
+would be the obvious place and the wrong one (R8 already owns that meaning).
+
+**The listen screen** (7905609), which completes the kind C5 left half-built.
+One answer, by design — a learner either heard the difference or did not, and
+with two options a second guess is certain. `attemptLimit` threaded through
+`applyTake`/`canAdvanceFrom` as a defaulted parameter, so the arithmetic stays
+in `session.ts` and the policy in `affordancesFor`. A wrong answer lands as
+`skipped` and the **right** answer is shown beside it: marking only what they
+picked leaves a learner knowing they failed and not what they missed.
+
+Three things worth keeping:
+
+- **The `read` unlock is not reachable the tick after a take.** A landed score
+  puts the screen in its result phase, where no kind renders Listen. The real
+  path is a learner *returning* to an activity they have attempted, and that is
+  what the test drives. My first version asserted the unreachable one.
+- **The authoring form now shows the near-miss field only on a `listen` row.**
+  Publishing refuses distractors on every other kind, so offering the box
+  everywhere invites a mistake reported as a refusal after a round trip. It
+  also took the form back under the render budget — the extra field on all 18
+  course activities had pushed `Authoring.test.tsx` over its 5s timeout under
+  full-suite load.
+- **The type scale rules did their job twice**: refused a bare `20px`, then
+  made the replacement a deliberate line in the diff via their exact count.
