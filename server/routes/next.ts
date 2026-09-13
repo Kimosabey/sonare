@@ -1,26 +1,46 @@
 /**
  * What to practise next.
  *
- * Returns the learner's **due sounds**, weakest first, computed from the
- * syllable history the scoring path has been accumulating. This is the half of
- * the scheduler that only the server can do: it needs the whole history across
- * every session and device, which is exactly what the client does not have on
- * a fresh install.
+ * Returns the learner's **due sounds**, weakest first, and — when it can — the
+ * activity that drills the most of them. Both halves come from the syllable
+ * history the scoring path accumulates, and this is the part of the scheduler
+ * only the server can do: it needs the whole history across every session and
+ * device, which is exactly what the client does not have on a fresh install.
  *
- * It deliberately does *not* choose the activity yet, and the reason has
- * changed. Choosing needs to know which syllables each activity exercises;
- * that mapping now exists — `soundTargets` on every activity a lesson
- * references, checked by the publish gate in store/content.ts — so the
- * remaining work is wiring, not a missing fact. `selectActivity` (already
- * written and tested in domain/scheduler.ts) needs this endpoint to read the
- * learner's content version, map its activities to `SchedulableActivity`, and
- * return an `activityId` alongside the sounds.
+ * ## Why the pick is called a refinement
  *
- * Until that lands the client keeps using its own ordering and this supplies
- * the thing it could not work out for itself. Saying so plainly still matters
- * more than shipping a guess: an `activityId` chosen without the grapheme
- * mapping would be the first-unpassed activity wearing the word
- * "recommended", which is worse than not recommending.
+ * The client composes its own sitting, always, offline included
+ * (`src/learning/composeSession.ts`). This endpoint's `refinement` is an
+ * **input** to that composition, never an alternative to it: it may change the
+ * order of the sitting, and it may not change which activities are in it or
+ * which sounds are due. The wire field is named for what a client may do with
+ * it rather than for what this file computed, because "selection" would invite
+ * exactly the reading the design forbids.
+ *
+ * Two implementations of "what next" is the shape that drifts silently, and a
+ * learner finds out by watching their session change when they come online.
+ * `composeSession.contract.test.ts` holds the composer to ordering-only, and
+ * `next.contract.test.ts` drives this route and feeds its reply straight into
+ * the composer — so neither side can rename a field without going red.
+ *
+ * ## What it refuses to guess
+ *
+ * A pick needs two things beyond the schedule: which syllables each activity
+ * exercises, and what this learner has already done. Both can be missing, and
+ * neither is an error:
+ *
+ *  - **Nothing published for this language.** The client is reading its
+ *    bundled set, which lives in `src/activities/` and which this process does
+ *    not import — so there is no grapheme mapping to select over.
+ *  - **Progress unreadable.** Not the same as a learner with no progress. A
+ *    fresh learner genuinely has nothing attempted and `unpractised` is true
+ *    of them; treating an unreadable document as the same thing would offer a
+ *    learner thirty activities in the word "recommended".
+ *
+ * In both cases `activitySelected` is false and the sounds still go back. The
+ * sounds are the half the client could not have worked out for itself, and
+ * withholding them because the other half failed would make one degraded read
+ * into two.
  */
 
 import { Router } from "express";
@@ -28,8 +48,17 @@ import { requireLearner, learnerIdFrom } from "../middleware/identity.js";
 import { diagnosticsLimiter } from "../rateLimit.js";
 import { logger } from "../logger.js";
 import { isSlug } from "../domain/merge.js";
-import { dueSounds, scheduleFor, type SkillSchedule } from "../domain/scheduler.js";
+import {
+  dueSounds,
+  scheduleFor,
+  selectActivity,
+  type SchedulableActivity,
+  type Selection,
+  type SkillSchedule,
+} from "../domain/scheduler.js";
 import { readSkills } from "../store/skills.js";
+import { readLatest, type ContentActivity, type ContentDocument } from "../store/content.js";
+import { readProgress } from "../store/progress.js";
 
 export const nextRouter = Router();
 
@@ -42,7 +71,7 @@ export const nextRouter = Router();
  */
 const MAX_DUE = 5;
 
-export interface NextResponse {
+interface NextSchedule {
   slug: string;
   /** Due now, weakest first. Empty when nothing is due, which is not an error. */
   due: SkillSchedule[];
@@ -51,13 +80,30 @@ export interface NextResponse {
    * what is not yet due, so a progress view needs no second request.
    */
   all: SkillSchedule[];
-  /**
-   * Whether the server chose an activity. Always false for now, and named
-   * rather than omitted so a client can tell "not implemented" from "nothing
-   * to recommend" without guessing from a missing field.
-   */
-  activitySelected: false;
 }
+
+/**
+ * A union rather than an optional field, so `activitySelected` and
+ * `refinement` cannot disagree. A boolean beside an optional object has four
+ * states and only two of them mean anything; a client reading the true branch
+ * gets a refinement from the type system rather than from a comment.
+ *
+ * `activitySelected` stays named rather than omitted on the false branch: a
+ * client can tell "the server had nothing to add" from "an older server that
+ * does not answer this" without inferring either from a missing key.
+ */
+export type NextResponse =
+  | (NextSchedule & { activitySelected: false })
+  | (NextSchedule & {
+      activitySelected: true;
+      /**
+       * `Selection` verbatim, deliberately. Restating it as a wire type would
+       * be a second definition to keep in step, and its three fields are
+       * exactly what `SessionRefinement` accepts on the client — which is a
+       * structural coincidence only until next.contract.test.ts holds it.
+       */
+      refinement: Selection;
+    });
 
 nextRouter.get("/next", diagnosticsLimiter, requireLearner, (req, res) => {
   const learnerId = learnerIdFrom(res);
@@ -77,7 +123,7 @@ nextRouter.get("/next", diagnosticsLimiter, requireLearner, (req, res) => {
   }
 
   readSkills(learnerId, slug)
-    .then((state) => {
+    .then(async (state) => {
       const skills = state?.skills ?? [];
       // One clock for the whole response, so `due` and `all` cannot disagree
       // about whether a sound is due when the request straddles midnight.
@@ -87,12 +133,21 @@ nextRouter.get("/next", diagnosticsLimiter, requireLearner, (req, res) => {
         .map((skill) => scheduleFor(skill, now))
         .sort((a, b) => a.strength - b.strength || (a.grapheme < b.grapheme ? -1 : 1));
 
-      const body: NextResponse = {
-        slug,
-        due: dueSounds(skills, now).slice(0, MAX_DUE),
-        all,
-        activitySelected: false,
-      };
+      /**
+       * Selection reads the **whole** due list; the response shows the top
+       * few. `MAX_DUE` is a display limit — a learner cannot act on twenty
+       * sounds at once — and applying it before selecting would make an
+       * activity that drills six due sounds look like it drills two, and lose
+       * to a narrower one. The two lists answer different questions.
+       */
+      const due = dueSounds(skills, now);
+      const refinement = await refinementFor(learnerId, slug, due);
+
+      const schedule = { slug, due: due.slice(0, MAX_DUE), all };
+      const body: NextResponse =
+        refinement === null
+          ? { ...schedule, activitySelected: false }
+          : { ...schedule, activitySelected: true, refinement };
       res.json(body);
     })
     .catch((err: unknown) => {
@@ -109,3 +164,70 @@ nextRouter.get("/next", diagnosticsLimiter, requireLearner, (req, res) => {
       });
     });
 });
+
+/**
+ * The activities the course actually offers.
+ *
+ * A set with a spine gets filtered to what its lessons reference, because the
+ * publish gate only requires `soundTargets` of an activity a lesson points at.
+ * Selecting over the flat list instead would let the `unpractised` fallback
+ * reach past the course into an activity no lesson leads to — a learner
+ * following a journey being handed something outside it, labelled as the next
+ * thing to do.
+ *
+ * A set with no spine is the flat list, in order, which is the shape that
+ * shipped and the one the client is reading when there is no spine to read.
+ */
+function offeredBy(content: ContentDocument): ContentActivity[] {
+  if (content.units === undefined) return content.activities;
+
+  const referenced = new Set(
+    content.units.flatMap((unit) => unit.lessons.flatMap((lesson) => lesson.activityIds)),
+  );
+  return content.activities.filter((activity) => referenced.has(activity.id));
+}
+
+/**
+ * The server's pick, or null when it has no business making one.
+ *
+ * Never throws and never rejects: the caller's `.catch` is the 503 for an
+ * unreadable *schedule*, and a failure here must not spend it. Losing the pick
+ * costs an ordering; losing the response costs the sounds as well.
+ */
+async function refinementFor(
+  learnerId: string,
+  slug: string,
+  due: SkillSchedule[],
+): Promise<Selection | null> {
+  // Already returns null rather than throwing on a bad read, and logs its own
+  // reason — see store/content.ts.
+  const content = await readLatest(slug);
+  if (content === null) return null;
+
+  let entries;
+  try {
+    // `null` is a learner who has attempted nothing, and is not a failure —
+    // only a throw is. See the file comment on why the two must not collapse.
+    entries = (await readProgress(learnerId, slug))?.entries ?? [];
+  } catch (err) {
+    logger.warn({ err, learnerId, slug }, "[next] progress unreadable, so not choosing an activity");
+    return null;
+  }
+
+  const byActivity = new Map(entries.map((entry) => [entry.activityId, entry]));
+
+  const schedulable = offeredBy(content).map<SchedulableActivity>((activity) => {
+    const entry = byActivity.get(activity.id);
+    return {
+      id: activity.id,
+      // Already folded to the same lower case the skills store keys on, by
+      // readActivity. Absent on a set published before the field existed,
+      // which selectActivity handles as "fallback only".
+      graphemes: activity.soundTargets ?? [],
+      passed: entry?.passed ?? false,
+      lastAttemptAt: entry?.at ?? null,
+    };
+  });
+
+  return selectActivity(schedulable, due);
+}
