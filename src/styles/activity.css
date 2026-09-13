@@ -56,6 +56,24 @@
 }
 
 /*
+ * What a `recall` learner sees where the phrase would be: the English meaning,
+ * because producing the target from it is the exercise.
+ *
+ * Deliberately quieter than `.phrase` and not bold. It occupies the same slot
+ * but it is not the same thing — the phrase is the product, set at product
+ * weight, and giving an English prompt that treatment would say the sentence
+ * on screen is the one being taught. Italic and the softer ink mark it as the
+ * question rather than the answer, and it is the one place the gloss is large
+ * enough to be read at arm's length, which is what it has to be when it is the
+ * only thing to go on.
+ */
+.phrase-hidden {
+  font-weight: 500;
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+/*
  * The word the model voice is saying, as it says it.
  *
  * Only present while a word is actually marked — the phrase is one plain text

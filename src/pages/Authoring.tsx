@@ -605,7 +605,19 @@ export function Authoring() {
                 </select>
               </p>
 
-              {FIELDS.map((field) => (
+              {/*
+                `distractors` is shown only on the kind that reads them.
+
+                Not a space saving. Publishing refuses near-misses on any other
+                kind — an author who fills the box on a `repeat` row has
+                written a listening exercise that is not one — so offering the
+                field everywhere invites a mistake and then reports it as a
+                refusal after the round trip. A field that cannot be used is
+                better absent than present and rejected.
+              */}
+              {FIELDS.filter(
+                (field) => field !== "distractors" || activity.kind === "listen",
+              ).map((field) => (
                 <p className="row authoring-field" key={field}>
                   <label htmlFor={`authoring-${index}-${field}`}>{field}</label>
                   <input

@@ -63,10 +63,13 @@
   --tint-violet-faint: rgba(65, 0, 154, 0.035);
   --ink: #1a0b2e; /* Ink Deep */
   /* A secondary ink, between --ink and --dim: stronger than "muted" but not
-     the full weight of body text. Defined but not yet used — migrating any
-     of --dim's 32 sites onto it would change the light theme, which is a
-     separate decision from having the step exist. 10.32:1 on --ground,
-     10.64:1 on --surface, 8.85:1 on --panel. */
+     the full weight of body text. Used by `.phrase-hidden`, the English
+     prompt a `recall` activity shows where the phrase would be — which needs
+     to read at arm's length, being the only thing to go on, while not
+     claiming the weight the phrase itself has. Still not migrated onto any of
+     --dim's 32 sites: that would change the light theme, which is a separate
+     decision from having the step exist. 10.32:1 on --ground, 10.64:1 on
+     --surface, 8.85:1 on --panel. */
   --ink-2: #443a52;
   --rule: #dddddd; /* Border */
   --dim: #666666; /* Muted */

@@ -40,6 +40,7 @@ import { newSessionId } from "../lib/sessionId.js";
 import { readStreak, recordPractice } from "../stores/streakStore.js";
 import { recordSkills } from "../stores/skillStore.js";
 import { markLanguageDirty, markStreakDirty } from "../sync/dirty.js";
+import { affordancesFor } from "../learning/affordances.js";
 import {
   applySkip,
   applyTake,
@@ -87,6 +88,14 @@ export function ActivityTest() {
   const [settings, setSettings] = useState<CaptureSettingsValue>(DEFAULT_CAPTURE_SETTINGS);
   // Drives the pass-banner's copy for one attempt only — cleared as soon as
   // the next take starts, so praise never lingers past the moment it's about.
+  /**
+   * Whether the learner has asked to see a hidden target on *this* activity.
+   *
+   * Reset by the `activity.id` effect below rather than carried, so advancing
+   * cannot arrive at a `recall` activity with the answer already on screen.
+   */
+  const [revealed, setRevealed] = useState(false);
+
   const [celebration, setCelebration] = useState<{ kind: "pass" | "personalBest" | "firstTry"; score: number } | null>(
     null,
   );
@@ -231,7 +240,29 @@ export function ActivityTest() {
         }),
       );
 
-      setProgress((prev) => applyTake(prev, activity.id, attempt));
+      /**
+       * Recorded, unless the learner asked to see the answer first.
+       *
+       * A take with the target on screen measures reading rather than recall,
+       * so it must not claim the activity was passed from memory. The feedback
+       * above still happens in full — the score, the syllable breakdown, the
+       * comparison against the model — because saying it is how they learn the
+       * phrase, and withholding that would make the reveal a punishment rather
+       * than a way through.
+       *
+       * `revealed` is safe to read from this closure: `useRecorder` keeps its
+       * options in a ref that is reassigned on every render, so this sees the
+       * current value rather than the one from the render that started the
+       * take.
+       *
+       * Nothing is stored to say the take happened, deliberately. An attempt
+       * with a null accuracy would be the obvious place to put it and would be
+       * wrong: that already means the system declined to judge a take it was
+       * given (R8), and a learner who peeked is not a recording that failed.
+       */
+      if (!revealed) {
+        setProgress((prev) => applyTake(prev, activity.id, attempt));
+      }
     },
   });
 
@@ -397,12 +428,15 @@ export function ActivityTest() {
   }, [recorder.state]);
 
   const scoredAttempts = scoredAttemptsOf(current?.attempts ?? []);
-  const canAdvance = canAdvanceFrom(current);
+
   const isLast = index === activities.length - 1;
 
   const advance = useCallback(() => {
     recorder.reset();
     setCelebration(null);
+    // Cleared on the way out rather than on the way in, so advancing can never
+    // land on a `recall` activity with its answer already on screen.
+    setRevealed(false);
     if (isLast) {
       setFinished(true);
       toast.push({ kind: "success", title: "Session complete", detail: "Your report is ready below." });
@@ -433,10 +467,30 @@ export function ActivityTest() {
     advance();
   }, [activity, advance]);
 
+  /**
+   * Show a `recall` learner the answer they could not produce.
+   *
+   * The escape this kind gets, and it costs what it should: nothing recorded
+   * after a reveal counts, because a take with the target on screen measures
+   * reading rather than recall. The microphone stays open and the model
+   * unlocks all the same — saying it is still how they learn it, and refusing
+   * to let them would make the reveal a dead end instead of a way through.
+   *
+   * Deliberately not stored. A reveal is about this sitting, not about the
+   * learner: they meet the phrase again when the scheduler brings the sound
+   * back round, and the record of that meeting should not say they once
+   * peeked. `ActivityProgress` is persisted, so anything stored here would
+   * also mean a schema bump for a fact that expires in thirty seconds.
+   */
+  const reveal = useCallback(() => {
+    setRevealed(true);
+  }, []);
+
   const restart = useCallback(() => {
     recorder.reset();
     setProgress([]);
     setIndex(0);
+    setRevealed(false);
     setFinished(false);
     setCelebration(null);
     startedAt.current = Date.now();
@@ -557,6 +611,30 @@ export function ActivityTest() {
   }
 
   if (!activity) return null;
+
+  /**
+   * What this kind of activity offers, given what has happened on it.
+   *
+   * Below the narrowing guard rather than beside the other derived state, and
+   * that is the reason: the kind is only knowable once there *is* an activity,
+   * and defaulting it to `repeat` above would be the exact bug this exists to
+   * stop — an unknown activity rendered as the easiest kind.
+   *
+   * The screen rendered every kind as a `repeat` before this: phrase on
+   * screen, Listen button beside Record. That quietly turned `read` into
+   * `repeat` and `recall` into `read`. `affordancesFor` holds the rules and is
+   * exhaustive over the union, so a sixth kind is a type error rather than
+   * another activity silently rendered as the easiest one.
+   */
+  const affords = affordancesFor(activity.kind, { takes: attemptsUsed, revealed });
+
+  /**
+   * A revealed `recall` can advance without passing. `canAdvanceFrom` asks the
+   * attempt arithmetic, which cannot know about a reveal — and would never
+   * unlock on its own, because nothing recorded after a reveal counts toward
+   * the limit that normally opens the way on.
+   */
+  const canAdvance = canAdvanceFrom(current) || affords.canMoveOn;
 
   const passedCount = progress.filter((p) => p.passed).length;
 
@@ -685,6 +763,24 @@ export function ActivityTest() {
           <p className="task">{activity.prompt}</p>
 
           {/*
+            What a `recall` learner is given instead of the phrase: the English
+            meaning, at the size the phrase would have had.
+
+            The gloss is normally a quiet line below the actions — the answer
+            sitting next to the question, deliberately out of the way. Here it
+            *is* the question, so it takes the phrase's place rather than being
+            duplicated: rendering both would put the same sentence on screen
+            twice at two different sizes.
+
+            Untagged, because it is English. The `lang` on the phrase below
+            exists so a screen reader does not say a French phrase in an
+            English voice (WCAG 3.1.2); tagging this would do the reverse.
+          */}
+          {!affords.showsTarget && activity.kind === "recall" && (
+            <p className="phrase phrase-hidden">&ldquo;{activity.gloss}&rdquo;</p>
+          )}
+
+          {/*
             The product, at the size of the product.
             `.phrase` rather than the shared `.prompt`, which is now the
             fixture runner's alone: the name was actively confusing — the
@@ -699,6 +795,7 @@ export function ActivityTest() {
             below are English *about* the phrase and stay untagged — tagging
             those would make a reader speak English in a French voice.
           */}
+          {affords.showsTarget && (
           <p className="phrase" lang={activeLanguage.code}>
             {spokenWord === null
               ? // The phrase as one text node — which is what it was before
@@ -720,6 +817,7 @@ export function ActivityTest() {
                   ),
                 )}
           </p>
+          )}
         </>
       )}
 
@@ -879,7 +977,7 @@ export function ActivityTest() {
           opens, so the model's voice can never be captured into a take and
           scored as the learner's own.
         */}
-        {phase !== "result" && model.available && (
+        {phase !== "result" && model.available && affords.canListen && (
           <button
             type="button"
             className="listen"
@@ -925,7 +1023,23 @@ export function ActivityTest() {
           honest way on and a second escape would invite discarding a real
           result by mistake.
         */}
-        {attemptsUsed === 0 && phase === "prompt" && (
+        {/*
+          The `recall` escape. Offered in the same place as "Can't speak right
+          now" and styled the same way, because it is the same kind of thing:
+          a way through for a learner who is stuck, that costs them the
+          exercise rather than the session.
+
+          Its consequence is stated on the button, not discovered after
+          tapping it. A learner deciding whether to give up needs to know what
+          giving up does — and "this one won't count" is the honest version of
+          a reveal, not a penalty for asking.
+        */}
+        {affords.canReveal && phase === "prompt" && (
+          <button type="button" className="ghost" onClick={reveal}>
+            Show me &mdash; this one won&rsquo;t count
+          </button>
+        )}
+        {attemptsUsed === 0 && phase === "prompt" && affords.needsMicrophone && (
           <button type="button" className="ghost" onClick={skipWithoutRecording}>
             Can&rsquo;t speak right now
           </button>
@@ -942,7 +1056,9 @@ export function ActivityTest() {
       */}
       {phase !== "result" && (
         <>
-          <p className="hint gloss">&ldquo;{activity.gloss}&rdquo;</p>
+          {/* Suppressed while it is standing in for the phrase above — the
+              same sentence twice, at two sizes, reads as a rendering fault. */}
+          {affords.showsTarget && <p className="hint gloss">&ldquo;{activity.gloss}&rdquo;</p>}
 
           <details>
             <summary>Why this phrase</summary>

@@ -520,6 +520,30 @@ describe("authoring the course spine", () => {
     expect(screen.getAllByLabelText("lesson id")).toHaveLength(lessons.length);
   });
 
+  /**
+   * The near-miss box appears on the one kind that can use it, and nowhere
+   * else. Publishing refuses distractors on any other kind, so a field offered
+   * on a `repeat` row is an invitation to write a listening exercise that will
+   * be rejected after the round trip — and the message would arrive detached
+   * from the row it is about.
+   */
+  it("offers the near-miss field only on a listen row", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+
+    // The bundled set is repeats and responds, so nothing carries the field.
+    expect(screen.queryAllByLabelText("distractors")).toHaveLength(0);
+
+    const kinds = screen.getAllByLabelText("kind");
+    const first = kinds[0];
+    expect(first).toBeDefined();
+    if (first === undefined) return;
+    fireEvent.change(first, { target: { value: "listen" } });
+
+    // Exactly one: the row that changed, and no other.
+    expect(screen.getAllByLabelText("distractors")).toHaveLength(1);
+  });
+
   it("offers no course shortcut for a language that has none", async () => {
     // Spanish and Hindi are deliberately still flat, and a button promising a
     // course that does not exist would be worse than no button.
