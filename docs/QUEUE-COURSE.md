@@ -54,12 +54,12 @@ language-bearing string carries `lang`.
 
 ## Wave 2 — the session
 
-- [ ] **C3 — `composeSession()`**, a pure client-side function.
+- [x] **C3 — `composeSession()`**, a pure client-side function.
       `(content, progress, skills, today) → new activities + due reviews`.
       Client-side always: offline-first means a learner on a plane still gets
       a sensible sitting, so the server cannot be on the critical path.
       Property-tested over random orderings.
-- [ ] **C4 — Wire `selectActivity` behind `GET /next`**, and feed it to the
+- [x] **C4 — Wire `selectActivity` behind `GET /next`**, and feed it to the
       composer **as an input, not an alternative**. Two implementations of
       "what next" is the shape that drifts silently and shows a learner a
       different session when they come online. Contract test: a session
@@ -275,3 +275,37 @@ Both have been the critical path for weeks and neither moves with code.
   installed can do it (no encoder, and `sips` cannot drop an alpha channel), and
   adding one is a dependency. Numbers per file are in
   `docs/design/assets/splash/WHERE-THE-PNGS-ARE.md`.
+### 2026-09-13 — C3 and C4, and the tie-break they made reachable
+
+`composeSession` (5ee047e) and the wiring behind it (c54ff89). The contract is
+held from both ends: `composeSession.contract.test.ts` sweeps every refinement
+the server could express and asserts ordering-only, and
+`next.contract.test.ts` drives the real route and feeds its reply into the real
+composer with no adapter, so a rename on either side stops compiling.
+
+The wire field is `refinement`, not `selection`. "Selection" invites a client
+to treat it as the decision; the design is that it is an input to a decision
+the client makes for itself, offline included.
+
+Three refusals in the route, each a way a pick could have been a lie: nothing
+published means no grapheme mapping and so no pick; progress that *fails to
+read* is not a learner with no progress, and collapsing them would offer
+someone thirty activities in the word "recommended"; and a set with a spine is
+filtered to what its lessons reference, so the unpractised fallback cannot
+reach past the course. Selection also reads the whole due list while the
+response shows five — `MAX_DUE` is a display limit, and applying it first would
+make an activity drilling six due sounds lose to a narrower one.
+
+**A real defect fell out of the wiring** (6f36329), and only because the wiring
+existed. `olderAttempt` answered "older" for two equal timestamps, and its two
+callers pass their arguments in opposite orders — so one tie resolved toward
+the later activity and the other toward the earlier. Unreachable until now;
+the case it lands on is the most common one there is, because every activity a
+fresh learner has is equally never-practised, so all of them tie all the way
+down to that predicate. A beginner's first session pointed at the last activity
+in their course. Both directions now have a test and each fails on its own
+mutation.
+
+The first expectation I wrote in the contract test was wrong, and that is how
+this was found — the test said activity 1 and the route said 3. Worth recording
+because the instinct was to correct the test.
