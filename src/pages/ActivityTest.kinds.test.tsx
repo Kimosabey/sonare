@@ -424,9 +424,94 @@ describe("listen", () => {
     expect(listenButton()).toBeInTheDocument();
   });
 
-  it("does not show the target, which is one of the options", async () => {
+  it("does not show the target above the options", async () => {
     await open("listen");
 
-    expect(phraseOnScreen()).toBe(false);
+    // Present once, as an option — not twice, with the answer above them.
+    expect(screen.getAllByText(TARGET)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: TARGET })).toBeInTheDocument();
+  });
+
+  it("offers the near-miss beside the real phrase", async () => {
+    await open("listen");
+
+    expect(screen.getByRole("button", { name: "Bonsoir tout le monde" })).toBeInTheDocument();
+  });
+
+  it("spends no try, because there is none to spend", async () => {
+    await open("listen");
+
+    expect(screen.queryByText(/tries left|Last try/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * One answer. A learner choosing between written phrases either heard the
+   * difference or did not, and with two options a second guess is certain —
+   * so the question ends and the right answer is shown.
+   */
+  it("ends the question on the first answer", async () => {
+    await open("listen");
+    fireEvent.click(screen.getByRole("button", { name: "Bonsoir tout le monde" }));
+
+    expect(screen.getByRole("button", { name: /Bonsoir tout le monde/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: new RegExp(TARGET) })).toBeDisabled();
+  });
+
+  /**
+   * Marking the wrong answer without marking the right one leaves a learner
+   * knowing they failed and not what they missed — which is the only thing
+   * this activity exists to teach.
+   */
+  it("shows which was right, even when the learner picked wrong", async () => {
+    await open("listen");
+    fireEvent.click(screen.getByRole("button", { name: "Bonsoir tout le monde" }));
+
+    expect(screen.getByLabelText("correct").closest("button")).toHaveTextContent(TARGET);
+    expect(screen.getByLabelText("what you picked").closest("button")).toHaveTextContent(
+      "Bonsoir tout le monde",
+    );
+  });
+
+  it("records a wrong answer as advanced without passing, not as untried", async () => {
+    await open("listen");
+    fireEvent.click(screen.getByRole("button", { name: "Bonsoir tout le monde" }));
+
+    const entry = storedProgress()[0];
+    expect(entry?.passed).toBe(false);
+    expect(entry?.attempts).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /Next activity|Finish/i })).toBeInTheDocument();
+  });
+
+  it("passes on the right answer, with no accuracy invented for it", async () => {
+    await open("listen");
+    fireEvent.click(screen.getByRole("button", { name: TARGET }));
+
+    const entry = storedProgress()[0] as { passed: boolean; best: number | null } | undefined;
+    expect(entry?.passed).toBe(true);
+    expect(entry?.best).toBeNull();
+  });
+
+  /**
+   * Content the publish gate refuses and `listenOptions` refuses again. It
+   * still has to render as something a learner can get past rather than as a
+   * screen with no options and no way on.
+   */
+  it("says so, rather than showing an unanswerable question", async () => {
+    activeSet = {
+      ...setOf("listen"),
+      activities: [{ ...setOf("listen").activities[0]!, distractors: [] }],
+    };
+    const { ActivityTest } = await import("./ActivityTest.js");
+    render(
+      <MemoryRouter initialEntries={["/fr"]}>
+        <Routes>
+          <Route path="/:slug" element={<ActivityTest />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const start = screen.queryByRole("button", { name: /Start|Continue/i });
+    if (start) fireEvent.click(start);
+
+    expect(screen.getByText(/isn.t ready yet/i)).toBeInTheDocument();
   });
 });

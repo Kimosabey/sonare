@@ -76,10 +76,20 @@ export function judgedAttemptsOf(attempts: ActivityAttempt[]): number {
   return attempts.filter((a) => (isSpoken(a) ? a.accuracy !== null : true)).length;
 }
 
-/** Whether the learner may move on: passed, or out of scored tries. */
-export function canAdvanceFrom(current: ActivityProgress | undefined): boolean {
+/**
+ * Whether the learner may move on: passed, or out of tries.
+ *
+ * `limit` defaults to `MAX_ATTEMPTS`, which is every spoken kind. A `listen`
+ * activity passes 1 — a second guess between written options is elimination
+ * rather than listening — and it is a parameter rather than a lookup here so
+ * that this stays the arithmetic and `affordancesFor` stays the policy.
+ */
+export function canAdvanceFrom(
+  current: ActivityProgress | undefined,
+  limit: number = MAX_ATTEMPTS,
+): boolean {
   if (current === undefined) return false;
-  return current.passed || judgedAttemptsOf(current.attempts) >= MAX_ATTEMPTS;
+  return current.passed || judgedAttemptsOf(current.attempts) >= limit;
 }
 
 /**
@@ -94,6 +104,7 @@ export function applyTake(
   progress: ActivityProgress[],
   activityId: number,
   attempt: ActivityAttempt,
+  limit: number = MAX_ATTEMPTS,
 ): ActivityProgress[] {
   const existing = progress.find((p) => p.activityId === activityId);
   const attempts = [...(existing?.attempts ?? []), attempt];
@@ -112,7 +123,7 @@ export function applyTake(
     attempts,
     best,
     passed,
-    skipped: !passed && judgedAttemptsOf(attempts) >= MAX_ATTEMPTS,
+    skipped: !passed && judgedAttemptsOf(attempts) >= limit,
   };
 
   return existing !== undefined

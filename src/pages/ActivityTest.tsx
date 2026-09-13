@@ -41,6 +41,9 @@ import { readStreak, recordPractice } from "../stores/streakStore.js";
 import { recordSkills } from "../stores/skillStore.js";
 import { markLanguageDirty, markStreakDirty } from "../sync/dirty.js";
 import { affordancesFor } from "../learning/affordances.js";
+import { isSpoken } from "../activities/types.js";
+import { ListenOptions } from "../components/ListenOptions.js";
+import { listenOptions } from "../activities/listen.js";
 import {
   applySkip,
   applyTake,
@@ -486,6 +489,45 @@ export function ActivityTest() {
     setRevealed(true);
   }, []);
 
+  /**
+   * Record a `listen` answer.
+   *
+   * A `ChosenAttempt`, not a spoken one: there is no recording, no provider
+   * call and no accuracy, and `correct` is frozen here rather than re-derived
+   * later so that republishing the content with the near-misses reordered
+   * cannot rewrite what a learner answered.
+   *
+   * `affords.attemptLimit` is 1 for this kind, so the take both answers the
+   * question and ends it — a wrong answer lands as `skipped`, which is exactly
+   * "advanced without passing", and the right answer is then shown beside it.
+   */
+  const chooseOption = useCallback(
+    (option: { id: string; correct: boolean }) => {
+      if (!activity) return;
+      setProgress((prev) =>
+        applyTake(
+          prev,
+          activity.id,
+          {
+            kind: "chosen",
+            activityId: activity.id,
+            choice: option.id,
+            correct: option.correct,
+            at: new Date().toISOString(),
+          },
+          // The limit is a property of the kind alone — it does not vary with
+          // takes or a reveal — so it is asked for here rather than read from
+          // the `affords` below, which is only in scope after the narrowing
+          // guard and so cannot be reached from a hook.
+          affordancesFor(activity.kind, { takes: 0, revealed: false }).attemptLimit,
+        ),
+      );
+      recordPractice(learnerName);
+      markStreakDirty(learnerName);
+    },
+    [activity, learnerName],
+  );
+
   const restart = useCallback(() => {
     recorder.reset();
     setProgress([]);
@@ -634,7 +676,21 @@ export function ActivityTest() {
    * unlock on its own, because nothing recorded after a reveal counts toward
    * the limit that normally opens the way on.
    */
-  const canAdvance = canAdvanceFrom(current) || affords.canMoveOn;
+  const canAdvance = canAdvanceFrom(current, affords.attemptLimit) || affords.canMoveOn;
+
+  /**
+   * The option this learner picked, or null while the question is open.
+   *
+   * Read back from the recorded attempt rather than held in its own state.
+   * A second copy would be a second thing to clear on advancing, and this one
+   * already survives a reload — a learner who answered, closed the tab and came
+   * back sees what they chose rather than an open question they have spent.
+   */
+  const chosenOptionId =
+    current?.attempts.reduce<string | null>(
+      (found, attempt) => (isSpoken(attempt) ? found : attempt.choice),
+      null,
+    ) ?? null;
 
   const passedCount = progress.filter((p) => p.passed).length;
 
@@ -958,11 +1014,35 @@ export function ActivityTest() {
         it is before one. It counts *scored* attempts — an unusable take costs
         nothing (R8).
       */}
-      <p className="what">
-        {MAX_ATTEMPTS - scoredAttempts === 1
-          ? "Last try for this one"
-          : `${MAX_ATTEMPTS - scoredAttempts} tries left`}
-      </p>
+      {/* Only where there are tries to spend. A `listen` activity gets one
+          answer, and "1 try left" above a pair of options would read as a
+          warning about something the learner cannot do twice anyway. */}
+      {affords.needsMicrophone && (
+        <p className="what">
+          {MAX_ATTEMPTS - scoredAttempts === 1
+            ? "Last try for this one"
+            : `${MAX_ATTEMPTS - scoredAttempts} tries left`}
+        </p>
+      )}
+
+      {/*
+        A `listen` activity asks its question here, where every other kind puts
+        the phrase and the record button. The options are the content — the
+        model says one of them — so they sit at reading weight rather than as a
+        row of controls.
+
+        Rendered before the actions row, and the actions row then carries only
+        "Next activity": there is nothing to record, nothing to skip for want
+        of a quiet place, and no try to spend.
+      */}
+      {activity.kind === "listen" && phase !== "result" && (
+        <ListenOptions
+          options={listenOptions(activity)}
+          code={activeLanguage.code}
+          chosen={chosenOptionId}
+          onChoose={chooseOption}
+        />
+      )}
 
       <div className="row">
         {/*
@@ -1001,6 +1081,7 @@ export function ActivityTest() {
           want to move on — so neither is withheld; the quieter styling says
           which is the ordinary next step without taking the other away.
         */}
+        {affords.needsMicrophone && (
         <RecordButton
           state={recorder.state}
           onStart={recorder.start}
@@ -1012,6 +1093,7 @@ export function ActivityTest() {
           retry={phase === "result"}
           secondary={phase === "result" && canAdvance}
         />
+        )}
         {canAdvance && (
           <button type="button" onClick={advance}>
             {isLast ? "Finish and see report" : "Next activity"}

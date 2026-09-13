@@ -302,3 +302,71 @@
   display: inline-block;
   animation: trend-in 300ms var(--ease, ease-out) both;
 }
+
+/*
+ * The options a `listen` activity offers.
+ *
+ * Set as content rather than as controls: the phrases *are* the question, so
+ * they carry the reading weight the phrase itself would, one per line at full
+ * width. A row of small buttons would put the two things being told apart at
+ * the size of a toolbar, which is the opposite of the exercise.
+ */
+.listen-options {
+  list-style: none;
+  margin: var(--space-1) 0 var(--space-5);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.listen-option {
+  /* Full width and well over the 44px floor: these are read and compared, not
+     aimed at, and the deciding difference between two options is often a
+     single letter. */
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  text-align: left;
+  font-size: clamp(18px, 4.5vw, 24px);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+  background: var(--surface);
+  border: 2px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2) var(--space-3);
+}
+
+/*
+ * Disabled here means "answered", not "unavailable", so it keeps full contrast.
+ * The usual dimming would fade the right answer at the exact moment it becomes
+ * the thing worth reading.
+ */
+.listen-option:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+/*
+ * Colour is never the only carrier — a design constraint, and here it would
+ * also be the whole message. Each state pairs its colour with a border weight
+ * and a mark (✓ / ✕) in the button itself.
+ */
+.listen-option.is-correct {
+  border-color: var(--pass);
+  background: var(--pass-soft);
+}
+
+.listen-option.is-wrong {
+  border-color: var(--fail);
+  background: var(--fail-soft);
+}
+
+.listen-mark {
+  font-size: var(--text-lg);
+  flex: 0 0 auto;
+}

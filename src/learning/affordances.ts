@@ -22,6 +22,7 @@
  * be exercised by rendering it with a mocked recorder and reading the DOM.
  */
 
+import { MAX_ATTEMPTS } from "../activities/languages/index.js";
 import type { ActivityKind } from "../activities/types.js";
 
 /** What has happened on this activity so far, as the affordances depend on it. */
@@ -72,6 +73,21 @@ export interface Affordances {
    * is the hardest gate there is.
    */
   canMoveOn: boolean;
+  /**
+   * How many judged answers this activity allows before it is over.
+   *
+   * `MAX_ATTEMPTS` for everything spoken: three takes at a phrase is three
+   * genuine goes at making a sound, and the second is usually better than the
+   * first.
+   *
+   * One for `listen`, and that is a judgement about what a second guess would
+   * mean. A learner choosing between two or four written phrases either heard
+   * the difference or did not; offering another go turns the exercise into
+   * elimination, and with two options a "wrong" answer would be worth nothing
+   * at all because the next tap is certain to be right. One answer, then the
+   * right one shown — which is the moment the learning actually happens.
+   */
+  attemptLimit: number;
 }
 
 /**
@@ -98,6 +114,7 @@ export function affordancesFor(kind: ActivityKind, state: ActivityState): Afford
         needsMicrophone: true,
         takeCounts: true,
         canMoveOn: false,
+        attemptLimit: MAX_ATTEMPTS,
       };
 
     /**
@@ -115,6 +132,7 @@ export function affordancesFor(kind: ActivityKind, state: ActivityState): Afford
         needsMicrophone: true,
         takeCounts: true,
         canMoveOn: false,
+        attemptLimit: MAX_ATTEMPTS,
       };
 
     /**
@@ -132,6 +150,7 @@ export function affordancesFor(kind: ActivityKind, state: ActivityState): Afford
         needsMicrophone: true,
         takeCounts: true,
         canMoveOn: false,
+        attemptLimit: MAX_ATTEMPTS,
       };
 
     /**
@@ -146,6 +165,7 @@ export function affordancesFor(kind: ActivityKind, state: ActivityState): Afford
         needsMicrophone: true,
         takeCounts: !revealed,
         canMoveOn: revealed,
+        attemptLimit: MAX_ATTEMPTS,
       };
 
     /**
@@ -165,6 +185,7 @@ export function affordancesFor(kind: ActivityKind, state: ActivityState): Afford
         needsMicrophone: false,
         takeCounts: true,
         canMoveOn: false,
+        attemptLimit: 1,
       };
   }
 }
