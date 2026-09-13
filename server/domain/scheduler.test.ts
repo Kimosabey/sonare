@@ -313,6 +313,49 @@ describe("choosing the activity", () => {
     expect(selection?.activityId).toBe(2);
   });
 
+  /**
+   * The fresh-learner case, which only became reachable when `GET /next`
+   * gained content to select over. Every activity a beginner has is equally
+   * never-practised, so every one of these ties on coverage and on strength
+   * and falls through to the recency tie-break — with nothing to compare.
+   *
+   * The answer has to be the first, because the published order is the order a
+   * person wrote the course in. Letting each equal candidate displace the last
+   * pointed a learner's very first session at the end of their course.
+   */
+  it("offers the earliest of several equally never-practised activities", () => {
+    const selection = selectActivity(
+      [
+        activity({ id: 1, graphemes: ["ment"] }),
+        activity({ id: 2, graphemes: ["ment"] }),
+        activity({ id: 3, graphemes: ["ment"] }),
+      ],
+      [schedule("ment", 40)]
+    );
+
+    expect(selection?.activityId).toBe(1);
+  });
+
+  /**
+   * The same tie at the other call site, where the arguments are passed the
+   * other way round. One predicate answering "true" for equals resolved these
+   * two in opposite directions, which is why it now answers strictly.
+   */
+  it("offers the earliest of several equally stale activities when nothing is due", () => {
+    const sameMoment = "2026-09-01T10:00:00.000Z";
+    const selection = selectActivity(
+      [
+        activity({ id: 7, lastAttemptAt: sameMoment }),
+        activity({ id: 8, lastAttemptAt: sameMoment }),
+        activity({ id: 9, lastAttemptAt: sameMoment }),
+      ],
+      []
+    );
+
+    expect(selection?.activityId).toBe(7);
+    expect(selection?.reason).toBe("weakest-unpassed");
+  });
+
   it("ignores sounds an activity covers that are not due", () => {
     const selection = selectActivity(
       [activity({ id: 1, graphemes: ["ment", "not-due", "also-not"] }), activity({ id: 2, graphemes: ["jour", "vous"] })],

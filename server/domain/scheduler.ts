@@ -292,13 +292,35 @@ export function selectActivity(
   // rather than a blank screen for a learner who is doing well.
   const pool = activities.filter((a) => !a.passed);
   const candidates = pool.length > 0 ? pool : activities;
-  const oldest = candidates.reduce((a, b) => (olderAttempt(a.lastAttemptAt, b.lastAttemptAt) ? a : b));
+  // Asked as "is the next one strictly older", so an equal pair keeps the
+  // accumulator and the earliest-published of the tie wins — the same
+  // direction the coverage loop resolves ties in.
+  const oldest = candidates.reduce((a, b) => (olderAttempt(b.lastAttemptAt, a.lastAttemptAt) ? b : a));
 
   return { activityId: oldest.id, covers: [], reason: "weakest-unpassed" };
 }
 
-/** Whether `a` was attempted longer ago than `b`. Never-attempted is oldest. */
+/**
+ * Whether `a` was attempted **strictly** longer ago than `b`. Never-attempted
+ * is oldest; two nevers are equally old, and so are two equal timestamps.
+ *
+ * The strictness is the whole point, and it was not always here. This is asked
+ * by two callers that pass their arguments in opposite orders — the loop above
+ * asks "is this candidate older than the incumbent", the fallback below asks
+ * "is the accumulator older than the next one" — so a predicate that answered
+ * *true* for equals resolved a tie toward the later activity in one and the
+ * earlier one in the other.
+ *
+ * That is not a stylistic tidy-up. Before `GET /next` had content to select
+ * over, the fresh-learner case was unreachable; now it is the common one, and
+ * every activity a beginner has is equally never-practised. A tie broken
+ * toward the later one pointed the first session at the last activity in the
+ * course. Answering false for equals leaves the incumbent standing at both
+ * sites, and the incumbent is whichever came first in the published order —
+ * which is the order a person wrote the course in.
+ */
 function olderAttempt(a: string | null, b: string | null): boolean {
+  if (a === b) return false;
   if (a === null) return true;
   if (b === null) return false;
   return a < b;
