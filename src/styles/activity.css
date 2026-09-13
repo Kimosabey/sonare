@@ -370,3 +370,44 @@
   font-size: var(--text-lg);
   flex: 0 0 auto;
 }
+
+/*
+ * The microphone check's level meter.
+ *
+ * The one place in the product where live movement is the information rather
+ * than decoration — so the reading and the bar count are printed beside it and
+ * the meter itself is `aria-hidden`. A screen reader gets the numbers; a
+ * learner with reduced motion gets both.
+ */
+.check-meter {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 44px;
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.check-bar {
+  flex: 1 1 auto;
+  height: 100%;
+  background: var(--rule);
+  border-radius: var(--radius-xs);
+}
+
+.check-bar.on {
+  background: var(--signal);
+}
+
+/*
+ * Ordered advice reads as a sequence to work through, which is what it is —
+ * the fixes are listed by how often they work, so the numbers carry meaning
+ * rather than decoration.
+ */
+.check ol.what {
+  padding-left: var(--space-4);
+}
+
+.check ol.what li,
+.check ul.what li {
+  margin-bottom: var(--space-2);
+}

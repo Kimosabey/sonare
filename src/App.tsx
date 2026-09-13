@@ -52,6 +52,14 @@ const Authoring = lazy(() =>
  * the bundle every learner downloads to say one phrase.
  */
 const Settings = lazy(() => import("./pages/Settings.js").then((m) => ({ default: m.Settings })));
+/**
+ * The microphone check. Split like the others, and the reasoning is the same
+ * shape with a different conclusion: a learner meets it once, during
+ * onboarding, and then only if a take comes back unclear. It carries an
+ * AudioContext, a level meter and eight states' worth of copy, none of which
+ * belongs in the bundle downloaded to say a phrase.
+ */
+const MicCheck = lazy(() => import("./pages/MicCheck.js").then((m) => ({ default: m.MicCheck })));
 import { resolveLanguage, resolveLanguages } from "./content/resolve.js";
 import { useContentSync } from "./content/useContentSync.js";
 
@@ -296,6 +304,7 @@ function Shell() {
           <Route path="/:slug/progress" element={<Progress />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/fixture" element={<FixtureRunner />} />
+          <Route path="/check" element={<MicCheck />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/authoring" element={<Authoring />} />
           <Route path="/:slug" element={<ActivityTestRoute />} />
