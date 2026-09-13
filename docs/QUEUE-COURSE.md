@@ -65,7 +65,7 @@ language-bearing string carries `lang`.
       different session when they come online. Contract test: a session
       composed with and without the server's input differs only in
       **ordering**, never in **membership**.
-- [ ] **C5 — `attempts` gains a discriminated kind**, so a non-scored answer
+- [x] **C5 — `attempts` gains a discriminated kind**, so a non-scored answer
       has a shape. Then the **`listen`** activity, with **authored**
       distractors — a random other phrase is usually absurdly wrong and
       teaches nothing, so the plausible near-miss is the content.
@@ -309,3 +309,46 @@ mutation.
 The first expectation I wrote in the contract test was wrong, and that is how
 this was found — the test said activity 1 and the route said 3. Worth recording
 because the instinct was to correct the test.
+### 2026-09-13 — C5, in two commits
+
+**The attempt shape** (90deda3). `ActivityAttempt` is discriminated: `spoken`
+carries the provider's result and its number, `chosen` carries the option and
+whether it was right. Reading `accuracy` no longer compiles without saying
+which kind is meant, and that found a consumer the greps had missed —
+`report.ts`, which reads `.result` off every attempt. It is spoken-only
+throughout now, so a tap contributes no phonemes and does not inflate the "N
+attempts" line where the number means "times you spoke".
+
+Two axes, neither converting into the other: a spoken take passes on the
+provider's number, a chosen answer on being right, and `best` stays null when
+only tapping happened. 100 for a correct tap would be a figure the provider
+never produced, in the field the provider's numbers live in, and from there it
+reaches the skills store and reschedules a sound the learner never said aloud.
+
+`isSpoken` tests for **not chosen** rather than for spoken, and that is the
+whole compatibility story: every attempt any learner has stored carries no
+`kind`, and `readProgress` restores them with a cast. Testing for the positive
+would have reclassified every history as unmeasured on the release that ships
+`listen`. Three tests cover those records; all three fail on that mutation.
+
+**The activity** (a82af64). `listen` is the fifth kind and the only one that
+asks nothing of the microphone. Near-misses are authored — a random other
+phrase is ruled out on length before the audio finishes — and three unaskable
+shapes are refused at the authoring form, at the publish gate, and once more in
+`listenOptions` for the bundled sets that pass through neither.
+
+Options rotate by activity id rather than shuffling: the answer must not always
+be first, and must not move between renders either.
+
+A guard the kind made necessary: a `listen` activity maps to no graphemes in
+`GET /next`. It legitimately names sound targets, but answering it produces no
+recording, so the sound's strength cannot move — it would win again tomorrow,
+and every day after, with the learner never asked to say the word.
+
+**Still open:** the listen *screen*. It belongs with C6's read/recall screens
+rather than here, and N5 ("no scorer call, no mic permission") can only be
+asserted end-to-end once it exists.
+
+Two existing tests used `listen` as their stand-in for "a kind this client
+cannot render". Both quietly stopped testing anything the moment it shipped;
+they now use a kind that does not exist at all, and say so.
