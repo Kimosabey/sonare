@@ -32,7 +32,7 @@ import { logger } from "../logger.js";
  * against a client that predates it is dropped by that client's own validation
  * rather than rendered wrong.
  */
-export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall"] as const;
+export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall", "listen"] as const;
 
 /** Bounded, so one publish cannot store an unbounded document. */
 export const MAX_ACTIVITIES = 50;
@@ -63,6 +63,18 @@ export const MAX_LESSONS = 60;
  * win every scheduling comparison for reasons that are not about the content.
  */
 export const MAX_SOUND_TARGETS = 12;
+
+/**
+ * How many authored near-misses one `listen` activity may carry.
+ *
+ * One is the floor because an activity with no wrong option is not a question.
+ * Three is the ceiling because the options are read, not scanned: a learner
+ * holding four phrases in their head while replaying a two-second clip is
+ * being tested on working memory rather than on hearing the difference, which
+ * is the thing the activity exists to train.
+ */
+export const MIN_DISTRACTORS = 1;
+export const MAX_DISTRACTORS = 3;
 
 /**
  * A written syllable: letters, combining marks, apostrophes and hyphens.
@@ -112,6 +124,12 @@ export interface ContentActivity {
    * can only ever offer as a fallback.
    */
   soundTargets?: string[];
+  /**
+   * Authored near-misses for a `listen` activity. Mirrors `distractors` in
+   * src/activities/types.ts, which carries the reasoning for why they are
+   * written rather than drawn from the rest of the set.
+   */
+  distractors?: string[];
 }
 
 /** One sitting. `activityIds` rather than nested activities — see ContentDocument. */
@@ -201,6 +219,23 @@ function readActivity(raw: unknown): ContentActivity | null {
         .filter((s) => SOUND_TARGET.test(s))
     : [];
 
+  /**
+   * Trimmed and de-duplicated, and empties dropped. Read tolerantly here for
+   * the same reason every other field is — this restores a document rather
+   * than accepting one — while `contentProblems` refuses the same shapes at
+   * the gate, where an author can be told what is wrong.
+   */
+  const distractors = Array.isArray(c.distractors)
+    ? [
+        ...new Set(
+          c.distractors
+            .filter((d): d is string => typeof d === "string")
+            .map((d) => d.trim())
+            .filter((d) => d.length > 0),
+        ),
+      ]
+    : [];
+
   return {
     id: Math.trunc(c.id),
     title: c.title as string,
@@ -212,6 +247,7 @@ function readActivity(raw: unknown): ContentActivity | null {
     // Omitted rather than stored empty, so "no mapping" has one
     // representation instead of two that have to be checked separately.
     ...(soundTargets.length > 0 ? { soundTargets: [...new Set(soundTargets)] } : {}),
+    ...(distractors.length > 0 ? { distractors } : {}),
   };
 }
 
@@ -498,6 +534,66 @@ export function contentProblems(raw: unknown): string[] {
           }
         }
       }
+    }
+    /**
+     * The near-misses, and the three ways a `listen` activity can be published
+     * as something a learner cannot answer.
+     *
+     * Checked here rather than left to the screen because all three render as
+     * a working question. A learner meets a button that is always right, or
+     * two identical options one of which is marked wrong, and has no way to
+     * tell that the content is broken rather than themselves.
+     */
+    const isListen = a.kind === "listen";
+    const distractors = a.distractors;
+
+    if (distractors !== undefined && !Array.isArray(distractors)) {
+      problems.push(`${where}: distractors must be a list of phrases`);
+    } else if (isListen) {
+      const written = (distractors ?? []).filter(
+        (d): d is string => typeof d === "string" && d.trim().length > 0,
+      );
+
+      if (written.length < MIN_DISTRACTORS) {
+        problems.push(
+          `${where}: a listen activity needs at least ${MIN_DISTRACTORS} authored near-miss — one option is not a question`,
+        );
+      }
+      if (written.length > MAX_DISTRACTORS) {
+        problems.push(
+          `${where}: ${written.length} distractors — more than ${MAX_DISTRACTORS} tests working memory rather than hearing`,
+        );
+      }
+
+      const target = typeof a.target === "string" ? a.target.trim() : "";
+      const seen = new Set<string>();
+      for (const entry of written) {
+        const phrase = entry.trim();
+        if (phrase === target) {
+          problems.push(
+            `${where}: distractor “${phrase}” is the target — a learner who picks the right words would be told they are wrong`,
+          );
+          continue;
+        }
+        if (seen.has(phrase)) {
+          problems.push(`${where}: distractor “${phrase}” is listed twice`);
+          continue;
+        }
+        seen.add(phrase);
+
+        const words = phrase.split(/\s+/).length;
+        if (words > MAX_TARGET_WORDS) {
+          problems.push(`${where}: distractor “${phrase}” is ${words} words — over ${MAX_TARGET_WORDS}`);
+        }
+      }
+    } else if (distractors !== undefined) {
+      /**
+       * Refused rather than ignored. Nothing but a `listen` activity reads
+       * them, so a set carrying near-misses on a `repeat` row is an author who
+       * believes they authored a listening exercise and has not — and the
+       * silence would last until a learner never saw one.
+       */
+      problems.push(`${where}: only a listen activity may carry distractors`);
     }
   });
 

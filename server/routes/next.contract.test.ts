@@ -144,6 +144,7 @@ beforeEach(() => {
 interface Seed {
   id: number;
   sounds: string[];
+  kind?: string;
 }
 
 const SEEDS: Seed[] = [
@@ -184,12 +185,13 @@ function publish(seeds: Seed[] = SEEDS, units?: unknown): void {
     activities: seeds.map((seed) => ({
       id: seed.id,
       title: `Activity ${String(seed.id)}`,
-      kind: "repeat",
+      kind: seed.kind ?? "repeat",
       prompt: `Say phrase ${String(seed.id)}`,
       gloss: `Phrase ${String(seed.id)}`,
       target: `Phrase ${String(seed.id)}`,
       focus: `focus ${String(seed.id)}`,
       soundTargets: seed.sounds,
+      ...(seed.kind === "listen" ? { distractors: [`Phrase ${String(seed.id)} but not`] } : {}),
     })),
     ...(units === undefined ? {} : { units }),
     publishedAt: new Date(),
@@ -377,6 +379,44 @@ describe("what the server adds, and what it may not change", () => {
     expect(body.due.map((d) => d.grapheme)).not.toContain("sixth");
     // Chosen anyway, from a sound the response did not list.
     expect(body.refinement).toEqual({ activityId: 9, reason: "due-sounds", covers: ["sixth"] });
+  });
+});
+
+describe("an activity that cannot move a sound", () => {
+  /**
+   * A `listen` activity legitimately names sound targets — hearing `poisson`
+   * against `poison` is about exactly those sounds. But answering it produces
+   * no recording, so no sample reaches the skills store and the sound's
+   * strength cannot move. Offered against a due sound it would still be due
+   * tomorrow, and the same activity would win again, every day, with the
+   * learner never once asked to say the word.
+   */
+  it("is not offered for a due sound, even when it names it", async () => {
+    seedSkills({ bon: 30 });
+    publish([
+      { id: 1, sounds: ["bon"], kind: "listen" },
+      { id: 2, sounds: ["bon"] },
+    ]);
+
+    const { body } = await ask();
+
+    expect(body.refinement?.activityId).toBe(2);
+    expect(body.refinement?.reason).toBe("due-sounds");
+  });
+
+  /**
+   * It is still content, and a learner who has nothing due has not run out of
+   * things to do — so it remains reachable as a fallback. Only the due-sounds
+   * branch is closed to it.
+   */
+  it("is still offered when nothing is due", async () => {
+    seedSkills({ bon: 95 });
+    publish([{ id: 1, sounds: ["bon"], kind: "listen" }]);
+
+    const { body } = await ask();
+
+    expect(body.refinement?.activityId).toBe(1);
+    expect(body.refinement?.reason).toBe("unpractised");
   });
 });
 

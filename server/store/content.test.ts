@@ -682,6 +682,105 @@ describe("publishing a set with a course spine", () => {
   });
 });
 
+describe("the near-misses a listen activity is built from", () => {
+  function listen(over: Record<string, unknown> = {}) {
+    return activity({
+      id: 1,
+      kind: "listen",
+      target: "poisson",
+      distractors: ["poison"],
+      ...over,
+    });
+  }
+
+  it("publishes a listen activity with authored near-misses", () => {
+    expect(contentProblems({ ...set({ activities: [listen()] }), version: 1 })).toEqual([]);
+  });
+
+  /**
+   * Each of these renders as a working exercise. A learner meets a button that
+   * is always right, or two identical options one of which is marked wrong,
+   * and has no way to tell the content is broken rather than themselves.
+   */
+  it.each([
+    ["no near-miss at all", { distractors: [] }, /at least 1 authored near-miss/],
+    ["the field omitted", { distractors: undefined }, /at least 1 authored near-miss/],
+    [
+      "a near-miss identical to the target",
+      { distractors: ["poisson"] },
+      /would be told they are wrong/,
+    ],
+    ["the same near-miss twice", { distractors: ["poison", "poison"] }, /listed twice/],
+    [
+      "more near-misses than can be held in mind",
+      { distractors: ["poison", "boisson", "buisson", "poussin"] },
+      /tests working memory rather than hearing/,
+    ],
+    [
+      "a near-miss past the capture ceiling",
+      { distractors: ["un ".repeat(15)] },
+      /distractor .* is 15 words/,
+    ],
+  ])("refuses %s", (_label, over, expected) => {
+    const problems = contentProblems({ ...set({ activities: [listen(over)] }), version: 1 });
+
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.join(" | ")).toMatch(expected);
+  });
+
+  it("refuses a list that is not a list", () => {
+    const problems = contentProblems({
+      ...set({ activities: [listen({ distractors: "poison" })] }),
+      version: 1,
+    });
+
+    expect(problems.join(" | ")).toMatch(/must be a list of phrases/);
+  });
+
+  /**
+   * Refused rather than ignored. Nothing but a listen activity reads them, so
+   * near-misses on a `repeat` row are an author who believes they wrote a
+   * listening exercise and has not — and ignoring them means finding out when
+   * a learner never sees one.
+   */
+  it("refuses near-misses on a kind that cannot ask them", () => {
+    const problems = contentProblems({
+      ...set({ activities: [activity({ kind: "repeat", distractors: ["poison"] })] }),
+      version: 1,
+    });
+
+    expect(problems.join(" | ")).toMatch(/only a listen activity may carry distractors/);
+  });
+
+  it("restores them trimmed and de-duplicated, tolerating what the gate refuses", () => {
+    const doc = readContent({
+      ...set({
+        activities: [listen({ distractors: ["  poison  ", "poison", "", "boisson"] })],
+      }),
+      _id: "fr:1",
+      version: 1,
+      publishedAt: new Date(),
+    });
+
+    expect(doc?.activities[0]?.distractors).toEqual(["poison", "boisson"]);
+  });
+
+  /**
+   * One representation for "none", matching how `soundTargets` is stored —
+   * two would be two things every reader has to check separately.
+   */
+  it("omits the field entirely rather than storing an empty list", () => {
+    const doc = readContent({
+      ...set({ activities: [activity({ kind: "repeat" })] }),
+      _id: "fr:1",
+      version: 1,
+      publishedAt: new Date(),
+    });
+
+    expect(doc?.activities[0]).not.toHaveProperty("distractors");
+  });
+});
+
 describe("the sound targets themselves", () => {
   it("refuses a syllable that does not occur in the phrase", () => {
     /**

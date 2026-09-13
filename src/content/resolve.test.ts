@@ -206,12 +206,18 @@ describe("with content served", () => {
   it("refuses a served activity of a kind it cannot render, and keeps the rest", () => {
     /**
      * What an old client does with a course published after it shipped. Its
-     * union has three kinds, so a `recall` row is dropped by its own
+     * union had three kinds, so a `recall` row was dropped by its own
      * validation — it loses that activity and keeps the language, rather than
-     * rendering a blank task. This end has four, so it keeps it.
+     * rendering a blank task. This end knows `recall` and `listen`, so it
+     * keeps both, and refuses one it has never heard of.
+     *
+     * The sentinel is a kind that does not exist rather than one that does
+     * not exist *yet*: `listen` stood here until it shipped, at which point
+     * this case quietly stopped testing anything.
      */
     expect(readCachedSet(served({ activities: [activity({ kind: "recall" })] }))?.activities).toHaveLength(1);
-    expect(readCachedSet(served({ activities: [activity({ kind: "listen" })] }))).toBeNull();
+    expect(readCachedSet(served({ activities: [activity({ kind: "listen" })] }))?.activities).toHaveLength(1);
+    expect(readCachedSet(served({ activities: [activity({ kind: "sing" })] }))).toBeNull();
   });
 
   it("ignores a language the bundle has never heard of", () => {

@@ -220,10 +220,22 @@ async function refinementFor(
     const entry = byActivity.get(activity.id);
     return {
       id: activity.id,
-      // Already folded to the same lower case the skills store keys on, by
-      // readActivity. Absent on a set published before the field existed,
-      // which selectActivity handles as "fallback only".
-      graphemes: activity.soundTargets ?? [],
+      /**
+       * Already folded to the same lower case the skills store keys on, by
+       * readActivity. Absent on a set published before the field existed,
+       * which selectActivity handles as "fallback only".
+       *
+       * A `listen` activity is put in that same position deliberately, even
+       * when it names sound targets — and it legitimately does, because
+       * hearing `poisson` against `poison` is about exactly those sounds.
+       * The trouble is that answering it produces no recording, so no sample
+       * reaches the skills store and the sound's strength cannot move. Offer
+       * it against a due sound and it is still due tomorrow, and the same
+       * activity wins again, every day, with the learner never once asked to
+       * say the word. Its targets stay in the document; they just cannot
+       * satisfy a due sound.
+       */
+      graphemes: activity.kind === "listen" ? [] : (activity.soundTargets ?? []),
       passed: entry?.passed ?? false,
       lastAttemptAt: entry?.at ?? null,
     };

@@ -46,6 +46,9 @@ function activity(over: Partial<DraftActivity> = {}): DraftActivity {
     // Empty by default: a set with no spine needs no sound mapping, and that
     // is the shape most of these cases are about.
     soundTargets: "",
+    // Likewise: only a `listen` row carries near-misses, and carrying them on
+    // any other kind is itself refused.
+    distractors: "",
     ...over,
   };
 }
@@ -70,7 +73,12 @@ describe("a draft that is ready", () => {
 
   it("accepts every kind the UI can render", () => {
     for (const kind of DRAFT_KINDS) {
-      expect(draftProblems(draft({ activities: [activity({ kind })] }))).toEqual([]);
+      // `listen` is the one kind with a second required field — a row with no
+      // near-misses is not a question — so it is given one here rather than
+      // excluded, which would leave the kind untested by the sweep that exists
+      // to cover every kind.
+      const extra = kind === "listen" ? { distractors: "Bonsoir" } : {};
+      expect(draftProblems(draft({ activities: [activity({ kind, ...extra })] }))).toEqual([]);
     }
   });
 });
@@ -293,6 +301,96 @@ describe("seeding a draft", () => {
  * something the server would accept, which costs a failed publish and is shown
  * with the server's own wording; it cannot accept something the server refuses.
  */
+describe("authoring a listen activity", () => {
+  function listen(over: Partial<DraftActivity> = {}): DraftActivity {
+    return activity({ kind: "listen", target: "poisson", distractors: "poison", ...over });
+  }
+
+  /**
+   * Semicolons, not the commas or whitespace `soundTargets` splits on. These
+   * are whole phrases and both of those separators occur inside one, so
+   * reusing that splitter would turn a single near-miss into four.
+   */
+  it("keeps a multi-word near-miss whole", () => {
+    const payload = draftToPayload(
+      draft({ activities: [listen({ distractors: "Bonsoir tout le monde; Bonjour madame" })] }),
+      0,
+    );
+
+    expect(payload.activities[0]?.distractors).toEqual([
+      "Bonsoir tout le monde",
+      "Bonjour madame",
+    ]);
+  });
+
+  it("sends them only on the kind that reads them", () => {
+    const payload = draftToPayload(
+      draft({ activities: [activity({ kind: "repeat", distractors: "" })] }),
+      0,
+    );
+
+    expect(payload.activities[0]).not.toHaveProperty("distractors");
+  });
+
+  /**
+   * The same three refusals the server makes, said here first — an author who
+   * hears about them from a failed publish has already lost the round trip,
+   * and the message would arrive detached from the row it is about.
+   */
+  it.each([
+    ["no near-miss", { distractors: "" }, /at least 1 near-miss/],
+    ["only separators", { distractors: " ; ; " }, /at least 1 near-miss/],
+    ["the target itself", { distractors: "poisson" }, /would be told they are wrong/],
+    ["the same one twice", { distractors: "poison; poison" }, /listed twice/],
+    [
+      "more than anyone can hold in mind",
+      { distractors: "poison; boisson; buisson; poussin" },
+      /tests working memory rather than hearing/,
+    ],
+  ])("refuses %s", (_label, over, expected) => {
+    const problems = draftProblems(draft({ activities: [listen(over)] }));
+
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.join(" | ")).toMatch(expected);
+  });
+
+  /**
+   * Named rather than ignored, because the author believes they wrote a
+   * listening exercise. Silence here means finding out when a learner never
+   * meets one.
+   */
+  it("refuses near-misses on a row that is not a listen", () => {
+    const problems = draftProblems(
+      draft({ activities: [activity({ kind: "repeat", distractors: "poison" })] }),
+    );
+
+    expect(problems.join(" | ")).toMatch(/only a listen activity may carry near-misses/);
+  });
+
+  it("survives a round trip through a published set", () => {
+    const seeded = draftFromSet({
+      slug: "fr",
+      code: "fr-FR",
+      label: "French",
+      activities: [
+        {
+          id: 1,
+          title: "Which did you hear?",
+          kind: "listen",
+          prompt: "Which phrase did you hear?",
+          gloss: "fish / poison",
+          target: "poisson",
+          focus: "the doubled s",
+          distractors: ["poison", "boisson"],
+        },
+      ],
+    });
+
+    expect(seeded.activities[0]?.distractors).toBe("poison; boisson");
+    expect(draftToPayload(seeded, 0).activities[0]?.distractors).toEqual(["poison", "boisson"]);
+  });
+});
+
 describe("a draft with a course spine", () => {
   function courseDraft(over: Partial<ContentDraft> = {}): ContentDraft {
     return draft({
@@ -386,10 +484,11 @@ describe("a draft with a course spine", () => {
     );
   });
 
-  it("offers all four kinds, including the one the spine added", () => {
+  it("offers every kind, including the ones added after the spine", () => {
     // A mistyped kind renders as a blank task, so the screen offers a list —
     // and a list that had stayed at three would have made `recall` unwritable
-    // from the only screen an author has.
-    expect([...DRAFT_KINDS]).toEqual(["repeat", "respond", "read", "recall"]);
+    // from the only screen an author has, as a list stuck at four would have
+    // done to `listen`. It is `ACTIVITY_KINDS` itself for that reason.
+    expect([...DRAFT_KINDS]).toEqual(["repeat", "respond", "read", "recall", "listen"]);
   });
 });

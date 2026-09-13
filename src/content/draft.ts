@@ -45,6 +45,10 @@ export const DRAFT_KINDS: readonly ActivityKind[] = ACTIVITY_KINDS;
 /** Mirrors MAX_ACTIVITIES in server/store/content.ts. */
 export const MAX_DRAFT_ACTIVITIES = 50;
 
+/** Mirrors MIN/MAX_DISTRACTORS in server/store/content.ts. */
+export const MIN_DRAFT_DISTRACTORS = 1;
+export const MAX_DRAFT_DISTRACTORS = 3;
+
 /** Mirrors MIN/MAX_LESSON_ACTIVITIES — one sitting, with an end. */
 export const MIN_DRAFT_LESSON_ACTIVITIES = MIN_LESSON_ACTIVITIES;
 export const MAX_DRAFT_LESSON_ACTIVITIES = MAX_LESSON_ACTIVITIES;
@@ -86,6 +90,17 @@ export interface DraftActivity {
    * author wants at the moment they are typing four syllables.
    */
   soundTargets: string;
+  /**
+   * The authored near-misses for a `listen` activity, separated by
+   * **semicolons** — "poison; boisson".
+   *
+   * Not commas, which is what `soundTargets` uses, and not whitespace: these
+   * are whole phrases and both of those separators occur inside one. A
+   * semicolon does not, and it keeps the field a single-line input like every
+   * other, which is the difference between adding a field and rebuilding the
+   * form.
+   */
+  distractors: string;
 }
 
 /** A lesson being edited. `activityIds` is comma-separated, for the same reason. */
@@ -130,6 +145,7 @@ export interface DraftPayload {
     target: string;
     focus: string;
     soundTargets: string[];
+    distractors?: string[];
   }[];
   units?: {
     id: number;
@@ -150,6 +166,7 @@ export function emptyActivity(id: number): DraftActivity {
     target: "",
     focus: "",
     soundTargets: "",
+    distractors: "",
   };
 }
 
@@ -171,6 +188,20 @@ export function emptyUnit(id: number, lessonId: number): DraftUnit {
  * rather than reported: a trailing comma is a typing artefact, not a mistake
  * worth a line in the problem list.
  */
+/**
+ * Whole phrases, split on semicolons.
+ *
+ * Deliberately not `entries` below, which also splits on whitespace and on
+ * commas — both of which occur inside a phrase, so reusing it would turn one
+ * near-miss into four.
+ */
+function phrases(value: string): string[] {
+  return value
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
 function entries(value: string): string[] {
   return value
     .split(/[,\s]+/)
@@ -198,6 +229,7 @@ export interface DraftSource {
     target: string;
     focus: string;
     soundTargets?: readonly string[];
+    distractors?: readonly string[];
   }[];
   /** Absent on the sets that shipped before the spine, and on any flat set. */
   units?: readonly {
@@ -226,6 +258,7 @@ export function draftFromSet(set: DraftSource): ContentDraft {
       target: a.target,
       focus: a.focus,
       soundTargets: (a.soundTargets ?? []).join(", "),
+      distractors: (a.distractors ?? []).join("; "),
     })),
     units: (set.units ?? []).map((u) => ({
       id: String(u.id),
@@ -300,6 +333,43 @@ export function draftProblems(draft: ContentDraft): string[] {
       }
       if (targets.has(target)) problems.push(`${where}: target repeats an earlier activity's`);
       else targets.add(target);
+    }
+
+    /**
+     * The near-misses, mirroring the server's gate so an author is told before
+     * they publish rather than by a refusal. Same three failures, each of
+     * which renders as a working exercise: a button that is always right, two
+     * identical options one marked wrong, or more phrases than anyone can hold
+     * in mind while replaying a two-second clip.
+     */
+    const near = phrases(a.distractors);
+    if (a.kind === "listen") {
+      if (near.length < MIN_DRAFT_DISTRACTORS) {
+        problems.push(
+          `${where}: a listen activity needs at least ${MIN_DRAFT_DISTRACTORS} near-miss, separated by semicolons — one option is not a question`,
+        );
+      }
+      if (near.length > MAX_DRAFT_DISTRACTORS) {
+        problems.push(
+          `${where}: ${near.length} near-misses — more than ${MAX_DRAFT_DISTRACTORS} tests working memory rather than hearing`,
+        );
+      }
+      const seenNear = new Set<string>();
+      for (const phrase of near) {
+        if (phrase === a.target.trim()) {
+          problems.push(
+            `${where}: near-miss “${phrase}” is the target — a learner who picks the right words would be told they are wrong`,
+          );
+        } else if (seenNear.has(phrase)) {
+          problems.push(`${where}: near-miss “${phrase}” is listed twice`);
+        } else {
+          seenNear.add(phrase);
+        }
+      }
+    } else if (near.length > 0) {
+      problems.push(
+        `${where}: only a listen activity may carry near-misses — this row is “${a.kind}”`,
+      );
     }
 
     const sounds = entries(a.soundTargets);
@@ -471,6 +541,15 @@ export function draftToPayload(draft: ContentDraft, baseVersion: number): DraftP
       // next version they load back is what will actually match a learner's
       // history rather than a capitalised near-miss of it.
       soundTargets: entries(a.soundTargets).map((s) => s.toLocaleLowerCase()),
+      /**
+       * Only on the kind that reads them, and omitted rather than sent empty —
+       * the server refuses near-misses on any other kind, so carrying a
+       * leftover from an author who changed a row's kind would turn a publish
+       * down for something invisible on the screen they are looking at.
+       */
+      ...(a.kind === "listen" && phrases(a.distractors).length > 0
+        ? { distractors: phrases(a.distractors) }
+        : {}),
     })),
     /**
      * Omitted entirely when there is no spine. Sending `units: []` would ask

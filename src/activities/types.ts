@@ -32,8 +32,11 @@ import type { PronunciationResult } from "../speech/scoring/types.js";
  *  - `recall`  — see the English, produce the target aloud. The target is
  *                hidden; the escape is a reveal that makes the take unscored,
  *                rather than a Listen button that gives the answer away.
+ *  - `listen`   — hear the model and pick which written phrase it was, from
+ *                authored near-misses. The only kind that asks nothing of the
+ *                microphone: no recording, no provider call, no permission.
  */
-export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall"] as const;
+export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall", "listen"] as const;
 
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 
@@ -92,6 +95,21 @@ export interface Activity {
    * still schedulable — as the documented fallback, never as a recommendation.
    */
   soundTargets?: string[];
+  /**
+   * Plausible near-misses for a `listen` activity, **authored**.
+   *
+   * Not drawn from the rest of the set, and that is the whole design. A random
+   * other phrase is absurdly wrong — a learner rules it out from its length
+   * before the audio finishes and learns nothing about the sound. The near
+   * miss is the content: `poisson` against `poison`, `dessus` against
+   * `dessous`. Writing those is the work, which is why they are a field an
+   * author fills rather than something computed.
+   *
+   * Required by the publish gate of a `listen` activity and refused on any
+   * other kind — see `contentProblems`. An activity with no wrong option is
+   * not a question.
+   */
+  distractors?: string[];
 }
 
 /**

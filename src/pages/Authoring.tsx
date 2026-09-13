@@ -89,6 +89,7 @@ interface PublishedSet {
     target: string;
     focus: string;
     soundTargets?: string[];
+    distractors?: string[];
   }[];
   /** Absent on every set published before the course spine existed. */
   units?: {
@@ -112,7 +113,15 @@ interface PublishOutcome {
   problems?: string[];
 }
 
-const FIELDS = ["title", "prompt", "gloss", "target", "focus", "soundTargets"] as const;
+const FIELDS = [
+  "title",
+  "prompt",
+  "gloss",
+  "target",
+  "focus",
+  "soundTargets",
+  "distractors",
+] as const;
 
 /** What each field is for, in the terms an author would ask about it. */
 const FIELD_HINTS: Record<(typeof FIELDS)[number], string> = {
@@ -123,6 +132,8 @@ const FIELD_HINTS: Record<(typeof FIELDS)[number], string> = {
   focus: "What this activity is designed to expose. Drives the report’s advice.",
   soundTargets:
     "The written syllables this phrase drills, separated by commas — “bon, jour”. Each one has to occur in the target, because that is the only thing the scorer can name. Required once the set has units.",
+  distractors:
+    "Only for “listen”. The wrong options, separated by semicolons — “poison; boisson”. Write plausible near-misses: a random other phrase is ruled out on length before the audio finishes and teaches nothing. One to three.",
 };
 
 export function Authoring() {
