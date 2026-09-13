@@ -65,6 +65,7 @@ function progressOf(
   return {
     activityId,
     attempts: attempts.map((a) => ({
+      kind: "spoken" as const,
       activityId,
       result: scoredResult(a.words, a.accuracy),
       accuracy: a.accuracy,
@@ -237,6 +238,35 @@ describe("buildReport attempt selection", () => {
     expect(report.totalAttempts).toBe(2);
   });
 
+  /**
+   * The report is about pronunciation, and an answer picked from options was
+   * never said aloud. It carries no provider result to draw phonemes from, and
+   * the figure it would inflate is rendered as "N attempts" on a screen where
+   * the number means "times you spoke".
+   *
+   * Distinct from the indeterminate case below, deliberately: that one *was* a
+   * take at speaking and is counted as an attempt the system could not judge.
+   * This one was never speech at all.
+   */
+  it("does not count an answer that was picked rather than spoken", () => {
+    const progress = progressOf(1, [
+      { accuracy: 88, words: [word("Bonjour", [syllable("jour", 88), syllable("jour", 90)])] },
+    ]);
+    progress.attempts.push({
+      kind: "chosen",
+      activityId: 1,
+      choice: "a",
+      correct: true,
+      at: new Date(0).toISOString(),
+    });
+
+    const report = reportFor([progress]);
+
+    expect(report.totalAttempts).toBe(1);
+    // Nor does it read as one the system declined to judge.
+    expect(report.indeterminateCount).toBe(0);
+  });
+
   it("ignores an indeterminate attempt when picking the attempt to advise on", () => {
     const progress = progressOf(1, [
       { accuracy: 40, words: [word("Bonjour", [syllable("jour", 40), syllable("jour", 44)])] },
@@ -246,7 +276,13 @@ describe("buildReport attempt selection", () => {
       provider: "azure",
       reason: "no speech found to assess — every word was omitted",
     };
-    progress.attempts.push({ activityId: 1, result: indeterminate, accuracy: null, at: new Date(0).toISOString() });
+    progress.attempts.push({
+      kind: "spoken",
+      activityId: 1,
+      result: indeterminate,
+      accuracy: null,
+      at: new Date(0).toISOString(),
+    });
 
     const report = reportFor([progress]);
 
@@ -326,6 +362,7 @@ describe("buildReport tolerates results that predate a field", () => {
         skipped: false,
         attempts: [
           {
+            kind: "spoken",
             activityId: 1,
             accuracy: 90,
             at: new Date().toISOString(),
@@ -388,7 +425,7 @@ describe("buildReport tolerates results that predate a field", () => {
         best: 90,
         passed: true,
         skipped: false,
-        attempts: [{ activityId, accuracy: 90, at: new Date().toISOString(), result }],
+        attempts: [{ kind: "spoken" as const, activityId, accuracy: 90, at: new Date().toISOString(), result }],
       }) as unknown as ActivityProgress;
 
     const complete = {
@@ -435,6 +472,7 @@ describe("buildReport tolerates results that predate a field", () => {
         skipped: false,
         attempts: [
           {
+            kind: "spoken",
             activityId: 1,
             accuracy: 90,
             at: new Date().toISOString(),
@@ -465,6 +503,7 @@ describe("buildReport tolerates results that predate a field", () => {
         skipped: false,
         attempts: [
           {
+            kind: "spoken",
             activityId: 1,
             accuracy: 90,
             at: new Date().toISOString(),

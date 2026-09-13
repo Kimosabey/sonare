@@ -158,6 +158,7 @@ export function ActivityTest() {
 
       const accuracy = result.indeterminate ? null : result.accuracy;
       const attempt: ActivityAttempt = {
+        kind: "spoken",
         activityId: activity.id,
         result,
         accuracy,

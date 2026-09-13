@@ -90,7 +90,7 @@ const SECOND = set(1);
 function entry(activityId: number, passed: boolean, at: string): ActivityProgress {
   return {
     activityId,
-    attempts: [{ activityId, result: {} as never, accuracy: passed ? 80 : 20, at }],
+    attempts: [{ kind: "spoken", activityId, result: {} as never, accuracy: passed ? 80 : 20, at }],
     best: passed ? 80 : 20,
     passed,
     skipped: false,

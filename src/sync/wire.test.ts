@@ -19,11 +19,12 @@ import {
   streakToWire,
   type WireProgress,
 } from "./wire.js";
+import { isSpoken } from "../activities/types.js";
 import type { ActivityProgress, ActivityAttempt } from "../activities/types.js";
 import type { PersistedProgress } from "../hooks/useProgressPersistence.js";
 
 function attempt(at: string, accuracy: number): ActivityAttempt {
-  return { activityId: 1, result: {} as never, accuracy, at };
+  return { kind: "spoken", activityId: 1, result: {} as never, accuracy, at };
 }
 
 function local(entries: ActivityProgress[], index = 0): PersistedProgress {
@@ -143,8 +144,11 @@ describe("progress on the way back", () => {
 
     const merged = progressFromWire(stored, wire([wireEntry({ passed: true, bestAccuracy: 90 })]));
 
+    // Length over *all* attempts, so a dropped take of either kind fails here;
+    // the accuracy read narrows, because only a spoken take has one.
     expect(merged.progress[0]?.attempts).toHaveLength(2);
-    expect(merged.progress[0]?.attempts[0]?.accuracy).toBe(40);
+    const [first] = (merged.progress[0]?.attempts ?? []).filter(isSpoken);
+    expect(first?.accuracy).toBe(40);
   });
 
   it("applies the same monotonic merge the server does", () => {

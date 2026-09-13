@@ -44,6 +44,7 @@ import {
   type WireProgress,
   type WireSkills,
 } from "../../src/sync/wire.js";
+import { isSpoken } from "../../src/activities/types.js";
 import type { ActivityAttempt, ActivityProgress } from "../../src/activities/types.js";
 import type { PersistedProgress } from "../../src/hooks/useProgressPersistence.js";
 import type { SkillStore } from "../../src/stores/skillStore.js";
@@ -161,7 +162,7 @@ beforeEach(() => {
 function attempt(at: string, accuracy: number): ActivityAttempt {
   // `result` is the full provider payload, which is exactly the thing the
   // server has no copy of. Its content does not matter; its survival does.
-  return { activityId: 1, result: { marker: at } as never, accuracy, at };
+  return { kind: "spoken", activityId: 1, result: { marker: at } as never, accuracy, at };
 }
 
 function activity(over: Partial<ActivityProgress> = {}): ActivityProgress {
@@ -438,8 +439,10 @@ describe("folding a reply back into the local record", () => {
     const one = folded.progress.find((p) => p.activityId === 1);
     expect(one?.attempts).toHaveLength(2);
     expect(one?.attempts.map((a) => a.at)).toEqual(["2026-09-07T10:00:00.000Z", "2026-09-07T10:05:00.000Z"]);
-    // The full provider result, still there.
-    expect(one?.attempts[0]?.result).toEqual({ marker: "2026-09-07T10:00:00.000Z" });
+    // The full provider result, still there. Narrowed because only a spoken
+    // take has one — the assertion above already pins the count and order.
+    const [first] = (one?.attempts ?? []).filter(isSpoken);
+    expect(first?.result).toEqual({ marker: "2026-09-07T10:00:00.000Z" });
   });
 
   it("keeps the attempts even when the server's reply is the union of two devices", async () => {

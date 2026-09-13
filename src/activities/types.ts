@@ -166,12 +166,72 @@ export interface LanguageActivitySet {
   units?: Unit[];
 }
 
-export interface ActivityAttempt {
+/**
+ * What every attempt carries, whatever the learner was asked to do.
+ *
+ * `at` is the identity of a sample downstream — the skills store dedupes on
+ * it — so it is here rather than on one variant.
+ */
+interface AttemptBase {
   activityId: number;
+  at: string;
+}
+
+/**
+ * A take at saying something, judged by the provider.
+ *
+ * The only kind that existed before `listen`, and the only one that carries an
+ * accuracy. `null` means the provider declined to judge it (R8): unmeasured,
+ * never a zero, never a pass, and it does not burn a try.
+ */
+export interface SpokenAttempt extends AttemptBase {
+  kind: "spoken";
   result: PronunciationResult;
   /** Accuracy of this attempt, or null when indeterminate. */
   accuracy: number | null;
-  at: string;
+}
+
+/**
+ * An answer picked from options. No recording, no provider, no accuracy.
+ *
+ * There is deliberately no number on this. Scoring a comprehension choice as
+ * 100 or 0 would put a figure the provider never produced into the same field
+ * the provider's numbers live in — and from there into the skills store, which
+ * would let "picked the right option" reschedule a sound the learner has never
+ * said aloud. `correct` is the whole judgement and it is a different axis.
+ */
+export interface ChosenAttempt extends AttemptBase {
+  kind: "chosen";
+  /** The option the learner picked, by its authored id. */
+  choice: string;
+  correct: boolean;
+}
+
+/**
+ * Discriminated, so a non-scored answer has a shape of its own.
+ *
+ * Reading `accuracy` off an attempt no longer compiles without saying which
+ * kind is meant, which is the point: every consumer had assumed a provider
+ * result was present, and a `listen` answer has none.
+ */
+export type ActivityAttempt = SpokenAttempt | ChosenAttempt;
+
+/**
+ * Whether an attempt is a take at saying something.
+ *
+ * Beside the union rather than in the layer that uses it, so that adding a
+ * third variant means editing one place instead of discovering the other later.
+ *
+ * Written as "not chosen" rather than `kind === "spoken"`, and the difference
+ * is a learner's entire history. Every attempt stored before this discriminant
+ * existed carries no `kind` at all — they are all spoken, because spoken was
+ * the only kind there was — and `readProgress` restores them with a cast
+ * rather than revalidating them. Testing for the positive would reclassify all
+ * of them as answers with no accuracy: every past take unmeasured, every pass
+ * lost, silently, on the release that ships `listen`.
+ */
+export function isSpoken(attempt: ActivityAttempt): attempt is SpokenAttempt {
+  return attempt.kind !== "chosen";
 }
 
 export interface ActivityProgress {

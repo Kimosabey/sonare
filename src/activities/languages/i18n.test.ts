@@ -99,6 +99,7 @@ function buildResult(phonemes: string[]): PronunciationResult {
 
 function progressWith(result: PronunciationResult): ActivityProgress[] {
   const attempt: ActivityAttempt = {
+    kind: "spoken",
     activityId: 1,
     result,
     accuracy: 40,

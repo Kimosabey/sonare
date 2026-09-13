@@ -5,10 +5,12 @@
  * tested by driving a browser.
  */
 
+import { isSpoken } from "./types.js";
 import type {
   Activity,
   ActivityProgress,
   SessionReport,
+  SpokenAttempt,
   WeakPhoneme,
   WeakSyllable,
   WordMistake,
@@ -49,12 +51,20 @@ export function buildReport(
 
   for (const p of progress) {
     const activity = byId.get(p.activityId);
-    totalAttempts += p.attempts.length;
+
+    /**
+     * Spoken takes only, throughout. This is a report about pronunciation, and
+     * an answer the learner picked from options was never said aloud: it has
+     * no provider result to draw phonemes from, and counting it would inflate
+     * "12 attempts" on a screen where the number means "times you spoke".
+     */
+    const spoken = p.attempts.filter(isSpoken);
+    totalAttempts += spoken.length;
 
     // Only the best attempt informs the advice. Counting every failed retry
     // would tell a learner who improved that they are worse than they are.
-    let bestAttempt: (typeof p.attempts)[number] | null = null;
-    for (const attempt of p.attempts) {
+    let bestAttempt: SpokenAttempt | null = null;
+    for (const attempt of spoken) {
       if (attempt.result.indeterminate) {
         indeterminateCount++;
         continue;

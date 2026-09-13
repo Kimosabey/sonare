@@ -28,6 +28,7 @@
  */
 
 import { MAX_ATTEMPTS, PASS_SCORE } from "../activities/languages/index.js";
+import { isSpoken } from "../activities/types.js";
 import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
 
 /**
@@ -38,10 +39,13 @@ import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
  * as a catastrophic one.
  */
 export function bestOf(attempts: ActivityAttempt[]): number | null {
-  return attempts.reduce<number | null>(
-    (acc, a) => (a.accuracy === null ? acc : acc === null ? a.accuracy : Math.max(acc, a.accuracy)),
-    null,
-  );
+  return attempts.reduce<number | null>((acc, a) => {
+    // A chosen answer has no accuracy and must not be given one. There is no
+    // number here to be best, and inventing 100 for a correct tap would put a
+    // figure the provider never produced into the field its numbers live in.
+    if (!isSpoken(a) || a.accuracy === null) return acc;
+    return acc === null ? a.accuracy : Math.max(acc, a.accuracy);
+  }, null);
 }
 
 /**
@@ -53,13 +57,29 @@ export function bestOf(attempts: ActivityAttempt[]): number | null {
  * own failure (R8).
  */
 export function scoredAttemptsOf(attempts: ActivityAttempt[]): number {
-  return attempts.filter((a) => a.accuracy !== null).length;
+  return attempts.filter((a) => isSpoken(a) && a.accuracy !== null).length;
+}
+
+/**
+ * Attempts the learner actually used up.
+ *
+ * Separate from `scoredAttemptsOf`, which counts the numbers we hold, because
+ * the two stopped being the same thing when an answer could be judged without
+ * being scored. A chosen answer was judged — it was right or it was wrong — so
+ * it costs a try. An indeterminate spoken take was not, so it does not (R8).
+ *
+ * Kept as its own function rather than folded into the other because
+ * `scoredAttemptsOf` also answers "do we have a number to compare against",
+ * which is a question about data and not about the learner's remaining tries.
+ */
+export function judgedAttemptsOf(attempts: ActivityAttempt[]): number {
+  return attempts.filter((a) => (isSpoken(a) ? a.accuracy !== null : true)).length;
 }
 
 /** Whether the learner may move on: passed, or out of scored tries. */
 export function canAdvanceFrom(current: ActivityProgress | undefined): boolean {
   if (current === undefined) return false;
-  return current.passed || scoredAttemptsOf(current.attempts) >= MAX_ATTEMPTS;
+  return current.passed || judgedAttemptsOf(current.attempts) >= MAX_ATTEMPTS;
 }
 
 /**
@@ -78,14 +98,21 @@ export function applyTake(
   const existing = progress.find((p) => p.activityId === activityId);
   const attempts = [...(existing?.attempts ?? []), attempt];
   const best = bestOf(attempts);
-  const passed = best !== null && best >= PASS_SCORE;
+  /**
+   * Two axes, because there are two ways to be judged. A spoken take passes on
+   * the provider's number; a chosen answer passes on being right. They are not
+   * comparable and neither is converted into the other — `best` stays null for
+   * an activity answered only by choosing, because no accuracy was measured.
+   */
+  const passed =
+    (best !== null && best >= PASS_SCORE) || attempts.some((a) => !isSpoken(a) && a.correct);
 
   const next: ActivityProgress = {
     activityId,
     attempts,
     best,
     passed,
-    skipped: !passed && scoredAttemptsOf(attempts) >= MAX_ATTEMPTS,
+    skipped: !passed && judgedAttemptsOf(attempts) >= MAX_ATTEMPTS,
   };
 
   return existing !== undefined

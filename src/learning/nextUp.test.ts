@@ -56,7 +56,7 @@ function entry(activityId: number, passed: boolean, at: string): ActivityProgres
     // `result` is not read by nextUp — only `at` is — so the cast keeps the
     // fixture to the fields under test rather than building a whole
     // PronunciationResult per attempt.
-    attempts: [{ activityId, result: {} as never, accuracy: passed ? 80 : 20, at }],
+    attempts: [{ kind: "spoken", activityId, result: {} as never, accuracy: passed ? 80 : 20, at }],
     best: passed ? 80 : 20,
     passed,
     skipped: false,
@@ -226,7 +226,7 @@ describe("surviving bad stored data", () => {
   it("ignores an attempt whose timestamp is not a string", () => {
     const bad: ActivityProgress = {
       activityId: 1,
-      attempts: [{ activityId: 1, result: {} as never, accuracy: 50, at: 12345 as never }],
+      attempts: [{ kind: "spoken", activityId: 1, result: {} as never, accuracy: 50, at: 12345 as never }],
       best: 50,
       passed: false,
       skipped: false,

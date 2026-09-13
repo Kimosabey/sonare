@@ -20,13 +20,15 @@ import {
   bestOf,
   canAdvanceFrom,
   celebrationFor,
+  judgedAttemptsOf,
   scoredAttemptsOf,
   stepStateFor,
 } from "./session.js";
+import { isSpoken } from "../activities/types.js";
 import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
 
 function attempt(accuracy: number | null, at = "2026-09-07T10:00:00.000Z"): ActivityAttempt {
-  return { activityId: 1, result: {} as never, accuracy, at };
+  return { kind: "spoken", activityId: 1, result: {} as never, accuracy, at };
 }
 
 /** Progress for activity 1 built by replaying `accuracies` in order. */
@@ -133,7 +135,7 @@ describe("folding in an attempt", () => {
   it("appends to an activity already attempted, rather than replacing it", () => {
     const progress = after([41, 52, 68]);
 
-    expect(entry(progress).attempts.map((a) => a.accuracy)).toEqual([41, 52, 68]);
+    expect(entry(progress).attempts.filter(isSpoken).map((a) => a.accuracy)).toEqual([41, 52, 68]);
   });
 
   it("leaves other activities alone", () => {
@@ -312,5 +314,113 @@ describe("the progress rail", () => {
     };
 
     expect(stepStateFor(false, both)).toBe("passed");
+  });
+});
+describe("an answer that was picked rather than spoken", () => {
+  function chosen(correct: boolean, at = "2026-09-07T10:00:00.000Z"): ActivityAttempt {
+    return { kind: "chosen", activityId: 1, choice: correct ? "a" : "b", correct, at };
+  }
+
+  /**
+   * The rule the whole discriminant exists to make impossible to break. A
+   * correct tap is not a 100 and a wrong one is not a 0: putting either into
+   * `best` would be a number the provider never produced, sitting in the field
+   * the provider's numbers live in, and from there it reaches the skills store
+   * — where "picked the right option" would reschedule a sound the learner has
+   * never once said aloud.
+   */
+  it("never invents an accuracy, however it was answered", () => {
+    expect(bestOf([chosen(true)])).toBeNull();
+    expect(bestOf([chosen(false)])).toBeNull();
+    expect(entry(applyTake([], 1, chosen(true))).best).toBeNull();
+  });
+
+  it("passes the activity by being right, not by scoring", () => {
+    const progress = applyTake([], 1, chosen(true));
+
+    expect(entry(progress).passed).toBe(true);
+    expect(entry(progress).best).toBeNull();
+  });
+
+  it("does not pass the activity by being wrong", () => {
+    expect(entry(applyTake([], 1, chosen(false))).passed).toBe(false);
+  });
+
+  /**
+   * A wrong tap costs a try, and an unmeasured spoken take does not. Both
+   * follow from the same principle: a learner is charged for a judgement that
+   * was actually made about them, and an indeterminate take is the system
+   * declining to make one (R8).
+   */
+  it("costs a try, unlike an indeterminate take", () => {
+    expect(judgedAttemptsOf([chosen(false)])).toBe(1);
+    expect(judgedAttemptsOf([attempt(null)])).toBe(0);
+    expect(judgedAttemptsOf([attempt(40), chosen(false), attempt(null)])).toBe(2);
+  });
+
+  it("is not counted as a scored attempt, because no score exists", () => {
+    expect(scoredAttemptsOf([chosen(true), chosen(false)])).toBe(0);
+    expect(scoredAttemptsOf([attempt(40), chosen(true)])).toBe(1);
+  });
+
+  it("exhausts the tries after the limit, and is then skipped", () => {
+    let progress: ActivityProgress[] = [];
+    for (let i = 0; i < MAX_ATTEMPTS; i += 1) {
+      progress = applyTake(progress, 1, chosen(false, `2026-09-07T10:0${String(i)}:00.000Z`));
+    }
+
+    expect(canAdvanceFrom(entry(progress))).toBe(true);
+    expect(entry(progress).skipped).toBe(true);
+    expect(entry(progress).passed).toBe(false);
+  });
+
+  it("keeps the pass when a later answer is wrong", () => {
+    const progress = applyTake(applyTake([], 1, chosen(true)), 1, chosen(false));
+
+    expect(entry(progress).passed).toBe(true);
+    expect(entry(progress).skipped).toBe(false);
+  });
+});
+
+describe("attempts stored before the discriminant existed", () => {
+  /**
+   * The migration that is not one. Everything a learner has ever recorded was
+   * written without a `kind`, and `readProgress` restores it with a cast rather
+   * than revalidating it — so these objects reach the reducers exactly as they
+   * are, missing the field the union is discriminated on.
+   *
+   * The cast here is the point rather than a shortcut: it reproduces a record
+   * that no current code path can construct, which is precisely the record on
+   * every existing device.
+   */
+  function legacy(accuracy: number | null): ActivityAttempt {
+    return {
+      activityId: 1,
+      result: {} as never,
+      accuracy,
+      at: "2026-01-01T10:00:00.000Z",
+    } as unknown as ActivityAttempt;
+  }
+
+  it("reads as spoken, so a learner's history is not reclassified", () => {
+    expect(isSpoken(legacy(80))).toBe(true);
+  });
+
+  it("keeps its score, its pass and its used tries", () => {
+    expect(bestOf([legacy(80)])).toBe(80);
+    expect(scoredAttemptsOf([legacy(80)])).toBe(1);
+    expect(judgedAttemptsOf([legacy(80)])).toBe(1);
+    expect(entry(applyTake([], 1, legacy(PASS_SCORE))).passed).toBe(true);
+  });
+
+  /**
+   * R8 still applies to them. An old indeterminate take must stay unmeasured
+   * rather than becoming a chosen answer that was somehow neither right nor
+   * wrong.
+   */
+  it("keeps an old indeterminate take unmeasured and unbilled", () => {
+    expect(bestOf([legacy(null)])).toBeNull();
+    expect(judgedAttemptsOf([legacy(null)])).toBe(0);
+    expect(entry(applyTake([], 1, legacy(null))).passed).toBe(false);
   });
 });

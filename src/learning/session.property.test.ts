@@ -34,7 +34,8 @@ import {
   stepStateFor,
 } from "./session.js";
 import { NASTY_NUMBERS, chance, intBetween, listOf, makeRng, pickFrom } from "../testing/rng.js";
-import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
+import { isSpoken } from "../activities/types.js";
+import type { ActivityProgress, SpokenAttempt } from "../activities/types.js";
 import type { PronunciationResult } from "../speech/scoring/types.js";
 
 /** Seeds are literals so every case in this file is reproducible by hand. */
@@ -58,7 +59,7 @@ const RAIL_CASES = 1_000;
  * correctly-null take from a take whose result says one thing and whose
  * accuracy says another.
  */
-function take(accuracy: number | null, index = 0): ActivityAttempt {
+function take(accuracy: number | null, index = 0): SpokenAttempt {
   const result: PronunciationResult =
     accuracy === null
       ? { indeterminate: true, reason: "NO_SPEECH_DETECTED", provider: "test" }
@@ -73,6 +74,7 @@ function take(accuracy: number | null, index = 0): ActivityAttempt {
           words: [],
         };
   return {
+    kind: "spoken",
     activityId: 1,
     result,
     accuracy,
@@ -98,7 +100,7 @@ function generateAccuracy(rng: () => number): number | null {
 }
 
 /** A generated history of takes for one activity, oldest first. */
-function generateHistory(rng: () => number, index: number): ActivityAttempt[] {
+function generateHistory(rng: () => number, index: number): SpokenAttempt[] {
   // 0..6 rather than 0..3: the gate has to behave for a history longer than
   // the limit, which is reachable in practice because indeterminate takes do
   // not shorten it.
@@ -107,7 +109,7 @@ function generateHistory(rng: () => number, index: number): ActivityAttempt[] {
 }
 
 /** Folds a history into progress the way the activity screen does. */
-function fold(history: ActivityAttempt[]): ActivityProgress[] {
+function fold(history: SpokenAttempt[]): ActivityProgress[] {
   return history.reduce<ActivityProgress[]>((progress, t) => applyTake(progress, 1, t), []);
 }
 
@@ -116,7 +118,7 @@ function entryOf(progress: ActivityProgress[]): ActivityProgress | undefined {
 }
 
 /** Every scored accuracy in a history, in order. */
-function scoredValues(history: ActivityAttempt[]): number[] {
+function scoredValues(history: SpokenAttempt[]): number[] {
   return history.flatMap((t) => (t.accuracy === null ? [] : [t.accuracy]));
 }
 
@@ -321,7 +323,7 @@ describe("R8 — an unusable take is invisible to the gate", () => {
       expect(entry?.skipped, where).toBe(false);
       expect(scoredAttemptsOf(entry?.attempts ?? []), where).toBe(0);
       expect(canAdvanceFrom(entry), where).toBe(false);
-      for (const t of entry?.attempts ?? []) {
+      for (const t of (entry?.attempts ?? []).filter(isSpoken)) {
         expect(
           celebrationFor({ accuracy: t.accuracy, previousBest: null, isFirstAttempt: false }),
           where,

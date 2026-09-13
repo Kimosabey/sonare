@@ -1,6 +1,7 @@
 /** End-of-session report for the French Activity Test. */
 
 import { verdictFor } from "../../activities/report.js";
+import { isSpoken } from "../../activities/types.js";
 import type { Activity, ActivityProgress, SessionReport } from "../../activities/types.js";
 import { band } from "./band.js";
 import { AnimatedCell } from "./AnimatedCell.js";
@@ -28,11 +29,18 @@ interface ActivityReportProps {
  * number, per R8.
  */
 function Trajectory({ attempts }: { attempts: ActivityProgress["attempts"] }) {
-  if (attempts.length === 0) return <span className="dim">—</span>;
+  /**
+   * Spoken takes only. The trajectory is a row of scores with arrows between
+   * them, and an answer picked from options has no score to put in one —
+   * rendering a dash for it would read as an indeterminate take, which is a
+   * different thing entirely and one the learner may want to retry.
+   */
+  const spoken = attempts.filter(isSpoken);
+  if (spoken.length === 0) return <span className="dim">—</span>;
 
   return (
     <span className="trajectory">
-      {attempts.map((a, i) => (
+      {spoken.map((a, i) => (
         <span key={a.at + String(i)}>
           {i > 0 && <span className="trajectory-arrow" aria-hidden="true">→</span>}
           <span className={a.accuracy === null ? "trajectory-step dim" : `trajectory-step ${band(a.accuracy)}`}>
@@ -55,7 +63,10 @@ function ActivityReportBase({ report, activities, progress, onRestart, onExport 
   const improvedCount = progress.filter((p) => {
     // Mapped to numbers before filtering: a predicate on the attempt does not
     // narrow `accuracy` away from `number | null` for the reads below.
-    const scored = p.attempts.map((a) => a.accuracy).filter((x): x is number => x !== null);
+    const scored = p.attempts
+      .filter(isSpoken)
+      .map((a) => a.accuracy)
+      .filter((x): x is number => x !== null);
     const first = scored[0];
     const last = scored[scored.length - 1];
     return scored.length > 1 && first !== undefined && last !== undefined && last > first;

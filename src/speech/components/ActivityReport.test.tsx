@@ -11,6 +11,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { ActivityReport } from "./ActivityReport.js";
 import { buildReport } from "../../activities/report.js";
+import { isSpoken } from "../../activities/types.js";
 import type { Activity, ActivityAttempt, ActivityProgress } from "../../activities/types.js";
 
 beforeAll(() => {
@@ -38,6 +39,7 @@ const ACTIVITIES: Activity[] = [
 
 function attempt(accuracy: number | null, at: string): ActivityAttempt {
   return {
+    kind: "spoken",
     activityId: 1,
     accuracy,
     at,
@@ -58,7 +60,10 @@ function attempt(accuracy: number | null, at: string): ActivityAttempt {
 }
 
 function progressWith(attempts: ActivityAttempt[]): ActivityProgress[] {
-  const scored = attempts.map((a) => a.accuracy).filter((x): x is number => x !== null);
+  const scored = attempts
+    .filter(isSpoken)
+    .map((a) => a.accuracy)
+    .filter((x): x is number => x !== null);
   return [
     {
       activityId: 1,

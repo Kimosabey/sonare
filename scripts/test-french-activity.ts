@@ -34,6 +34,7 @@ import { MAX_ATTEMPTS, PASS_SCORE } from "../src/activities/languages/index.js";
 const FRENCH_ACTIVITIES = FRENCH.activities;
 const FRENCH_LANGUAGE = FRENCH.code;
 import { buildReport, verdictFor } from "../src/activities/report.js";
+import { isSpoken } from "../src/activities/types.js";
 import type { ActivityAttempt, ActivityProgress, SessionReport } from "../src/activities/types.js";
 import type { PronunciationResult } from "../src/speech/scoring/types.js";
 
@@ -96,12 +97,18 @@ async function runProfile(profile: Profile, dir: string): Promise<{ report: Sess
     await unlink(wav).catch(() => undefined);
 
     const accuracy = result.indeterminate ? null : result.accuracy;
-    attempts.push({ activityId: activity.id, result, accuracy, at: new Date().toISOString() });
+    attempts.push({
+      kind: "spoken",
+      activityId: activity.id,
+      result,
+      accuracy,
+      at: new Date().toISOString(),
+    });
 
     const best: number | null = accuracy;
     const passed = best !== null && best >= PASS_SCORE;
 
-    const scoredAttempts = attempts.filter((a) => a.accuracy !== null).length;
+    const scoredAttempts = attempts.filter((a) => isSpoken(a) && a.accuracy !== null).length;
     progress.push({
       activityId: activity.id,
       attempts,
