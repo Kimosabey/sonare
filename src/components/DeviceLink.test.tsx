@@ -83,10 +83,20 @@ describe("showing a code", () => {
    * reconcile — the elapsed answer is right even when the wall clock is not.
    */
   it("clears the code once it expires, rather than leaving a dead one up", async () => {
+    /**
+     * A full ten-minute window, then fake time is advanced past it.
+     *
+     * The first version of this minted a two-second code under
+     * `shouldAdvanceTime`, which lets real time run alongside the fake clock —
+     * so under full-suite load the code expired before the assertion that it
+     * had appeared, and the test failed for a reason that had nothing to do
+     * with what it checks. A window no amount of real-world slowness can cross
+     * leaves the advance below as the only thing that can expire it.
+     */
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mintResult.mockResolvedValue({
       ok: true,
-      minted: { code: CODE, expiresInSeconds: 2, expiresAt: Date.now() + 2000 },
+      minted: { code: CODE, expiresInSeconds: 600, expiresAt: Date.now() + 600_000 },
     });
 
     show();
@@ -94,7 +104,7 @@ describe("showing a code", () => {
     await screen.findByLabelText(/Your link code/i);
 
     await act(async () => {
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(601_000);
       await Promise.resolve();
     });
 
