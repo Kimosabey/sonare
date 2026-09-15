@@ -39,6 +39,8 @@ import {
   type CheckResult,
 } from "../speech/capture/micCheck.js";
 import { analyseSignal } from "../speech/capture/snr.js";
+import { writeCheck } from "../stores/micCheckStore.js";
+import { useLearnerName } from "../hooks/useLearnerName.js";
 
 type Phase = "idle" | "listening" | "done";
 
@@ -56,6 +58,7 @@ function barsFor(db: number): number {
 export function MicCheck() {
   const env = useMicEnvironment();
   const navigate = useNavigate();
+  const [learnerName] = useLearnerName();
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [levelDb, setLevelDb] = useState(FLOOR_DB);
@@ -67,6 +70,12 @@ export function MicCheck() {
   const contextRef = useRef<AudioContext | null>(null);
   const framesRef = useRef<Float32Array[]>([]);
   const rafRef = useRef<number | null>(null);
+  /**
+   * What the browser called the input, captured while the stream is open —
+   * labels are empty until permission is granted and gone again once the
+   * tracks are stopped, so there is exactly one moment this can be read.
+   */
+  const deviceLabelRef = useRef<string | null>(null);
 
   /**
    * Everything the check opened, closed.
@@ -106,18 +115,25 @@ export function MicCheck() {
         ? { snrDb: 0, peakDbfs: FLOOR_DB, silent: true, clippedFraction: 0 }
         : analyseSignal(joined, rate);
 
-    setResult(
-      verdictFor({
-        snrDb: stats.snrDb,
-        speechDbfs: stats.peakDbfs,
-        roomDbfs: stats.peakDbfs - stats.snrDb,
-        clippedFraction: stats.clippedFraction,
-        seconds: elapsed,
-        silent: stats.silent,
-      }),
-    );
+    const verdict = verdictFor({
+      snrDb: stats.snrDb,
+      speechDbfs: stats.peakDbfs,
+      roomDbfs: stats.peakDbfs - stats.snrDb,
+      clippedFraction: stats.clippedFraction,
+      seconds: elapsed,
+      silent: stats.silent,
+    });
+
+    setResult(verdict);
+    /**
+     * Kept so the first activity can say something true about an unclear take
+     * (board 1m). The verdict and the device label only — never the audio or
+     * the levels, which this screen promised the learner never leave the
+     * device.
+     */
+    writeCheck(learnerName, { verdict: verdict.verdict, deviceLabel: deviceLabelRef.current });
     setPhase("done");
-  }, [teardown]);
+  }, [teardown, learnerName]);
 
   const start = useCallback(async () => {
     setFailed(null);
@@ -127,6 +143,7 @@ export function MicCheck() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+      deviceLabelRef.current = stream.getAudioTracks()[0]?.label || null;
       const context = new AudioContext();
       contextRef.current = context;
       const source = context.createMediaStreamSource(stream);

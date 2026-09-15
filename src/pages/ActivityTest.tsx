@@ -45,6 +45,7 @@ import { isSpoken } from "../activities/types.js";
 import { ListenOptions } from "../components/ListenOptions.js";
 import { MicUnavailable } from "../components/MicUnavailable.js";
 import { useMicEnvironment } from "../hooks/useMicEnvironment.js";
+import { readCheck } from "../stores/micCheckStore.js";
 import { listenOptions } from "../activities/listen.js";
 import {
   applySkip,
@@ -717,6 +718,13 @@ export function ActivityTest() {
       null,
     ) ?? null;
 
+  /**
+   * Read at render rather than held in state: it changes only on another
+   * screen, and a copy here would be one that could disagree with a check the
+   * learner just re-ran.
+   */
+  const storedCheck = readCheck(learnerName);
+
   const passedCount = progress.filter((p) => p.passed).length;
 
   /**
@@ -900,6 +908,40 @@ export function ActivityTest() {
           </p>
           )}
         </>
+      )}
+
+      {/*
+        The sound check's verdict, carried forward as one quiet line — board 1m.
+
+        Only on the very first activity of a session and only before a take has
+        landed, because that is the whole window in which it is useful: a
+        learner whose first result comes back unclear otherwise concludes the
+        app cannot hear them. After that they have evidence of their own and
+        this becomes noise. Gated on the activity recording at all, too — a
+        listening question has nothing to reassure anyone about.
+
+        Two readings of the same fact. A passed check means an unclear take is
+        the take rather than the setup, which is genuinely reassuring. A quiet
+        check says so instead, so the unclear result is already half-explained
+        before it happens — and it links back, because the actionable thing is
+        to run it again.
+      */}
+      {index === 0 && attemptsUsed === 0 && phase === "prompt" && affords.needsMicrophone && storedCheck && (
+        <p className="hint check-carry">
+          {storedCheck.verdict === "good" ? (
+            <>
+              ✓ Sound check passed
+              {storedCheck.deviceLabel === null ? "" : ` on ${storedCheck.deviceLabel}`}. If a take
+              comes back unclear, it is the take — not your setup.
+            </>
+          ) : (
+            <>
+              Your check came out {storedCheck.verdict === "silent" ? "silent" : "quiet"}. Hold the
+              phone closer than feels necessary — or{" "}
+              <Link to="/check">run it again</Link>.
+            </>
+          )}
+        </p>
       )}
 
       {/*

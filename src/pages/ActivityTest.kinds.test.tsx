@@ -597,3 +597,62 @@ describe("when the microphone is unavailable mid-session", () => {
     expect(screen.queryByRole("heading", { name: /No microphone here/i })).not.toBeInTheDocument();
   });
 });
+
+describe("the sound check's verdict, carried forward", () => {
+  function seedCheck(verdict: "good" | "quiet", deviceLabel: string | null = null): void {
+    localStorage.setItem(
+      "sonare.micCheck.v1.anonymous",
+      JSON.stringify({ verdict, deviceLabel, at: new Date().toISOString() }),
+    );
+  }
+
+  /**
+   * The reassurance that is worth carrying. A learner whose first take comes
+   * back unclear otherwise concludes the app cannot hear them, when a passed
+   * check is evidence it can.
+   */
+  it("says an unclear take is the take, not the setup, after a passing check", async () => {
+    seedCheck("good", "iPhone Microphone");
+    await open("repeat");
+
+    expect(screen.getByText(/Sound check passed/i)).toBeInTheDocument();
+    expect(screen.getByText(/iPhone Microphone/)).toBeInTheDocument();
+  });
+
+  /** The same fact read the other way, so an unclear result is pre-explained. */
+  it("says the check came out quiet instead, and offers to re-run it", async () => {
+    seedCheck("quiet");
+    await open("repeat");
+
+    expect(screen.getByText(/came out quiet/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /run it again/i })).toBeInTheDocument();
+  });
+
+  it("says nothing at all when no check has been run", async () => {
+    await open("repeat");
+    expect(screen.queryByText(/Sound check passed/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Its whole usefulness is the window before the learner has evidence of
+   * their own. After a take they can see what happened, and the line becomes
+   * something to scroll past.
+   */
+  it("stops once the learner has a result of their own", async () => {
+    seedCheck("good", "iPhone Microphone");
+    await open("repeat");
+    expect(screen.getByText(/Sound check passed/i)).toBeInTheDocument();
+
+    take();
+
+    expect(screen.queryByText(/Sound check passed/i)).not.toBeInTheDocument();
+  });
+
+  /** Nothing to reassure anyone about on an activity that never records. */
+  it("says nothing on a listening activity", async () => {
+    seedCheck("good", "iPhone Microphone");
+    await open("listen");
+
+    expect(screen.queryByText(/Sound check passed/i)).not.toBeInTheDocument();
+  });
+});
