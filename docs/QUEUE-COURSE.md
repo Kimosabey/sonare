@@ -78,7 +78,7 @@ language-bearing string carries `lang`.
 - [x] **C7 — Onboarding and the microphone check**, boards 1a–1q. Eight check
       states including *no microphone hardware* and *insecure context*, both of
       which are nobody's fault and must not read as though they were.
-- [ ] **C8 — Session screen, every state**, board 2. Prompt, listening,
+- [x] **C8 — Session screen, every state**, board 2. Prompt, listening,
       scoring, result, **indeterminate**, error, offline, mic-unavailable.
 - [ ] **C9 — Today, Journey, Progress**, board 3. Journey is **not a locked
       path**. Progress carries "not enough history yet" as a real state.
@@ -112,6 +112,13 @@ language-bearing string carries `lang`.
 - [ ] **N11 — VoiceOver and TalkBack**, one activity each, by hand.
 
 ## Blocked on the owner — do not start
+
+**An offline outbox for takes** — board 1h shows takes *held* and scored on
+reconnect. There is none, and building one means persisting recorded audio on
+the device until the network returns. That is a privacy posture decision, not a
+coding one, and it sits beside the `SAVE_AUDIO_DIR` question: the onboarding
+screen currently promises a take is uploaded when you speak, which an outbox
+changes. The offline state ships saying what actually happens instead.
 
 T19's eighty recordings · ten Kannada phrases · a second German voice id ·
 Playwright and axe-core (free, need asking) · `SAVE_AUDIO_DIR` privacy posture ·
@@ -443,3 +450,51 @@ no reason to believe any other sentence on the screen.
 **Still open from this board:** 1m (the check's verdict carried into the first
 activity as one quiet line) belongs with C8's session states, and 1n–1p (the
 check at 430/768/1280) belong with C10's widths.
+### 2026-09-15 — C8, and a correction to C5
+
+**The listening question was a reading test** (9389bf2). Board 1i asks the
+learner to *pick the meaning*; what shipped in C5 asked which written form had
+been said. The phrase was on screen, so a learner could match an option against
+it and be right every time without pressing play — the audio was decoration.
+
+Options are English now, so nothing on screen is in the language being spoken.
+Both gates compare distractors against the gloss, and the phrase is revealed
+only once the question is over, with `focus` saying what separated it from the
+near miss. One consequence runs opposite to the usual: the options carry **no**
+`lang`, because tagging English as French would make a screen reader say
+meanings in a French voice.
+
+Found by reading the board against what shipped, not by a failing test — which
+is the only way this class of thing surfaces. Every C5 test passed, because they
+all tested the exercise I had built.
+
+**A blocked microphone gets a screen** (bc77745), board 1g. A toast appears, is
+missed, and leaves the learner on a screen whose record button does nothing. Two
+causes with opposite advice: blocked is recoverable in the browser and gets
+steps and a retry; an insecure address gets neither, because instructions to do
+something impossible leave a learner who followed them concluding they broke it,
+and a retry button that can never work invites them to keep tapping. Gated on
+the activity needing a microphone, so `listen` is untouched — which is what
+makes "practise listening instead" a real offer.
+
+**Offline ships honest.** The board shows takes *held* and scored on reconnect;
+there is no outbox, so that copy would be a promise the app does not keep. It
+says a take cannot be scored right now. The outbox is now listed as blocked on
+the owner — it means persisting audio on the device, which is a privacy posture
+decision.
+
+**The verdict travels** (7edcfc8), board 1m, with a fortnight's expiry: a
+verdict is about a device in a room at a moment, and a stale "your check passed"
+is the exact sentence that stops someone re-running a check they should.
+
+**One piece of test infrastructure, load-bearing.** jsdom has no
+`navigator.mediaDevices` and reports `isSecureContext: false` — between them
+indistinguishable from an insecure origin, which is what the new check looks
+for. Four end-to-end suites began asserting against a blocked app. One shared
+setup file now says "an ordinary browser with a working microphone", rather than
+a mock in each suite: those suites exist to drive the real app, and a mock is one
+less piece of it. The states where that is not true are covered directly.
+
+Also confirmed one of the three known flakes is still exactly that: the
+diagnostics rate-limit ceiling failed once under full-suite load and passed
+alone and on re-run. Shared fixed window; not a regression.
