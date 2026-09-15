@@ -303,7 +303,14 @@ describe("seeding a draft", () => {
  */
 describe("authoring a listen activity", () => {
   function listen(over: Partial<DraftActivity> = {}): DraftActivity {
-    return activity({ kind: "listen", target: "poisson", distractors: "poison", ...over });
+    return activity({
+      kind: "listen",
+      target: "Je voudrais un café et un croissant",
+      // The options are meanings, so the gloss is the right answer.
+      gloss: "I would like a coffee and a croissant",
+      distractors: "I would like a coffee",
+      ...over,
+    });
   }
 
   /**
@@ -340,11 +347,15 @@ describe("authoring a listen activity", () => {
   it.each([
     ["no near-miss", { distractors: "" }, /at least 1 near-miss/],
     ["only separators", { distractors: " ; ; " }, /at least 1 near-miss/],
-    ["the target itself", { distractors: "poisson" }, /would be told they are wrong/],
-    ["the same one twice", { distractors: "poison; poison" }, /listed twice/],
+    [
+      "the meaning itself",
+      { distractors: "I would like a coffee and a croissant" },
+      /would be told they are wrong/,
+    ],
+    ["the same one twice", { distractors: "a coffee; a coffee" }, /listed twice/],
     [
       "more than anyone can hold in mind",
-      { distractors: "poison; boisson; buisson; poussin" },
+      { distractors: "a coffee; the bill; a tea; two croissants" },
       /tests working memory rather than hearing/,
     ],
   ])("refuses %s", (_label, over, expected) => {
@@ -361,7 +372,7 @@ describe("authoring a listen activity", () => {
    */
   it("refuses near-misses on a row that is not a listen", () => {
     const problems = draftProblems(
-      draft({ activities: [activity({ kind: "repeat", distractors: "poison" })] }),
+      draft({ activities: [activity({ kind: "repeat", distractors: "a coffee" })] }),
     );
 
     expect(problems.join(" | ")).toMatch(/only a listen activity may carry near-misses/);
@@ -375,19 +386,19 @@ describe("authoring a listen activity", () => {
       activities: [
         {
           id: 1,
-          title: "Which did you hear?",
+          title: "What did you hear?",
           kind: "listen",
-          prompt: "Which phrase did you hear?",
-          gloss: "fish / poison",
-          target: "poisson",
-          focus: "the doubled s",
-          distractors: ["poison", "boisson"],
+          prompt: "Pick the meaning",
+          gloss: "I would like a coffee and a croissant",
+          target: "Je voudrais un café et un croissant",
+          focus: "The “et” is what separates this from the first option.",
+          distractors: ["a coffee", "the bill"],
         },
       ],
     });
 
-    expect(seeded.activities[0]?.distractors).toBe("poison; boisson");
-    expect(draftToPayload(seeded, 0).activities[0]?.distractors).toEqual(["poison", "boisson"]);
+    expect(seeded.activities[0]?.distractors).toBe("a coffee; the bill");
+    expect(draftToPayload(seeded, 0).activities[0]?.distractors).toEqual(["a coffee", "the bill"]);
   });
 });
 

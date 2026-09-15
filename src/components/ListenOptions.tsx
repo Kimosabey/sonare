@@ -1,30 +1,46 @@
 /**
- * The written options a `listen` activity asks the learner to choose between.
+ * "Pick the meaning" — the options a `listen` activity offers (board 1i).
  *
- * The exercise is discrimination: the model says one phrase, and the options
- * are that phrase plus authored near-misses — `poisson` against `poison`. So
- * the options are the *content* here, not a control, and they are set at the
- * weight content gets rather than as a row of buttons under a prompt.
+ * The model plays the phrase and the learner chooses what it meant, from
+ * authored near-miss meanings. The options are **English**, which is what
+ * makes the exercise about hearing: nothing on screen is in the language being
+ * played, so there is no spelling to match against and no way to answer with
+ * the audio muted.
+ *
+ * They are the *content* here rather than controls, and set at the weight
+ * content gets — the deciding difference between two options is often one
+ * word.
  *
  * One answer, then the outcome. `affordancesFor` gives this kind an attempt
- * limit of one: a learner choosing between two or four written phrases either
- * heard the difference or did not, and a second guess is elimination. With two
- * options it would be certain. What follows a wrong answer is not another go
- * but the right answer shown beside it, which is where the learning is.
+ * limit of one: a learner either heard the difference or did not, and a second
+ * guess is elimination — with two options, certain. What follows a wrong
+ * answer is not another go but the right answer shown beside it, and the
+ * phrase itself revealed, which is where the learning is.
  */
 
 import type { ListenOption } from "../activities/listen.js";
 
 export interface ListenOptionsProps {
   options: ListenOption[];
-  /** BCP-47 tag for the language the options are written in. */
+  /** BCP-47 tag for the phrase revealed after answering. */
   code: string;
+  /** The phrase the model said, shown once the question is over. */
+  target: string;
+  /** What separated it from the near miss. Authored — the activity's `focus`. */
+  focus: string;
   /** The id already chosen, or null while the question is open. */
   chosen: string | null;
   onChoose: (option: ListenOption) => void;
 }
 
-export function ListenOptions({ options, code, chosen, onChoose }: ListenOptionsProps) {
+export function ListenOptions({
+  options,
+  code,
+  target,
+  focus,
+  chosen,
+  onChoose,
+}: ListenOptionsProps) {
   /**
    * Content the gate refuses and `listenOptions` refuses again — one option,
    * or a near-miss identical to the target. Rendering nothing is the honest
@@ -42,7 +58,7 @@ export function ListenOptions({ options, code, chosen, onChoose }: ListenOptions
 
   const answered = chosen !== null;
 
-  return (
+  const list = (
     <ul className="listen-options" aria-label="Which phrase did you hear?">
       {options.map((option) => {
         const picked = option.id === chosen;
@@ -70,12 +86,12 @@ export function ListenOptions({ options, code, chosen, onChoose }: ListenOptions
               onClick={() => onChoose(option)}
             >
               {/*
-                The one field in the language being taught, so it carries
-                `lang` (WCAG 3.1.2). Without it a screen reader says a French
-                phrase in an English voice — in an activity whose entire
-                subject is how the phrase sounds.
+                Untagged, because these are English. The `lang` tag belongs on
+                the phrase revealed below — putting it here would make a screen
+                reader read English meanings in a French voice, which is the
+                mirror of the mistake WCAG 3.1.2 exists to prevent.
               */}
-              <span lang={code}>{option.text}</span>
+              <span>{option.text}</span>
               {answered && option.correct && (
                 <span className="listen-mark" aria-label="correct">
                   ✓
@@ -91,5 +107,25 @@ export function ListenOptions({ options, code, chosen, onChoose }: ListenOptions
         );
       })}
     </ul>
+  );
+
+  if (!answered) return list;
+
+  return (
+    <>
+      {list}
+      {/*
+        The phrase, revealed only once the question is over. Before that it is
+        the answer; after it, it is the thing the learner just failed or
+        managed to understand, and seeing it written is most of what makes the
+        take worth having.
+      */}
+      <div className="listen-reveal" role="status" aria-live="polite">
+        <p className="phrase" lang={code}>
+          {target}
+        </p>
+        <p className="what">{focus}</p>
+      </div>
+    </>
   );
 }

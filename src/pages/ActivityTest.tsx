@@ -1039,6 +1039,8 @@ export function ActivityTest() {
         <ListenOptions
           options={listenOptions(activity)}
           code={activeLanguage.code}
+          target={activity.target}
+          focus={activity.focus}
           chosen={chosenOptionId}
           onChoose={chooseOption}
         />

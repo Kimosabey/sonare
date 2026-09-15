@@ -465,3 +465,22 @@
 .onboarding-terms li {
   margin-bottom: var(--space-3);
 }
+
+/*
+ * The phrase revealed once a listening question has been answered.
+ *
+ * Panelled rather than floating, because it arrives after the answer and needs
+ * to read as a consequence of it — a phrase appearing loose on the page at the
+ * same moment the options lock would look like the question had changed.
+ */
+.listen-reveal {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border-left: 3px solid var(--signal);
+  background: var(--panel);
+  border-radius: var(--radius-md);
+}
+
+.listen-reveal .phrase {
+  margin: 0 0 var(--space-2);
+}

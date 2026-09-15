@@ -39,6 +39,8 @@ import type { ActivityKind, LanguageActivitySet } from "../activities/types.js";
 
 const TARGET = "Bonjour tout le monde";
 const GLOSS = "Hello everyone";
+/** A near-miss *meaning*, since a listen activity asks what the phrase meant. */
+const NEAR_MISS = "Good evening everyone";
 
 /** One activity of the named kind, and nothing else, so the screen opens on it. */
 function setOf(kind: ActivityKind): LanguageActivitySet {
@@ -55,7 +57,7 @@ function setOf(kind: ActivityKind): LanguageActivitySet {
         gloss: GLOSS,
         target: TARGET,
         focus: "the French r",
-        ...(kind === "listen" ? { distractors: ["Bonsoir tout le monde"] } : {}),
+        ...(kind === "listen" ? { distractors: [NEAR_MISS] } : {}),
       },
     ],
   };
@@ -424,18 +426,34 @@ describe("listen", () => {
     expect(listenButton()).toBeInTheDocument();
   });
 
-  it("does not show the target above the options", async () => {
+  /**
+   * The property the exercise rests on. If the phrase were on screen, a
+   * learner could match it against an option and be right without ever
+   * pressing play.
+   */
+  it("does not show the spoken phrase while the question is open", async () => {
     await open("listen");
 
-    // Present once, as an option — not twice, with the answer above them.
-    expect(screen.getAllByText(TARGET)).toHaveLength(1);
-    expect(screen.getByRole("button", { name: TARGET })).toBeInTheDocument();
+    expect(screen.queryAllByText(TARGET)).toHaveLength(0);
   });
 
-  it("offers the near-miss beside the real phrase", async () => {
+  it("offers the meaning beside an authored near-miss meaning", async () => {
     await open("listen");
 
-    expect(screen.getByRole("button", { name: "Bonsoir tout le monde" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: GLOSS })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: NEAR_MISS })).toBeInTheDocument();
+  });
+
+  /**
+   * English options carry no `lang`. Tagging them French would make a screen
+   * reader say English meanings in a French voice — the mirror of the mistake
+   * WCAG 3.1.2 exists to prevent.
+   */
+  it("leaves the English options untagged", async () => {
+    await open("listen");
+
+    const option = screen.getByRole("button", { name: GLOSS });
+    expect(option.querySelector("[lang]")).toBeNull();
   });
 
   it("spends no try, because there is none to spend", async () => {
@@ -451,10 +469,26 @@ describe("listen", () => {
    */
   it("ends the question on the first answer", async () => {
     await open("listen");
-    fireEvent.click(screen.getByRole("button", { name: "Bonsoir tout le monde" }));
+    fireEvent.click(screen.getByRole("button", { name: NEAR_MISS }));
 
-    expect(screen.getByRole("button", { name: /Bonsoir tout le monde/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: new RegExp(TARGET) })).toBeDisabled();
+    expect(screen.getByRole("button", { name: new RegExp(NEAR_MISS) })).toBeDisabled();
+    expect(screen.getByRole("button", { name: new RegExp(GLOSS) })).toBeDisabled();
+  });
+
+  /**
+   * Revealed only once the question is over. Before that it is the answer;
+   * after it, seeing the phrase written is most of what makes the take worth
+   * having — and it is the one thing here that carries `lang`.
+   */
+  it("reveals the phrase once the question is over, tagged", async () => {
+    await open("listen");
+    expect(screen.queryAllByText(TARGET)).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: GLOSS }));
+
+    const revealed = screen.getByText(TARGET);
+    expect(revealed).toBeInTheDocument();
+    expect(revealed).toHaveAttribute("lang", "fr-FR");
   });
 
   /**
@@ -464,17 +498,15 @@ describe("listen", () => {
    */
   it("shows which was right, even when the learner picked wrong", async () => {
     await open("listen");
-    fireEvent.click(screen.getByRole("button", { name: "Bonsoir tout le monde" }));
+    fireEvent.click(screen.getByRole("button", { name: NEAR_MISS }));
 
-    expect(screen.getByLabelText("correct").closest("button")).toHaveTextContent(TARGET);
-    expect(screen.getByLabelText("what you picked").closest("button")).toHaveTextContent(
-      "Bonsoir tout le monde",
-    );
+    expect(screen.getByLabelText("correct").closest("button")).toHaveTextContent(GLOSS);
+    expect(screen.getByLabelText("what you picked").closest("button")).toHaveTextContent(NEAR_MISS);
   });
 
   it("records a wrong answer as advanced without passing, not as untried", async () => {
     await open("listen");
-    fireEvent.click(screen.getByRole("button", { name: "Bonsoir tout le monde" }));
+    fireEvent.click(screen.getByRole("button", { name: NEAR_MISS }));
 
     const entry = storedProgress()[0];
     expect(entry?.passed).toBe(false);
@@ -484,7 +516,7 @@ describe("listen", () => {
 
   it("passes on the right answer, with no accuracy invented for it", async () => {
     await open("listen");
-    fireEvent.click(screen.getByRole("button", { name: TARGET }));
+    fireEvent.click(screen.getByRole("button", { name: GLOSS }));
 
     const entry = storedProgress()[0] as { passed: boolean; best: number | null } | undefined;
     expect(entry?.passed).toBe(true);

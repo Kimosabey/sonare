@@ -565,13 +565,18 @@ export function contentProblems(raw: unknown): string[] {
         );
       }
 
-      const target = typeof a.target === "string" ? a.target.trim() : "";
+      /**
+       * Compared against the **gloss**, because a listen activity asks what
+       * the phrase meant rather than how it was spelt (board 1i). The options
+       * are English; the target is what gets played.
+       */
+      const gloss = typeof a.gloss === "string" ? a.gloss.trim() : "";
       const seen = new Set<string>();
       for (const entry of written) {
         const phrase = entry.trim();
-        if (phrase === target) {
+        if (phrase === gloss) {
           problems.push(
-            `${where}: distractor “${phrase}” is the target — a learner who picks the right words would be told they are wrong`,
+            `${where}: distractor “${phrase}” is the meaning — a learner who picks the right one would be told they are wrong`,
           );
           continue;
         }

@@ -1,8 +1,13 @@
 /**
- * The question a `listen` activity asks.
+ * The question a `listen` activity asks: "pick the meaning" (board 1i).
  *
- * Two properties matter more than the rest, and both are about a learner being
- * told they are wrong when they are not:
+ * The options are **English**, and that is the property the exercise rests on.
+ * An earlier version offered written French forms — `poisson` against
+ * `poison` — and was answerable from the spelling alone, with the audio never
+ * played. Nothing on screen is now in the language being spoken.
+ *
+ * Two more properties matter, and both are about a learner being told they are
+ * wrong when they are not:
  *
  *  - **An unaskable activity produces no question.** One option, or a
  *    distractor identical to the target, renders as a working exercise and
@@ -17,34 +22,50 @@ import { describe, expect, it } from "vitest";
 import { TARGET_OPTION_ID, isCorrectChoice, listenOptions } from "./listen.js";
 import type { Activity } from "./types.js";
 
+const MEANING = "I would like a coffee and a croissant";
+const NEAR = "I would like a coffee";
+
 function listen(over: Partial<Activity> = {}): Activity {
   return {
     id: 1,
-    title: "Which did you hear?",
+    title: "What did you hear?",
     kind: "listen",
-    prompt: "Which phrase did you hear?",
-    gloss: "fish / poison",
-    target: "poisson",
-    focus: "the doubled s",
-    distractors: ["poison"],
+    prompt: "Pick the meaning",
+    gloss: MEANING,
+    target: "Je voudrais un café et un croissant",
+    focus: "The “et” is what separates this from the first option.",
+    distractors: [NEAR],
     ...over,
   };
 }
 
 describe("the options offered", () => {
-  it("offers the target and every authored near-miss, once each", () => {
-    const options = listenOptions(listen({ distractors: ["poison", "boisson"] }));
+  it("offers the meaning and every authored near-miss, once each", () => {
+    const options = listenOptions(listen({ distractors: [NEAR, "Could I have the bill"] }));
 
-    expect(options.map((o) => o.text).sort()).toEqual(["boisson", "poison", "poisson"]);
+    expect(options.map((o) => o.text).sort()).toEqual(
+      [MEANING, NEAR, "Could I have the bill"].sort(),
+    );
     expect(options.filter((o) => o.correct)).toHaveLength(1);
   });
 
-  it("marks exactly the target correct", () => {
+  it("marks exactly the meaning correct", () => {
     const options = listenOptions(listen());
     const correct = options.find((o) => o.correct);
 
-    expect(correct?.text).toBe("poisson");
+    expect(correct?.text).toBe(MEANING);
     expect(correct?.id).toBe(TARGET_OPTION_ID);
+  });
+
+  /**
+   * The property the whole exercise rests on. If the phrase appeared among the
+   * options, a learner could match it against the one they were shown and be
+   * right without playing anything.
+   */
+  it("never puts the spoken phrase among the options", () => {
+    const activity = listen({ distractors: [NEAR, "Could I have the bill"] });
+
+    expect(listenOptions(activity).map((o) => o.text)).not.toContain(activity.target);
   });
 
   /**
@@ -54,7 +75,7 @@ describe("the options offered", () => {
   it("does not always put the answer first", () => {
     const positions = new Set(
       [1, 2, 3, 4, 5, 6].map((id) =>
-        listenOptions(listen({ id, distractors: ["poison", "boisson"] })).findIndex(
+        listenOptions(listen({ id, distractors: [NEAR, "Could I have the bill"] })).findIndex(
           (o) => o.correct,
         ),
       ),
@@ -69,7 +90,7 @@ describe("the options offered", () => {
    * one that reshuffles on retry hands them elimination for free.
    */
   it("gives the same order every time it is asked", () => {
-    const activity = listen({ id: 7, distractors: ["poison", "boisson"] });
+    const activity = listen({ id: 7, distractors: [NEAR, "Could I have the bill"] });
 
     expect(listenOptions(activity)).toEqual(listenOptions(activity));
   });
@@ -80,7 +101,7 @@ describe("the options offered", () => {
       const options = listenOptions(listen({ id, distractors: ["a", "b", "c"] }));
       expect(options).toHaveLength(4);
       expect(new Set(options.map((o) => o.id)).size).toBe(4);
-      expect(options.map((o) => o.text).sort()).toEqual(["a", "b", "c", "poisson"]);
+      expect(options.map((o) => o.text).sort()).toEqual(["a", "b", "c", MEANING].sort());
     }
   });
 });
@@ -95,9 +116,9 @@ describe("content that cannot be asked", () => {
    * Two identical options, one marked wrong. Returning the pair would show a
    * learner the right words and tell them they were wrong for picking them.
    */
-  it("offers nothing when a near-miss is the target itself", () => {
-    expect(listenOptions(listen({ distractors: ["poisson"] }))).toEqual([]);
-    expect(listenOptions(listen({ distractors: ["poison", "poisson"] }))).toEqual([]);
+  it("offers nothing when a near-miss is the meaning itself", () => {
+    expect(listenOptions(listen({ distractors: [MEANING] }))).toEqual([]);
+    expect(listenOptions(listen({ distractors: [NEAR, MEANING] }))).toEqual([]);
   });
 });
 
@@ -123,16 +144,16 @@ describe("judging a recorded choice", () => {
    * at the moment they answered rather than re-deriving it from content.
    */
   it("keeps the correct option's id across a reordering of the near-misses", () => {
-    const before = listen({ id: 3, distractors: ["poison", "boisson"] });
-    const after = listen({ id: 3, distractors: ["boisson", "poison"] });
+    const before = listen({ id: 3, distractors: [NEAR, "Could I have the bill"] });
+    const after = listen({ id: 3, distractors: ["Could I have the bill", NEAR] });
 
     expect(isCorrectChoice(before, TARGET_OPTION_ID)).toBe(true);
     expect(isCorrectChoice(after, TARGET_OPTION_ID)).toBe(true);
 
     // And the documented caveat, asserted rather than only described.
     const textOf = (a: Activity, id: string) => listenOptions(a).find((o) => o.id === id)?.text;
-    expect(textOf(before, "d0")).toBe("poison");
-    expect(textOf(after, "d0")).toBe("boisson");
+    expect(textOf(before, "d0")).toBe(NEAR);
+    expect(textOf(after, "d0")).toBe("Could I have the bill");
   });
 
   it("never accepts a choice on an activity that cannot be asked", () => {

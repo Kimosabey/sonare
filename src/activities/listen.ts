@@ -1,10 +1,23 @@
 /**
  * Building the question a `listen` activity asks. Pure, no React, no DOM.
  *
- * A `listen` activity plays the model saying `target` and asks which written
- * phrase that was. The wrong options are **authored** — see `distractors` on
- * `Activity` — because a random other phrase from the set is ruled out on
- * length before the audio finishes, and teaches nothing about the sound.
+ * The model says the phrase, and the learner picks **what it meant** — board
+ * 1i, "Pick the meaning". The options are English; the French is revealed
+ * afterwards, with a note on what separated it from the near miss.
+ *
+ * ## Why the meaning and not the spelling
+ *
+ * The first version of this asked which *written form* had been said —
+ * `poisson` against `poison`. It was answerable from the spelling alone. A
+ * learner who never pressed play could read the two options, notice which one
+ * matched the phrase they had been shown, and be right every time; the audio
+ * was decoration. Choosing between meanings cannot be shortcut that way,
+ * because nothing on screen is in the language being played.
+ *
+ * The wrong options are **authored** either way — see `distractors` on
+ * `Activity` — because a random other meaning is ruled out before the audio
+ * finishes and teaches nothing. "A coffee" against "a coffee and a croissant"
+ * turns on one word the learner has to actually hear.
  *
  * Lives in `src/activities/` with the content it reads, which is a DOM-free
  * zone (`tsconfig.scripts.json` includes it so Node scripts can import the
@@ -30,7 +43,7 @@ export interface ListenOption {
    * question about the content version it was asked from.
    */
   id: string;
-  /** What the learner reads on the option. */
+  /** What the learner reads on the option — an English meaning. */
   text: string;
   correct: boolean;
 }
@@ -47,8 +60,8 @@ export const TARGET_OPTION_ID = "target";
  *
  *  - **No distractors.** One option is not a question; it is a button that is
  *    always right, and a learner who taps it has been told nothing.
- *  - **A distractor equal to the target.** Two identical options, one marked
- *    wrong. A learner who picks the right words and is told they are wrong
+ *  - **A distractor equal to the gloss.** Two identical options, one marked
+ *    wrong. A learner who picks the right meaning and is told they are wrong
  *    learns the opposite of the lesson.
  *
  * A caller must treat an empty list as "do not ask this", which is why it is
@@ -58,10 +71,11 @@ export const TARGET_OPTION_ID = "target";
 export function listenOptions(activity: Activity): ListenOption[] {
   const distractors = activity.distractors ?? [];
   if (distractors.length === 0) return [];
-  if (distractors.some((text) => text === activity.target)) return [];
+  // Compared against the gloss, because the gloss is the right answer here.
+  if (distractors.some((text) => text === activity.gloss)) return [];
 
   const all: ListenOption[] = [
-    { id: TARGET_OPTION_ID, text: activity.target, correct: true },
+    { id: TARGET_OPTION_ID, text: activity.gloss, correct: true },
     ...distractors.map((text, index) => ({ id: `d${String(index)}`, text, correct: false })),
   ];
 

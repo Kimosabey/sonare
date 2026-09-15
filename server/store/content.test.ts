@@ -687,8 +687,10 @@ describe("the near-misses a listen activity is built from", () => {
     return activity({
       id: 1,
       kind: "listen",
-      target: "poisson",
-      distractors: ["poison"],
+      target: "Je voudrais un café et un croissant",
+      // The right answer is the meaning — board 1i, "pick the meaning".
+      gloss: "I would like a coffee and a croissant",
+      distractors: ["I would like a coffee"],
       ...over,
     });
   }
@@ -706,14 +708,18 @@ describe("the near-misses a listen activity is built from", () => {
     ["no near-miss at all", { distractors: [] }, /at least 1 authored near-miss/],
     ["the field omitted", { distractors: undefined }, /at least 1 authored near-miss/],
     [
-      "a near-miss identical to the target",
-      { distractors: ["poisson"] },
+      "a near-miss identical to the meaning",
+      { distractors: ["I would like a coffee and a croissant"] },
       /would be told they are wrong/,
     ],
-    ["the same near-miss twice", { distractors: ["poison", "poison"] }, /listed twice/],
+    [
+      "the same near-miss twice",
+      { distractors: ["I would like a coffee", "I would like a coffee"] },
+      /listed twice/,
+    ],
     [
       "more near-misses than can be held in mind",
-      { distractors: ["poison", "boisson", "buisson", "poussin"] },
+      { distractors: ["a coffee", "the bill", "a tea with milk", "two croissants"] },
       /tests working memory rather than hearing/,
     ],
     [
@@ -730,7 +736,7 @@ describe("the near-misses a listen activity is built from", () => {
 
   it("refuses a list that is not a list", () => {
     const problems = contentProblems({
-      ...set({ activities: [listen({ distractors: "poison" })] }),
+      ...set({ activities: [listen({ distractors: "I would like a coffee" })] }),
       version: 1,
     });
 
@@ -745,7 +751,7 @@ describe("the near-misses a listen activity is built from", () => {
    */
   it("refuses near-misses on a kind that cannot ask them", () => {
     const problems = contentProblems({
-      ...set({ activities: [activity({ kind: "repeat", distractors: ["poison"] })] }),
+      ...set({ activities: [activity({ kind: "repeat", distractors: ["a coffee"] })] }),
       version: 1,
     });
 
@@ -755,14 +761,14 @@ describe("the near-misses a listen activity is built from", () => {
   it("restores them trimmed and de-duplicated, tolerating what the gate refuses", () => {
     const doc = readContent({
       ...set({
-        activities: [listen({ distractors: ["  poison  ", "poison", "", "boisson"] })],
+        activities: [listen({ distractors: ["  a coffee  ", "a coffee", "", "the bill"] })],
       }),
       _id: "fr:1",
       version: 1,
       publishedAt: new Date(),
     });
 
-    expect(doc?.activities[0]?.distractors).toEqual(["poison", "boisson"]);
+    expect(doc?.activities[0]?.distractors).toEqual(["a coffee", "the bill"]);
   });
 
   /**

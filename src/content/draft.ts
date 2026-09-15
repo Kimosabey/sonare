@@ -91,8 +91,8 @@ export interface DraftActivity {
    */
   soundTargets: string;
   /**
-   * The authored near-misses for a `listen` activity, separated by
-   * **semicolons** — "poison; boisson".
+   * The authored near-miss **meanings** for a `listen` activity, separated by
+   * **semicolons** — "I would like a coffee; Could I have the bill".
    *
    * Not commas, which is what `soundTargets` uses, and not whitespace: these
    * are whole phrases and both of those separators occur inside one. A
@@ -356,9 +356,9 @@ export function draftProblems(draft: ContentDraft): string[] {
       }
       const seenNear = new Set<string>();
       for (const phrase of near) {
-        if (phrase === a.target.trim()) {
+        if (phrase === a.gloss.trim()) {
           problems.push(
-            `${where}: near-miss “${phrase}” is the target — a learner who picks the right words would be told they are wrong`,
+            `${where}: near-miss “${phrase}” is the meaning — a learner who picks the right one would be told they are wrong`,
           );
         } else if (seenNear.has(phrase)) {
           problems.push(`${where}: near-miss “${phrase}” is listed twice`);
