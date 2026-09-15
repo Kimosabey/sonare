@@ -48,6 +48,7 @@
 @import "./components/control.css";
 @import "./components/meter.css";
 @import "./components/toast.css";
+@import "./components/navigation.css";
 
 /* ── screens ────────────────────────────────────────────────────────────────
    What is left is what is actually one screen's. report.css was the largest

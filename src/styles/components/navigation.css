@@ -1,0 +1,161 @@
+/*
+ * The four destinations, at three widths — board D7.
+ *
+ * One markup, three layouts, and the switch is here rather than in JavaScript:
+ * a JS breakpoint has to guess before first paint and gets it wrong on a
+ * rotation, and nothing about the *content* changes between widths.
+ */
+
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: var(--surface);
+  border-top: 1px solid var(--rule);
+  /*
+   * The home indicator. Without this the bottom row of tabs sits under the
+   * gesture strip on every modern iPhone, where taps are eaten by the OS
+   * rather than reaching the app — which reads as the tab bar being broken.
+   */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.tabs ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+
+.tabs li {
+  flex: 1 1 0;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /*
+   * 56px, above the 44px floor. These are thumb-driven at the very bottom of
+   * the screen, which is the least accurate part of a reach, and the design
+   * constraints ask for 48 where that is true — 56 is the board's row height
+   * and clears both.
+   */
+  min-height: 56px;
+  padding: var(--space-1) 0;
+  color: var(--dim);
+  text-decoration: none;
+  font-size: var(--text-xs);
+}
+
+/*
+ * Current is a colour *and* a weight *and* a top rule. Colour alone fails the
+ * constraint the whole product keeps, and on a bar of four identical shapes it
+ * is also the least noticeable of the three.
+ */
+.tab.is-current {
+  color: var(--signal);
+  font-weight: 700;
+  box-shadow: inset 0 2px 0 var(--signal);
+}
+
+.tab-glyph {
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+/*
+ * The rail, from 620px — the board's own threshold. Vertical, on the left,
+ * content takes the width it frees.
+ */
+@media (min-width: 620px) {
+  .tabs {
+    top: 0;
+    right: auto;
+    bottom: 0;
+    width: 88px;
+    border-top: none;
+    border-right: 1px solid var(--rule);
+    padding-bottom: 0;
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  .tabs ul {
+    flex-direction: column;
+    padding-top: var(--space-4);
+  }
+
+  .tab {
+    min-height: 64px;
+  }
+
+  .tab.is-current {
+    box-shadow: inset 2px 0 0 var(--signal);
+  }
+}
+
+/* The sidebar, from 1100px: labels beside the glyphs rather than under them. */
+@media (min-width: 1100px) {
+  .tabs {
+    width: 200px;
+  }
+
+  .tab {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--space-3);
+    padding: 0 var(--space-3);
+    font-size: var(--text-base);
+  }
+}
+
+/*
+ * The way back from a screen inside a tab.
+ *
+ * A real target rather than the 11px breadcrumb link it replaces — an
+ * installed iOS PWA has no browser back button at all, so this is the only way
+ * out of every non-root screen.
+ */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: 0 var(--space-2) 0 0;
+  color: var(--signal);
+  text-decoration: none;
+  font-size: var(--text-base);
+}
+
+.back-chevron {
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+/*
+ * Room for the bar, so the last thing on a screen is not sitting underneath it.
+ *
+ * Applied to the wrapper rather than the body, and only when the bar is there:
+ * a sitting hides it, and padding left behind would put a dead strip at the
+ * bottom of the one screen that most needs the height.
+ */
+.wrap.has-tabs {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--space-4));
+}
+
+@media (min-width: 620px) {
+  .wrap.has-tabs {
+    padding-bottom: var(--space-4);
+    padding-left: calc(88px + var(--space-4));
+  }
+}
+
+@media (min-width: 1100px) {
+  .wrap.has-tabs {
+    padding-left: calc(200px + var(--space-4));
+  }
+}

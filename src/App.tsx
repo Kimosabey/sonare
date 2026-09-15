@@ -68,6 +68,9 @@ const Onboarding = lazy(() =>
   import("./pages/Onboarding.js").then((m) => ({ default: m.Onboarding })),
 );
 const Journey = lazy(() => import("./pages/Journey.js").then((m) => ({ default: m.Journey })));
+import { BackLink } from "./components/BackLink.js";
+import { Navigation } from "./components/Navigation.js";
+import { allProgress } from "./learning/nextUp.js";
 import { resolveLanguage, resolveLanguages } from "./content/resolve.js";
 import { useContentSync } from "./content/useContentSync.js";
 
@@ -260,6 +263,7 @@ function ScreenTransition({ children }: { children: ReactNode }) {
 
 function Shell() {
   const [learnerName] = useLearnerName();
+  const location = useLocation();
 
   /**
    * Mounted once, here, rather than per screen. Sync is an app-level
@@ -276,10 +280,70 @@ function Shell() {
    */
   useContentSync();
 
+  /**
+   * Which language the two per-language destinations point at.
+   *
+   * Read from the path when the learner is inside one, and otherwise from
+   * whichever they practised most recently — so the Journey and Progress tabs
+   * lead somewhere useful from Today, rather than to a picker the learner has
+   * already answered once.
+   */
+  const inLanguage = /^\/([a-z]{2})(\/|$)/.exec(location.pathname)?.[1];
+  const currentSlug =
+    (inLanguage !== undefined && resolveLanguage(inLanguage) !== undefined
+      ? inLanguage
+      : allProgress(learnerName)[0]?.slug) ?? null;
+
+  /**
+   * A sitting takes the screen. The board is explicit that it runs *over* the
+   * tabs, with its own back and close as the only two ways out — a tab bar
+   * beside a sitting is a standing invitation to leave it half-done, and a
+   * sitting is the one flow in the product with a finish line.
+   *
+   * Decided here rather than inside `Navigation`, because "is a sitting
+   * running" is the session's fact and the nav has no business knowing how to
+   * work it out.
+   */
+  const inSitting = /^\/[a-z]{2}$/.test(location.pathname);
+
+  /**
+   * Where back goes from this screen, or null on a tab root.
+   *
+   * An explicit destination rather than `history.back()`, deliberately: a
+   * screen opened from a typed URL or a shared link has no history to step
+   * through, and a back control that did nothing in exactly that case would
+   * fail whenever it mattered most. The four tab roots get none, because the
+   * board says so and because Android's system back already closes the app
+   * from them.
+   */
+  const back = (() => {
+    const path = location.pathname;
+    if (path === "/" || path === "/settings" || inSitting) return null;
+    const perLanguage = /^\/([a-z]{2})\/(journey|progress)$/.exec(path);
+    if (perLanguage !== null) return null; // tab roots too
+    if (currentSlug !== null && /^\/[a-z]{2}\//.test(path)) {
+      return { to: `/${currentSlug}`, label: resolveLanguage(currentSlug)?.label ?? "practice" };
+    }
+    return { to: "/", label: "Today" };
+  })();
+
   return (
-    <div className="wrap">
+    <div className={inSitting ? "wrap" : "wrap has-tabs"}>
       <header>
         <img className="logo" src="/brand/wordmark-purple.png" alt="Lingotran" />
+        {/*
+          The way back, on every screen that is not a tab root — board 1e.
+          An installed iOS PWA has no browser back button at all, so without
+          this a learner who opened Journey or Progress is on a dead end
+          reachable only by force-quitting.
+
+          It replaces an 11px breadcrumb link, which NFR-03 never saw: that
+          rule flags CSS *declaring* a sub-44px min-height, and a link that
+          never declared one at all slipped past it. The breadcrumb stays for
+          the language switcher it carries; the back affordance is now a real
+          target beside it.
+        */}
+        {back !== null && <BackLink to={back.to} label={back.label} />}
         <Breadcrumb />
         <Header />
       </header>
@@ -335,6 +399,13 @@ function Shell() {
       <footer className="app-footer">
         <Link to="/settings">Your data</Link>
       </footer>
+      {/*
+        Four destinations, and gone during a sitting. See `Navigation` for why
+        it is four and never five, and why the three widths are a stylesheet
+        decision rather than a JavaScript one.
+      */}
+      <Navigation slug={currentSlug} hidden={inSitting} />
+
     </div>
   );
 }
