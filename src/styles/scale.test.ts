@@ -145,7 +145,8 @@ describe("font sizes come from the scale", () => {
      * (src/styles/components/toast.css) — then +1 for `.listen-mark`, the ✓ / ✕
      * on a chosen `listen` option, and +2 for onboarding's language picker:
      * `.onboarding-language-sample` and `-name`, and +3 for the journey:
-     * `.journey-unit-head h2`, `.journey-count` and `.journey-outcome` (all
+     * `.journey-unit-head h2`, `.journey-count` and `.journey-outcome`, and +1
+     * for `.sitting-tag`, the NEW/DUE marks on Today's sitting (all
      * src/styles/activity.css).
      *
      * Exact equality on purpose, even though it means every new rule that sets
@@ -155,7 +156,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(68);
+    expect(onScale.length).toBe(69);
   });
 });
 

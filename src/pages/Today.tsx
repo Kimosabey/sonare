@@ -52,6 +52,10 @@
 import { Link } from "react-router-dom";
 import { useLearnerName } from "../hooks/useLearnerName.js";
 import { allProgress, nextUp } from "../learning/nextUp.js";
+import { composeSession } from "../learning/composeSession.js";
+import { resolveLanguage } from "../content/resolve.js";
+import { readProgress } from "../hooks/useProgressPersistence.js";
+import { TodaysSitting } from "../components/TodaysSitting.js";
 import { readStreak, daysInLast, practisedToday } from "../stores/streakStore.js";
 import { readSkills, weakestSkills, type SkillTrend } from "../stores/skillStore.js";
 
@@ -249,6 +253,29 @@ export function Today() {
     .reverse()
     .filter((trend) => trend !== weakest);
 
+  /**
+   * Today's sitting, composed locally.
+   *
+   * No server call, deliberately: this is the first thing on the screen and it
+   * must be right on a plane. `GET /next` refines the ordering when it can
+   * reach the network, and `composeSession` treats that as an input rather
+   * than an alternative — so the sitting a learner is promised here is the one
+   * they get either way.
+   *
+   * Null when the language has no content this device can read, which is the
+   * shape a set published for a newer client leaves behind.
+   */
+  const content = resolveLanguage(resume.slug);
+  const sitting =
+    content === undefined
+      ? null
+      : composeSession(
+          content,
+          readProgress(content.slug, learnerName).progress,
+          readSkills(content.slug, learnerName),
+          new Date(),
+        );
+
   return (
     <section>
       <h2 className="enter-1">
@@ -284,6 +311,18 @@ export function Today() {
           {resume.position} of {resume.total}
         </span>
       </Link>
+
+      {/*
+        What the next few minutes actually contain — new content plus what the
+        review ladder has brought round. `composeSession` has computed this
+        since C3 and nothing rendered it: a learner deciding whether they have
+        time was offered "Carry on", which answers nothing.
+
+        Composed here rather than on the activity screen because this is where
+        the decision is made. The same function composes it again when the
+        session starts, from the same inputs, so the two cannot disagree.
+      */}
+      {sitting !== null && <TodaysSitting session={sitting} />}
 
       <dl className="today-stats enter-2">
         <div>
