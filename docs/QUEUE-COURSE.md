@@ -80,7 +80,7 @@ language-bearing string carries `lang`.
       which are nobody's fault and must not read as though they were.
 - [x] **C8 — Session screen, every state**, board 2. Prompt, listening,
       scoring, result, **indeterminate**, error, offline, mic-unavailable.
-- [ ] **C9 — Today, Journey, Progress**, board 3. Journey is **not a locked
+- [x] **C9 — Today, Journey, Progress**, board 3. Journey is **not a locked
       path**. Progress carries "not enough history yet" as a real state.
 - [ ] **C10 — Navigation at four widths**, board 4. Four destinations —
       Today · Journey · Progress · You — and never five. The session runs
@@ -498,3 +498,49 @@ less piece of it. The states where that is not true are covered directly.
 Also confirmed one of the three known flakes is still exactly that: the
 diagnostics rate-limit ceiling failed once under full-suite load and passed
 alone and on re-run. Shared fixed window; not a regression.
+### 2026-09-15 — C9, in three commits, and most of C13 with it
+
+**Journey** (0210b48), board 1d, net-new — it did not exist. Each unit is a
+can-do statement with its receipts: lessons finished, and the sounds it drills
+holding at rung 3 or better.
+
+The evidence *decides* rather than captioning a decision made elsewhere, and the
+second half is the interesting one. Every activity in a unit can be finished by
+exhausting tries — the gate is soft on purpose — so "did all the lessons" is
+closer to attendance than ability. A unit can read as **done** in the rail and
+still not claim its outcome. Every sound has to hold, not most: a majority rule
+would let the hardest sound, the one the learner actually needs, be the one that
+never counts. Content with no sound targets claims nothing at all, because
+silence about an outcome is recoverable and a false claim about someone's
+ability is not. Both rules fail on their own mutation.
+
+**No padlocks**, asserted as the absence of any disabled control on a journey
+where nothing has been done. `journeyFor` has no state meaning "not allowed" for
+one to be derived from.
+
+This covers most of **C13** — outcomes as a derived function shown with their
+evidence — since the receipts *are* the derivation.
+
+**Progress week one** (36e9fce), board 1g. Before anything can be compared the
+"Before" column is a column of dashes: a table built around a question none of
+the data can answer, which reads as broken rather than early. Readings instead,
+with a line saying what turns them into trends.
+
+It says **takes, not a day**. The board's copy names one — "practise again on
+Saturday" — and `trendFor` gates on sample count, not elapsed time: a learner
+could practise daily for a week and still have no comparison. Naming a day would
+be a promise the arithmetic does not make. Deviation from the board, on purpose.
+
+**Today's sitting** (b0bfb48), board 1a. `composeSession` had computed the
+sitting since C3 and nothing rendered it. Due sounds are named rather than
+counted — "voudrais, 7 days since" is the reason to sit down; "three sounds due"
+is a number. Composed locally with no server call, because this is the first
+thing on the screen and has to be right on a plane.
+
+Two e2e tests moved with the Progress change: both drive a real session, which
+produces exactly the week-one case, and both asserted through the table's column
+header. Their properties were unchanged, so they now assert them against
+whichever shape the screen is in rather than the shape they were written for.
+
+Second and third of the three known flakes both showed up and both passed alone
+and on re-run — the shared fixed-window rate limiter, twice.
