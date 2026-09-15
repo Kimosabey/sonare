@@ -368,16 +368,18 @@ describe("Progress, a navigation later", () => {
     await visit(`#/${FRENCH.slug}/progress`);
     await onScreen(`${FRENCH.label} progress`);
 
-    // By its own column header rather than by role alone: the calendar below
-    // is a `role="table"` too, and it is the one with an accessible name.
-    const table = screen.getByRole("columnheader", { name: "Syllable" }).closest("table");
-    if (table === null) throw new Error("the sounds table lost its own header");
-    const jour = within(table).getByText("jour").closest("tr");
+    /**
+     * One pass is week one: no sound has history either side of the window, so
+     * the screen shows readings rather than a comparison. What is under test is
+     * that the syllables *from this session* reached the screen at all, with
+     * their numbers and their take counts — which holds in either shape.
+     */
+    const jour = screen.getByText("jour").closest("li");
     expect(jour).not.toBeNull();
-    // now 55, before "—", two takes behind it.
+    // now 55, with two takes behind it. No "before" exists yet to compare to.
     expect(jour).toHaveTextContent("55");
     expect(jour).toHaveTextContent("2");
-    expect(within(table).getByText("bon").closest("tr")).toHaveTextContent("70");
+    expect(screen.getByText("bon").closest("li")).toHaveTextContent("70");
   });
 
   it("explains a dash rather than letting it read as a bug", async () => {

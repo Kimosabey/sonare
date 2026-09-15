@@ -41,6 +41,17 @@ const MAX_SAMPLES = 20;
  */
 const RECENT_WINDOW = 5;
 
+/**
+ * Takes a sound needs before `before` stops being null.
+ *
+ * `trendFor` compares the last `RECENT_WINDOW` against everything earlier, and
+ * requires at least two earlier ones — a single old take is not a baseline.
+ * Exported because the Progress screen tells a learner how many more takes a
+ * comparison needs, and a screen that restated the arithmetic would drift from
+ * it the first time this window moved.
+ */
+export const TAKES_FOR_A_TREND = RECENT_WINDOW + 2;
+
 export interface SkillSample {
   /** ISO timestamp, so a trend can be described in days rather than takes. */
   at: string;

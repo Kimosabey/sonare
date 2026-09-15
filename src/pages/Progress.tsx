@@ -22,7 +22,12 @@ import { Link, useParams } from "react-router-dom";
 import { resolveLanguage } from "../content/resolve.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
 import { allProgress } from "../learning/nextUp.js";
-import { readSkills, weakestSkills, type SkillTrend } from "../stores/skillStore.js";
+import {
+  TAKES_FOR_A_TREND,
+  readSkills,
+  weakestSkills,
+  type SkillTrend,
+} from "../stores/skillStore.js";
 import { readStreak, localDay, type Streak } from "../stores/streakStore.js";
 
 /** Weeks of calendar shown. Eight is two months, which is what the store keeps. */
@@ -123,6 +128,13 @@ export function Progress() {
   const set = sets.find((s) => s.slug === language.slug);
   const rows = calendarRows(streak, new Date());
 
+  /**
+   * True while no sound has enough history to compare against. Not the same as
+   * "some sounds are new": a table with one real trend in it is still a table
+   * worth showing, and the dashes beside it are explained below it.
+   */
+  const noComparisonsYet = trends.length > 0 && trends.every((trend) => trend.before === null);
+
   return (
     <section>
       <h2>{language.label} progress</h2>
@@ -133,6 +145,47 @@ export function Progress() {
           Nothing measured yet. Practise a few phrases and each syllable you say will start
           building a history here.
         </p>
+      ) : noComparisonsYet ? (
+        /**
+         * Week one — board 1g, and a designed state rather than a table of
+         * dashes.
+         *
+         * When *nothing* has a comparison, the "Before" column is a column of
+         * dashes: a table shaped around a question none of the data can answer
+         * yet, which reads as a screen that is broken rather than one that is
+         * early. So the sounds are a list of readings, and the copy says what
+         * will turn them into trends.
+         *
+         * It says **takes**, not a day. The board's line names one — "practise
+         * again on Saturday" — but `trendFor` gates on sample count, not on
+         * elapsed time: a learner could practise every day for a week and
+         * still have no comparison, or get one in an afternoon. Naming a day
+         * would be a promise the arithmetic does not make.
+         */
+        <>
+          <p className="what">
+            {trends.length} {trends.length === 1 ? "sound" : "sounds"} measured so far.
+          </p>
+          <ul className="snapshot">
+            {trends.map((trend) => (
+              <li key={trend.grapheme}>
+                <b lang={language.code}>{trend.grapheme}</b>
+                <span className="num">{round(trend.now)}</span>
+                <span className="hint">
+                  {trend.samples} {trend.samples === 1 ? "take" : "takes"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {/*
+            No arrows and no "no change" — neither would be true yet, and the
+            second is the one that would be actively false.
+          */}
+          <p className="hint">
+            A comparison needs {TAKES_FOR_A_TREND} takes on a sound. Keep practising and these
+            readings become trends.
+          </p>
+        </>
       ) : (
         <div className="scroll-x">
           <table>

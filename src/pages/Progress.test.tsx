@@ -129,8 +129,18 @@ describe("the sounds", () => {
      * The honesty case. `trendFor` returns a null `before` until there is
      * history either side of the window, and rendering that as "no change"
      * would be a claim about data that does not exist.
+     *
+     * Seeded alongside a sound that *does* have a comparison, because that is
+     * when the dash is the right answer: one sound short of history sits in a
+     * table beside one that has it. Where *nothing* can be compared the table
+     * itself is the wrong shape — see the week-one cases below.
      */
-    seed({ skills: [["ment", [40, 45]]] });
+    seed({
+      skills: [
+        ["ment", [40, 45]],
+        ["jour", [20, 22, 24, 80, 82, 84, 86, 88]],
+      ],
+    });
     show();
 
     expect(screen.getByText("—")).toBeInTheDocument();
@@ -139,10 +149,79 @@ describe("the sounds", () => {
 
   it("explains the dash once, below the table", () => {
     // A dash with no explanation reads as a bug.
-    seed({ skills: [["ment", [40, 45]]] });
+    seed({
+      skills: [
+        ["ment", [40, 45]],
+        ["jour", [20, 22, 24, 80, 82, 84, 86, 88]],
+      ],
+    });
     show();
 
     expect(screen.getByText(/not enough history to compare against yet/i)).toBeInTheDocument();
+  });
+
+  describe("week one, before anything can be compared", () => {
+    /**
+     * Board 1g. When *no* sound has a comparison, the "Before" column is a
+     * column of dashes — a table shaped around a question none of the data can
+     * answer, which reads as broken rather than early.
+     */
+    it("shows readings rather than a table of dashes", () => {
+      // Two samples each: `weakestSkills` needs that many before a sound is a
+      // pattern rather than one fluffed take.
+      seed({ skills: [["ment", [40, 45]], ["jour", [70, 72]]] });
+      show();
+
+      // The comparison table specifically — the practice calendar is also a
+      // table, and is not what this is about.
+      expect(screen.queryByRole("columnheader", { name: "Before" })).not.toBeInTheDocument();
+      expect(screen.getByText(/2 sounds measured so far/i)).toBeInTheDocument();
+    });
+
+    it("says what will turn them into trends", () => {
+      seed({ skills: [["ment", [40, 45]]] });
+      show();
+
+      expect(screen.getByText(/A comparison needs \d+ takes on a sound/i)).toBeInTheDocument();
+    });
+
+    /**
+     * No arrows and no "no change". Neither is true yet, and the second would
+     * be actively false on a learner's first Tuesday.
+     */
+    it("shows no trend arrows at all", () => {
+      seed({ skills: [["ment", [40, 45]], ["jour", [70, 72]]] });
+      show();
+
+      expect(document.querySelectorAll(".trend-arrow")).toHaveLength(0);
+      expect(screen.queryByText(/no change/i)).not.toBeInTheDocument();
+    });
+
+    /**
+     * It says takes, not a day. `trendFor` gates on sample count, not on
+     * elapsed time — a learner could practise daily for a week and still have
+     * no comparison — so naming a day would be a promise the arithmetic does
+     * not make.
+     */
+    it("promises no particular day", () => {
+      seed({ skills: [["ment", [40, 45]]] });
+      show();
+
+      expect(screen.queryByText(/Saturday|tomorrow|next week/i)).not.toBeInTheDocument();
+    });
+
+    it("gives way to the table as soon as one sound can be compared", () => {
+      seed({
+        skills: [
+          ["ment", [40, 45]],
+          ["jour", [20, 22, 24, 80, 82, 84, 86, 88]],
+        ],
+      });
+      show();
+
+      expect(screen.getByRole("columnheader", { name: "Before" })).toBeInTheDocument();
+      expect(screen.queryByText(/sounds measured so far/i)).not.toBeInTheDocument();
+    });
   });
 
   it("does not explain a dash that is not there", () => {

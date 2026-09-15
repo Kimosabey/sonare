@@ -914,8 +914,13 @@ describe("the language tagging that was missing", () => {
     await visit(`#/${FRENCH.slug}/progress`);
     await onScreen(`${FRENCH.label} progress`);
 
-    const table = screen.getByRole("columnheader", { name: "Syllable" }).closest("table");
-    if (table === null) throw new Error("the sounds table lost its own header");
-    expect(within(table).getByText("jour")).toHaveAttribute("lang", FRENCH.code);
+    /**
+     * Two takes is week one: nothing can be compared yet, so the sounds render
+     * as readings rather than as a comparison table. The property under test is
+     * unchanged — a syllable is in the language being learned and has to say so
+     * or a screen reader speaks French in an English voice — and it holds in
+     * whichever shape the screen is in.
+     */
+    expect(screen.getByText("jour")).toHaveAttribute("lang", FRENCH.code);
   });
 });
