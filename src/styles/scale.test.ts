@@ -144,7 +144,9 @@ describe("font sizes come from the scale", () => {
      * then +1 for `.toast-action` — the service-worker update prompt's button
      * (src/styles/components/toast.css) — then +1 for `.listen-mark`, the ✓ / ✕
      * on a chosen `listen` option, and +2 for onboarding's language picker:
-     * `.onboarding-language-sample` and `-name` (all src/styles/activity.css).
+     * `.onboarding-language-sample` and `-name`, and +3 for the journey:
+     * `.journey-unit-head h2`, `.journey-count` and `.journey-outcome` (all
+     * src/styles/activity.css).
      *
      * Exact equality on purpose, even though it means every new rule that sets
      * a font-size has to come past this line. That is the notification: a
@@ -153,7 +155,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(65);
+    expect(onScale.length).toBe(68);
   });
 });
 

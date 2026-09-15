@@ -67,6 +67,7 @@ const MicCheck = lazy(() => import("./pages/MicCheck.js").then((m) => ({ default
 const Onboarding = lazy(() =>
   import("./pages/Onboarding.js").then((m) => ({ default: m.Onboarding })),
 );
+const Journey = lazy(() => import("./pages/Journey.js").then((m) => ({ default: m.Journey })));
 import { resolveLanguage, resolveLanguages } from "./content/resolve.js";
 import { useContentSync } from "./content/useContentSync.js";
 
@@ -309,6 +310,7 @@ function Shell() {
           {/* Declared before /:slug for readability; React Router ranks by
               specificity, so a language can never shadow it. */}
           <Route path="/:slug/progress" element={<Progress />} />
+          <Route path="/:slug/journey" element={<Journey />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/fixture" element={<FixtureRunner />} />
           <Route path="/welcome" element={<Onboarding />} />

@@ -499,3 +499,114 @@
 .mic-unavailable ol.what li {
   margin-bottom: var(--space-2);
 }
+
+/*
+ * The journey — units as can-do statements with their receipts.
+ *
+ * Nothing here has a disabled state, because nothing on this screen is locked.
+ * Every lesson is a link at every state; the marks (✓ ▶ ○) say where the
+ * learner has been, not what they may touch.
+ */
+.journey-units {
+  list-style: none;
+  margin: var(--space-4) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.journey-unit {
+  padding: var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+}
+
+/* Where the learner is, marked by a weight and a rule rather than fill alone. */
+.journey-unit.is-current {
+  border-color: var(--signal);
+  border-left-width: 4px;
+}
+
+.journey-unit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.journey-unit-head h2 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.journey-count {
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+
+/*
+ * The can-do statement. Earned and not-yet-earned are different sentences
+ * doing different jobs, so they are set differently — an unearned outcome is
+ * what the unit is *for*, and must not read as an achievement.
+ */
+.journey-outcome {
+  margin: var(--space-2) 0;
+  font-size: var(--text-md);
+  color: var(--ink-2);
+}
+
+.journey-outcome.is-earned {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.journey-tick {
+  color: var(--pass);
+  margin-right: var(--space-2);
+}
+
+.journey-receipts {
+  margin: 0 0 var(--space-2);
+}
+
+.journey-lessons {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.journey-lesson a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.journey-lesson-mark {
+  flex: 0 0 auto;
+  width: 1.2em;
+  color: var(--dim);
+}
+
+.journey-lesson.is-done .journey-lesson-mark {
+  color: var(--pass);
+}
+
+.journey-lesson.is-current .journey-lesson-mark {
+  color: var(--signal);
+}
+
+.journey-lesson-title {
+  flex: 1 1 auto;
+}
