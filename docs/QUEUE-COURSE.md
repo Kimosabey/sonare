@@ -82,7 +82,7 @@ language-bearing string carries `lang`.
       scoring, result, **indeterminate**, error, offline, mic-unavailable.
 - [x] **C9 — Today, Journey, Progress**, board 3. Journey is **not a locked
       path**. Progress carries "not enough history yet" as a real state.
-- [ ] **C10 — Navigation at four widths**, board 4. Four destinations —
+- [x] **C10 — Navigation at four widths**, board 4. Four destinations —
       Today · Journey · Progress · You — and never five. The session runs
       *over* the tabs. An installed iOS PWA has **no browser back button**, so
       every non-root screen needs its own way back, and the current one is an
@@ -107,7 +107,7 @@ language-bearing string carries `lang`.
 - [ ] **N6 — Curriculum coverage**: every phoneme in the inventory appears.
 - [ ] **N7 — L1 difficulty table** complete for every shipped pair.
 - [ ] **N8 — Formant accuracy** against published reference vowels.
-- [ ] **N9 — PWA standalone back**: every non-root screen offers a way back.
+- [x] **N9 — PWA standalone back**: every non-root screen offers a way back.
 - [ ] **N10 — Real-device browsers** (needs the runner install).
 - [ ] **N11 — VoiceOver and TalkBack**, one activity each, by hand.
 
@@ -544,3 +544,29 @@ whichever shape the screen is in rather than the shape they were written for.
 
 Second and third of the three known flakes both showed up and both passed alone
 and on re-run — the shared fixed-window rate limiter, twice.
+### 2026-09-15 — C10, and N9 with it
+
+Four destinations at three widths (f3006bb), the switch in CSS rather than a JS
+breakpoint — a breakpoint has to guess before first paint and gets it wrong on a
+rotation. The bar reserves `env(safe-area-inset-bottom)`, without which the tab
+row sits under the home indicator where the OS eats the taps.
+
+**Gone during a sitting, not dimmed.** A disabled tab is worse than an absent
+one: it looks like a way out and is not.
+
+**The back affordance is the item's real content.** It was an 11px breadcrumb
+link, and the reason NFR-03 never caught it is worth keeping: that rule flags
+CSS *declaring* a sub-44px min-height, so a control declaring none at all slips
+straight past. Same shape as the `--tap: 36px` finding — a floor enforced
+everywhere except on the thing that defines it. **Fourth instance of that
+shape.** Worth a rule change at some point: NFR-03 could require every class the
+JSX renders as a target to declare a min-height, rather than only checking the
+ones that do.
+
+It takes an explicit destination rather than `history.back()`: a screen opened
+from a typed URL or a shared link has no history, so a history-driven control
+does nothing in exactly the case where it is the only way out.
+
+**N9 is settled by the same suite** — every non-root screen offers a way back,
+asserted against the app rather than by inspection, and it reddens when the
+control is removed.
