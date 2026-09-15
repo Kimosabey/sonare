@@ -40,9 +40,11 @@ import { newSessionId } from "../lib/sessionId.js";
 import { readStreak, recordPractice } from "../stores/streakStore.js";
 import { recordSkills } from "../stores/skillStore.js";
 import { markLanguageDirty, markStreakDirty } from "../sync/dirty.js";
-import { affordancesFor } from "../learning/affordances.js";
+import { affordancesFor, activityNeedsMicrophone } from "../learning/affordances.js";
 import { isSpoken } from "../activities/types.js";
 import { ListenOptions } from "../components/ListenOptions.js";
+import { MicUnavailable } from "../components/MicUnavailable.js";
+import { useMicEnvironment } from "../hooks/useMicEnvironment.js";
 import { listenOptions } from "../activities/listen.js";
 import {
   applySkip,
@@ -133,6 +135,7 @@ export function ActivityTest() {
   // Warn before a take is recorded and lost to a failed upload, rather than
   // letting the learner discover the connection is down only after speaking.
   const online = useOnlineStatus();
+  const micEnv = useMicEnvironment();
   const offlineToastId = useRef<number | null>(null);
   useEffect(() => {
     if (!online) {
@@ -655,6 +658,28 @@ export function ActivityTest() {
   if (!activity) return null;
 
   /**
+   * The microphone is unavailable and this activity needs it — board 1g.
+   *
+   * Placed before every other state on this screen, because it outranks them:
+   * a learner cannot record, so the prompt, the try counter and the record
+   * button would all be furniture around a control that does nothing. It was a
+   * toast, which appears, is missed, and leaves exactly that screen behind.
+   *
+   * Gated on the activity's own need for a microphone, so a `listen` activity
+   * is unaffected — which is also what makes "practise listening instead" a
+   * real offer rather than a consolation.
+   */
+  if (micEnv.availability.state !== "available" && activityNeedsMicrophone(activity.kind)) {
+    return (
+      <MicUnavailable
+        availability={micEnv.availability}
+        listeningHref={`/${activeLanguage.slug}`}
+        onRetry={micEnv.recheck}
+      />
+    );
+  }
+
+  /**
    * What this kind of activity offers, given what has happened on it.
    *
    * Below the narrowing guard rather than beside the other derived state, and
@@ -877,11 +902,50 @@ export function ActivityTest() {
         </>
       )}
 
+      {/*
+        Offline — board 1h, and it is a wait rather than a failure.
+        Shown in the prompt phase, before a learner commits to speaking, which
+        is the only moment the information is still actionable. It was a toast
+        alone, which can be missed and leaves a learner talking to a record
+        button that will refuse them.
+
+        The copy says what actually happens rather than what would be nicer.
+        Takes are **not** held for later: there is no outbox, so a take made
+        now cannot be scored now or afterwards. Saying "held and scored when
+        you are back" would be a promise the app does not keep, and the learner
+        would find out by looking for takes that never arrived.
+      */}
+      {phase === "prompt" && !online && affords.needsMicrophone && (
+        <div className="verdict v-warn" role="status" aria-live="polite">
+          <div className="tag">WAITING</div>
+          <div>
+            You&rsquo;re offline, so a take can&rsquo;t be scored right now. Your practice day is
+            already credited, and nothing you have done is lost.
+          </div>
+        </div>
+      )}
+
       {phase === "result" && recorder.error && (
         <div className="verdict v-fail" role="status" aria-live="polite" ref={errorRef} tabIndex={-1}>
-          <div className="tag">ERROR</div>
+          {/*
+            "STOPPED", not "ERROR". The learner is being told what happened to
+            their take, and the word that names the state is more use than the
+            word that names its severity — which they can see from the styling
+            anyway.
+          */}
+          <div className="tag">STOPPED</div>
           <div>
             {recorder.error.userMessage}
+            {/*
+              Said here rather than left to the tries line, and said in the
+              same breath as the failure. A take that failed to capture was
+              never judged, so R8 applies exactly as it does to an
+              indeterminate one — and a learner watching a take fail will
+              assume it cost them unless told otherwise.
+            */}
+            <p className="hint" style={{ margin: "var(--space-2) 0 0" }}>
+              This take didn&rsquo;t count.
+            </p>
             {/*
               Behind ?debug=1. The code and domain are real support value and
               the wrong audience: this is already sent to the diagnostics

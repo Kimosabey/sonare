@@ -484,3 +484,18 @@
 .listen-reveal .phrase {
   margin: 0 0 var(--space-2);
 }
+
+/*
+ * The mid-session "no microphone" screen.
+ *
+ * Takes the whole screen because for as long as it lasts it *is* the session —
+ * a panel inside the normal layout would leave the prompt, the try counter and
+ * a dead record button arranged around it.
+ */
+.mic-unavailable ol.what {
+  padding-left: var(--space-4);
+}
+
+.mic-unavailable ol.what li {
+  margin-bottom: var(--space-2);
+}

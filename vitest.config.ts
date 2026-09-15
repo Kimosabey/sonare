@@ -14,6 +14,15 @@ export default defineConfig({
   test: {
     environment: "node",
     /**
+     * Runs before every suite, and is a no-op outside jsdom.
+     *
+     * jsdom has no `navigator.mediaDevices`, which feature detection cannot
+     * tell apart from an insecure origin — so without it every screen that
+     * reads the microphone environment renders as blocked. See the file for
+     * why this is one shared stub rather than a mock in each suite.
+     */
+    setupFiles: ["./src/testSetup.ts"],
+    /**
      * The stylesheet is now asserted by a test, and by default Vitest replaces
      * every CSS module with an empty string — including one imported `?raw`.
      * A sheet-reading test therefore passes vacuously without this: the glob

@@ -189,3 +189,15 @@ export function affordancesFor(kind: ActivityKind, state: ActivityState): Afford
       };
   }
 }
+
+/**
+ * Whether a kind records the learner at all.
+ *
+ * A thin read of `affordancesFor`, for callers that need the answer before
+ * they have any per-activity state — the session screen decides whether an
+ * unavailable microphone blocks the activity, and that question is settled by
+ * the kind alone.
+ */
+export function activityNeedsMicrophone(kind: ActivityKind): boolean {
+  return affordancesFor(kind, { takes: 0, revealed: false }).needsMicrophone;
+}

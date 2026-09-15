@@ -155,6 +155,22 @@ vi.mock("../hooks/useModelSpeech.js", async () => {
   };
 });
 vi.mock("../hooks/useWakeLock.js", () => ({ useWakeLock: () => undefined }));
+
+/**
+ * Available by default. These tests are about what each *kind* offers, and an
+ * unavailable microphone replaces the whole screen — so leaving it unstubbed
+ * would make every spoken-kind assertion pass or fail for the wrong reason.
+ */
+let micState: import("../speech/capture/micCheck.js").MicAvailability = { state: "available" };
+const micRecheck = vi.fn();
+vi.mock("../hooks/useMicEnvironment.js", () => ({
+  useMicEnvironment: () => ({
+    availability: micState,
+    inputCount: 1,
+    origin: "https://sonare.example",
+    recheck: micRecheck,
+  }),
+}));
 vi.mock("../components/ToastProvider.js", () => ({
   useToast: () => ({ push: vi.fn(), dismiss: vi.fn(), clear: vi.fn() }),
 }));
@@ -196,6 +212,7 @@ beforeEach(() => {
   });
 
   startSpy.mockClear();
+  micState = { state: "available" };
 });
 
 afterEach(cleanup);
@@ -545,5 +562,38 @@ describe("listen", () => {
     if (start) fireEvent.click(start);
 
     expect(screen.getByText(/isn.t ready yet/i)).toBeInTheDocument();
+  });
+});
+
+describe("when the microphone is unavailable mid-session", () => {
+  /**
+   * It outranks every other state on this screen. A learner who cannot record
+   * would otherwise be left with the prompt, the try counter and a record
+   * button that does nothing — which is what the toast version left behind.
+   */
+  it("replaces a spoken activity entirely", async () => {
+    micState = { state: "denied" };
+    await open("repeat");
+
+    expect(screen.getByRole("heading", { name: /No microphone here/i })).toBeInTheDocument();
+    expect(phraseOnScreen()).toBe(false);
+    expect(screen.queryByText(/tries left|Last try/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * And leaves a listening activity alone, which is what makes "practise
+   * listening instead" a real offer rather than a consolation.
+   */
+  it("does not block an activity that never needed one", async () => {
+    micState = { state: "denied" };
+    await open("listen");
+
+    expect(screen.queryByRole("heading", { name: /No microphone here/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: GLOSS })).toBeInTheDocument();
+  });
+
+  it("does not block anything while the microphone is available", async () => {
+    await open("repeat");
+    expect(screen.queryByRole("heading", { name: /No microphone here/i })).not.toBeInTheDocument();
   });
 });
