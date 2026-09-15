@@ -38,6 +38,8 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { resolveLanguages } from "../content/resolve.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
+import { knownLearners } from "../lib/learnerId.js";
+import { DeviceLink } from "../components/DeviceLink.js";
 import { clearProgress, readProgress } from "../hooks/useProgressPersistence.js";
 import { clearLearnerId, readLearnerId } from "../lib/learnerId.js";
 import { clearSkills, readSkills } from "../stores/skillStore.js";
@@ -181,7 +183,16 @@ async function userMessageFrom(response: Response, fallback: string): Promise<st
 }
 
 export function Settings() {
-  const [learnerName] = useLearnerName();
+  const [learnerName, setLearnerName] = useLearnerName();
+  const [typedName, setTypedName] = useState(learnerName ?? "");
+  /**
+   * Everyone this device has a record for.
+   *
+   * Read from the id store's own keys rather than kept as a second list —
+   * "who is on this tablet" is already answered by which ids exist, and a
+   * parallel list would be the thing that disagrees with it after a deletion.
+   */
+  const learners = knownLearners();
   const [busy, setBusy] = useState<"none" | "export" | "delete">("none");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<ActionError | null>(null);
@@ -320,6 +331,69 @@ export function Settings() {
 
   return (
     <>
+      <section>
+        <h2>Your name</h2>
+        <p className="what">
+          Used to greet you, and to tell people apart on a shared device. It is stored on this
+          device and sent nowhere.
+        </p>
+        <p className="row authoring-field">
+          <label htmlFor="settings-name">First name · optional</label>
+          <input
+            id="settings-name"
+            type="text"
+            autoComplete="given-name"
+            value={typedName}
+            onChange={(event) => setTypedName(event.target.value)}
+          />
+        </p>
+        <p className="row">
+          <button
+            type="button"
+            onClick={() => {
+              const trimmed = typedName.trim();
+              if (trimmed.length > 0) setLearnerName(trimmed);
+            }}
+          >
+            Save this name
+          </button>
+        </p>
+      </section>
+
+      {/*
+        Switching learners, and only where there is somebody to switch to.
+        A family tablet is the case this exists for; on a phone with one
+        learner the control would be a permanent offer to become somebody who
+        does not exist.
+      */}
+      {learners.length > 1 && (
+        <section>
+          <h2>Switch learner</h2>
+          <p className="what">
+            Each person on this device keeps their own practice, streak and sound history. Nothing
+            is shared between them.
+          </p>
+          <ul className="learner-list">
+            {learners.map((name) => (
+              <li key={name}>
+                <button
+                  type="button"
+                  className={name === learnerName ? "is-current" : ""}
+                  aria-pressed={name === learnerName}
+                  onClick={() => setLearnerName(name)}
+                >
+                  {name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section>
+        <DeviceLink learnerName={learnerName} />
+      </section>
+
       <section>
         <h2>Export your data</h2>
         <p className="what">

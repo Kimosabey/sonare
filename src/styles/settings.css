@@ -89,3 +89,57 @@ button.danger:focus-visible {
 .settings-report p:last-child {
   margin-bottom: 0;
 }
+
+/*
+ * The link code, sized to be read aloud across a room.
+ *
+ * Monospaced with tabular figures so the grouping holds, and wide letter
+ * spacing because the alphabet deliberately omits every confusable pair
+ * (0/O, 1/I/L, U/V) — the spacing is what stops the remaining characters
+ * running together when somebody is reading them out.
+ */
+.link-code {
+  font-family: var(--mono);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  margin: var(--space-2) 0;
+  padding: var(--space-3);
+  background: var(--panel);
+  border-radius: var(--radius-lg);
+  /* Selectable: on a desktop the fastest route is copy and paste. */
+  user-select: all;
+}
+
+.device-link h4 {
+  margin: var(--space-4) 0 var(--space-1);
+  font-size: var(--text-base);
+}
+
+/*
+ * Who is on this device. A list of people, so each is a full-width target
+ * rather than a chip in a row — a shared tablet is used by children, and the
+ * name being tapped is somebody's identity.
+ */
+.learner-list {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.learner-list button {
+  width: 100%;
+  min-height: var(--tap);
+  text-align: left;
+}
+
+/* Current is a border and a tint together, never the tint alone. */
+.learner-list button.is-current {
+  border-color: var(--signal);
+  border-width: 2px;
+  background: var(--signal-soft);
+}

@@ -25,6 +25,22 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+/**
+ * Longer than the 5s default, and the reason is this suite's subject rather
+ * than flakiness.
+ *
+ * Every case here renders the whole authoring form for a real course: eighteen
+ * activities with seven fields each, plus units and lessons. That is by far the
+ * largest render in the test suite, and under full-suite parallelism it crosses
+ * 5s on a busy machine while passing comfortably on its own — twice observed,
+ * both times a timeout rather than a failed assertion.
+ *
+ * Raised here rather than globally: 5s is a useful ceiling everywhere else, and
+ * a suite-wide raise would hide a genuine hang in a screen that should render
+ * in milliseconds.
+ */
+vi.setConfig({ testTimeout: 20_000 });
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
