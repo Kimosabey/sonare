@@ -97,14 +97,14 @@ language-bearing string carries `lang`.
 
 ## Wave 4 — testing the new surface
 
-- [ ] **N1 — Content migration**: existing flat progress survives the move.
+- [x] **N1 — Content migration**: existing flat progress survives the move.
 - [x] **N2 — Session blend**: no duplicates, deterministic for a day and state.
 - [x] **N3 — Algorithm state commutes**: the same results in any order give the
       same estimate. **The critical one** — the merge layer is proved
       commutative and Elo is sequential by nature.
 - [x] **N4 — Outcome honesty**: no can-do statement renders without evidence.
 - [x] **N5 — `listen` makes no scorer call** and needs no mic permission.
-- [ ] **N6 — Curriculum coverage**: every phoneme in the inventory appears.
+- [x] **N6 — Curriculum coverage**: every phoneme in the inventory appears.
 - [ ] **N7 — L1 difficulty table** complete for every shipped pair.
 - [ ] **N8 — Formant accuracy** against published reference vowels.
 - [x] **N9 — PWA standalone back**: every non-root screen offers a way back.
@@ -119,6 +119,19 @@ the device until the network returns. That is a privacy posture decision, not a
 coding one, and it sits beside the `SAVE_AUDIO_DIR` question: the onboarding
 screen currently promises a take is uploaded when you speak, which an outbox
 changes. The offline state ships saying what actually happens instead.
+
+**N7 — the L1 difficulty table.** Not buildable: there is no such table in the
+repository, and writing one is authored linguistic data — which sounds are hard
+for speakers of which first language — not code.
+
+**Curriculum variety, measured.** Both shipped courses name roughly **sixty
+distinct sounds across eighteen activities, none recurring**: every sound is
+drilled by exactly one activity. Not a correctness fault — returning to the same
+phrase at expanding intervals is how spaced repetition works, and the ladder
+solves spacing rather than variety — which is why the coverage test does *not*
+fail on it. But a learner who cannot say a sound meets the same phrase every
+time it comes round, with no second way in. Worth deciding alongside the
+curriculum sizing question below.
 
 T19's eighty recordings · ten Kannada phrases · a second German voice id ·
 Playwright and axe-core (free, need asking) · `SAVE_AUDIO_DIR` privacy posture ·
@@ -621,3 +634,32 @@ branch is not the same as reaching the *interesting* one.
 Also fixed a flake introduced an hour earlier — the device-link expiry test
 mixed fake and real timers, so under full-suite load the code expired before the
 assertion that it had appeared.
+### 2026-09-15 — N1 and N6 (5550f87)
+
+**N1** is a migration that is not one: the spine arrived as a new version with
+the same activity ids, so nothing is rewritten and the test is that the same
+record still says what the learner did. Corrected one assumption of mine — the
+composer does *not* exclude passed activities from a sitting, and should not,
+since a learner may retry to beat their own score. Progress chooses *which*
+sitting, not what is inside one.
+
+**N6 could not be built as written.** There is no phoneme inventory, and the
+provider returns **no phoneme names for any shipped locale** — 0 of 14, 0 of 23,
+0 of 28 across three real takes. A check against phonemes would compare a list
+nobody wrote to a field that is always blank, and pass for the wrong reason
+forever. It checks written syllables instead: what the scheduler schedules over
+and what a learner is actually told about.
+
+**An assertion I wrote and then deleted**, worth recording as a habit. It
+required every sound to appear in two or more activities, and both courses fail
+it. But the bar was invented — the ladder solves spacing, not variety — so
+failing shipped content against a preference I had just made up is not a test.
+The measurement is recorded above as content feedback instead.
+
+**N7 is not buildable** and is now listed as blocked: an L1 difficulty table is
+authored linguistic data, not code.
+
+The device-link flake is properly fixed. `waitFor` advances fake timers *itself*
+while polling, so `findBy` could run the fake clock past the expiry before the
+code was found — the test was failing on its own setup, and widening the window
+could not help because the advancing is unbounded.
