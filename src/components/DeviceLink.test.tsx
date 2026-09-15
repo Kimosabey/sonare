@@ -16,7 +16,7 @@
  *    makes people hesitate to link the device they still use.
  */
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DeviceLink } from "./DeviceLink.js";
@@ -82,40 +82,38 @@ describe("showing a code", () => {
    * would otherwise render an expiry from a server timestamp it cannot
    * reconcile — the elapsed answer is right even when the wall clock is not.
    */
+  /**
+   * Real timers throughout, and only the end state is asserted.
+   *
+   * Two earlier versions of this used fake timers and both flaked under
+   * full-suite load, for a reason worth writing down: Testing Library's
+   * `waitFor` **advances fake timers itself** while polling. So `findBy` on the
+   * code could run the fake clock past the expiry before the code was ever
+   * found — the test failed on its own setup, not on the behaviour. Widening
+   * the window from two seconds to ten minutes did not help, because the
+   * advancing is unbounded.
+   *
+   * Asserting only that the code is gone afterwards removes the need to catch
+   * the intermediate frame at all. It is still a real check: without the
+   * clearing effect the code stays on screen forever, so this goes red.
+   */
   it("clears the code once it expires, rather than leaving a dead one up", async () => {
-    /**
-     * A full ten-minute window, then fake time is advanced past it.
-     *
-     * The first version of this minted a two-second code under
-     * `shouldAdvanceTime`, which lets real time run alongside the fake clock —
-     * so under full-suite load the code expired before the assertion that it
-     * had appeared, and the test failed for a reason that had nothing to do
-     * with what it checks. A window no amount of real-world slowness can cross
-     * leaves the advance below as the only thing that can expire it.
-     */
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     mintResult.mockResolvedValue({
       ok: true,
-      minted: { code: CODE, expiresInSeconds: 600, expiresAt: Date.now() + 600_000 },
+      minted: { code: CODE, expiresInSeconds: 1, expiresAt: Date.now() + 1000 },
     });
 
     show();
     fireEvent.click(screen.getByRole("button", { name: /Show me a code/i }));
-    await screen.findByLabelText(/Your link code/i);
 
-    await act(async () => {
-      vi.advanceTimersByTime(601_000);
-      await Promise.resolve();
-    });
-
-    await waitFor(() => expect(screen.queryByLabelText(/Your link code/i)).not.toBeInTheDocument());
+    await waitFor(() => expect(mintResult).toHaveBeenCalled());
+    await waitFor(
+      () => expect(screen.queryByLabelText(/Your link code/i)).not.toBeInTheDocument(),
+      { timeout: 6000 },
+    );
     expect(screen.getByRole("button", { name: /Show me a code/i })).toBeInTheDocument();
   });
 
-  /**
-   * A device with no credential has nothing to hand a second one. Said plainly
-   * rather than by letting the request fail with a generic message.
-   */
   it("says so when this device has no history to share", async () => {
     token = null;
     show();
