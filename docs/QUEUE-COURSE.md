@@ -98,12 +98,12 @@ language-bearing string carries `lang`.
 ## Wave 4 — testing the new surface
 
 - [ ] **N1 — Content migration**: existing flat progress survives the move.
-- [ ] **N2 — Session blend**: no duplicates, deterministic for a day and state.
-- [ ] **N3 — Algorithm state commutes**: the same results in any order give the
+- [x] **N2 — Session blend**: no duplicates, deterministic for a day and state.
+- [x] **N3 — Algorithm state commutes**: the same results in any order give the
       same estimate. **The critical one** — the merge layer is proved
       commutative and Elo is sequential by nature.
-- [ ] **N4 — Outcome honesty**: no can-do statement renders without evidence.
-- [ ] **N5 — `listen` makes no scorer call** and needs no mic permission.
+- [x] **N4 — Outcome honesty**: no can-do statement renders without evidence.
+- [x] **N5 — `listen` makes no scorer call** and needs no mic permission.
 - [ ] **N6 — Curriculum coverage**: every phoneme in the inventory appears.
 - [ ] **N7 — L1 difficulty table** complete for every shipped pair.
 - [ ] **N8 — Formant accuracy** against published reference vowels.
@@ -596,3 +596,28 @@ suite timed out under full-suite parallelism again, passing alone both times. It
 renders the largest form in the app in every case. Timeout raised in that file
 only — 5s is a useful ceiling elsewhere, and a global raise would hide a real
 hang.
+### 2026-09-15 — N2, N3, N4, N5 (e507602)
+
+Property sweeps rather than examples. N3 is the critical one and it holds:
+`strengthOf` and `stepFor` both sort before they reduce, and removing that one
+sort reddens three tests. Two devices sync in whatever order the network allows,
+so an order-dependent strength would give the same learner two histories
+depending on which phone reconnected first.
+
+**Two rounds of vacuity, both caught by guards, both worth recording.**
+
+First: across 300 uniformly-generated cases, **zero** outcomes were ever earned.
+Earning needs nine activities passed *and* every sound holding — under one case
+in two hundred — so "never claims falsely" was true only because nothing was
+ever claimed. The guard asserting the sweep reaches both branches caught it.
+
+Second, and sharper: with completed cases added, mutating `outcomeEarned` to
+drop the sound check left **every test green**. No generated case had finished
+lessons *without* strong sounds for the rule to wrongly claim. A third generator
+shape now builds exactly that. The lesson generalises: a property sweep that
+cannot construct the failure is not testing for it, and reaching the positive
+branch is not the same as reaching the *interesting* one.
+
+Also fixed a flake introduced an hour earlier — the device-link expiry test
+mixed fake and real timers, so under full-suite load the code expired before the
+assertion that it had appeared.
