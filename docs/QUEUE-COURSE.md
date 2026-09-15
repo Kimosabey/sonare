@@ -87,12 +87,12 @@ language-bearing string carries `lang`.
       *over* the tabs. An installed iOS PWA has **no browser back button**, so
       every non-root screen needs its own way back, and the current one is an
       **11px breadcrumb link** that NFR-03 cannot see.
-- [ ] **C11 — The You tab**: name, switch learner, export, delete, and the
+- [x] **C11 — The You tab**: name, switch learner, export, delete, and the
       **device-link screen** (mint a code, enter a code). The server side is
       built and pushed; `src/lib/learnerId.ts` still cannot adopt a claimed id.
 - [ ] **C12 — Corrective detail**: syllable tap-through, the vowel chart,
       yours-against-the-model. The data already exists and is unused.
-- [ ] **C13 — Outcomes as a derived function**, shown **with their evidence**.
+- [x] **C13 — Outcomes as a derived function**, shown **with their evidence**.
       Nothing new stored — which is what keeps "promises with receipts" honest.
 
 ## Wave 4 — testing the new surface
@@ -570,3 +570,29 @@ does nothing in exactly the case where it is the only way out.
 **N9 is settled by the same suite** — every non-root screen offers a way back,
 asserted against the app rather than by inspection, and it reddens when the
 control is removed.
+### 2026-09-15 — C11's UI, and C13 closed out
+
+**The You tab** (ac99b14). The link mechanism has been built since C11's first
+half and nothing offered it to a learner. Two directions on one screen, because
+a learner does not know which they are until they read both.
+
+The copy says **link, not transfer**, and a test asserts the word "transfer" is
+absent — it is the word that makes people hesitate to link the device they still
+use. An expired code stops existing rather than greying out: left up, it is one
+a learner types and is refused by, with no way to tell that from a typo.
+
+Switching learners appears only where there is somebody to switch to. On a
+one-learner phone it would be a permanent offer to become a person who does not
+exist.
+
+**C13 is ticked on Journey's evidence.** The item asked for outcomes as a derived
+function shown with their receipts, and `journeyFor` is exactly that — nothing
+stored, both halves of the evidence rendered beside the claim, and the claim
+withheld when either is missing. Recorded here rather than given its own commit
+because the work landed under C9.
+
+**Test maintenance, noted because it is the second occurrence.** The Authoring
+suite timed out under full-suite parallelism again, passing alone both times. It
+renders the largest form in the app in every case. Timeout raised in that file
+only — 5s is a useful ceiling elsewhere, and a global raise would hide a real
+hang.
