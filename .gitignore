@@ -56,3 +56,7 @@ voice-check.html
 # docs/design/ where they can be diffed and cited. The archive itself is a
 # 1.4 MB binary duplicate of files already in the tree.
 docs/*.zip
+
+# Playwright's own output — traces and screenshots from a failed run.
+/test-results/
+/playwright-report/

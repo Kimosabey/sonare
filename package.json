@@ -28,7 +28,8 @@
     "replay-fallback": "tsx --env-file=.env scripts/replay-fallback.ts",
     "fixture-design": "node --env-file=.env scripts/fixture-design-check.mjs",
     "alignment-report": "tsx scripts/alignment-report.ts",
-    "generate-model-voice": "tsx --env-file=.env scripts/generate-model-voice.ts"
+    "generate-model-voice": "tsx --env-file=.env scripts/generate-model-voice.ts",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "express": "^5.2.1",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/express": "^5.0.6",

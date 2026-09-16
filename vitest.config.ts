@@ -23,6 +23,13 @@ export default defineConfig({
      */
     setupFiles: ["./src/testSetup.ts"],
     /**
+     * Playwright's specs live in `e2e-browser/` and are run by
+     * `npm run test:browser`, not by Vitest. Without this exclusion Vitest
+     * collects them, fails on `@playwright/test`'s own `test` export, and the
+     * failure reads as a broken suite rather than a misrouted file.
+     */
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e-browser/**"],
+    /**
      * The stylesheet is now asserted by a test, and by default Vitest replaces
      * every CSS module with an empty string — including one imported `?raw`.
      * A sheet-reading test therefore passes vacuously without this: the glob
