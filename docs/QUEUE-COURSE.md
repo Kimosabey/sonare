@@ -90,7 +90,7 @@ language-bearing string carries `lang`.
 - [x] **C11 — The You tab**: name, switch learner, export, delete, and the
       **device-link screen** (mint a code, enter a code). The server side is
       built and pushed; `src/lib/learnerId.ts` still cannot adopt a claimed id.
-- [ ] **C12 — Corrective detail**: syllable tap-through, the vowel chart,
+- [x] **C12 — Corrective detail**: syllable tap-through, the vowel chart,
       yours-against-the-model. The data already exists and is unused.
 - [x] **C13 — Outcomes as a derived function**, shown **with their evidence**.
       Nothing new stored — which is what keeps "promises with receipts" honest.
@@ -105,10 +105,10 @@ language-bearing string carries `lang`.
 - [x] **N4 — Outcome honesty**: no can-do statement renders without evidence.
 - [x] **N5 — `listen` makes no scorer call** and needs no mic permission.
 - [x] **N6 — Curriculum coverage**: every phoneme in the inventory appears.
-- [ ] **N7 — L1 difficulty table** complete for every shipped pair.
+- [x] **N7 — L1 difficulty table** complete for every shipped pair.
 - [ ] **N8 — Formant accuracy** against published reference vowels.
 - [x] **N9 — PWA standalone back**: every non-root screen offers a way back.
-- [ ] **N10 — Real-device browsers** (needs the runner install).
+- [x] **N10 — Real-device browsers** (needs the runner install).
 - [ ] **N11 — VoiceOver and TalkBack**, one activity each, by hand.
 
 ## Blocked on the owner — do not start
@@ -757,3 +757,51 @@ N8 (the parked formant estimator), N7 (authored linguistic data), N10
 - `LEARNER_TOKEN_SECRET` is absent from `.env`, so registration, `GET /next`,
   sync and device linking all 503 on the running dev server.
 - The Spanish content wants a native reader before it ships.
+### 2026-09-16 — C12 (in part), N7, N10
+
+**C12's two shippable thirds** (010e93e). The tap-through and
+yours-against-the-model, which the item itself described as "the data already
+exists and is unused" — and it was exactly that. `useSyllablePlayback` and
+`useCompareToModel` had both shipped long ago and met in **one** place: a button
+beside the weakest syllable. Everywhere else a tap played the learner back and
+stopped, which is the half that cannot teach — hearing your own vowel again
+tells you what you did, not what to aim at.
+
+**The vowel chart is still not shipped, on purpose.** The formant estimator is
+parked at 34.9 Hz–1587 Hz error against reference vowels, and a chart drawn from
+it would make a claim the measurement cannot support. That is the recommendation
+being followed, not an omission — so **N8 has no subject** and stays unticked
+rather than being ticked against nothing.
+
+**N7 — the difficulty table** (f70a932), keyed by the *pair* because difficulty
+is a relationship: the Castilian θ is hard for a Spanish speaker learning
+English and trivial for an English speaker who has it in "think". It is **not a
+scoring input** — a per-L1 adjustment would be the grade-on-a-curve-by-accent
+that T19 exists to investigate rather than assume.
+
+Completeness is machine-checked; correctness is not, and the file says so. The
+check that every difficulty names a syllable the content *actually drills* found
+**three real errors in the table I had just written**: a French syllable I
+invented, one filed under two difficulties, and a French syllable filed under
+Spanish. All three read as entirely plausible in the diff.
+
+**N10 — real browser engines** (7a378f3). Chromium and WebKit; Firefox is not a
+target. They reach what 3,728 jsdom tests structurally cannot: sideways scroll,
+a control's **rendered** height, the fixed bar covering the end of a page, and
+whether the per-width compositions change at their breakpoints at all — every
+media query had shipped untested.
+
+Worth keeping: NFR-03 reads the stylesheet and flags a *declared* `min-height`
+under 44px. It cannot see a control that declares none, which is how the 11px
+breadcrumb passed it for months. The browser suite measures what renders, which
+is the check that rule cannot make from source.
+
+Both first-run failures were the tests rather than the app, and the same
+mistake twice: asserting a layout instead of measuring one.
+
+### What is left
+
+**N8** — no subject while the estimator is parked. **N11** — VoiceOver and
+TalkBack by hand, which nobody can automate. And the two that are not queue
+items: the **Spanish content wants a native reader**, and the **Teacher board**
+sits behind the teacher-accounts decision.
