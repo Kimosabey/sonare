@@ -699,3 +699,55 @@
   background: var(--warn-soft);
   color: var(--warn);
 }
+
+/*
+ * "Leave this sitting?" — the one modal in the learner's path.
+ *
+ * Fixed and full-bleed so nothing behind it is reachable by touch while it is
+ * open. The dialog itself is capped and centred rather than full-screen: it
+ * asks one question, and a sheet covering the whole display would imply the
+ * session had already ended.
+ */
+.leave-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  /* Dark enough to take the session out of the foreground, light enough that
+     the learner can still see where they were — this is a question about
+     leaving, not a screen change. */
+  background: rgba(26, 11, 46, 0.55);
+}
+
+.leave-dialog {
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-4);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: 0 12px 40px rgba(22, 32, 43, 0.25);
+}
+
+.leave-dialog h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+}
+
+/*
+ * Stacked, because the two answers are not a pair of equals — one continues
+ * what the learner was doing and one ends it. Side by side at this width they
+ * would read as a yes/no, and the safe one has to be unmistakably first.
+ */
+.leave-dialog .row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.leave-dialog .row button {
+  width: 100%;
+  min-height: var(--tap);
+}

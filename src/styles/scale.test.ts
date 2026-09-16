@@ -151,7 +151,8 @@ describe("font sizes come from the scale", () => {
      * `.tab`, `.tab-glyph`, `.tab` again at the sidebar width, `.back-link`
      * and `.back-chevron` (src/styles/components/navigation.css), and +2 for
      * the device link: `.link-code` and `.device-link h4`
-     * (src/styles/settings.css).
+     * (src/styles/settings.css), and +1 for `.leave-dialog h2`, the
+     * leave-a-sitting question (src/styles/activity.css).
      *
      * Exact equality on purpose, even though it means every new rule that sets
      * a font-size has to come past this line. That is the notification: a
@@ -160,7 +161,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(76);
+    expect(onScale.length).toBe(77);
   });
 });
 

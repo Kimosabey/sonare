@@ -656,3 +656,61 @@ describe("the sound check's verdict, carried forward", () => {
     expect(screen.queryByText(/Sound check passed/i)).not.toBeInTheDocument();
   });
 });
+
+describe("leaving a sitting", () => {
+  /**
+   * Board 1i. Before this, Android's Back left the route immediately and Esc
+   * did nothing — leaving was something that happened to a learner rather than
+   * something they chose.
+   */
+  it("asks, rather than leaving, on Escape", async () => {
+    await open("repeat");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(screen.getByRole("dialog")).toHaveAccessibleName("Leave this sitting?");
+  });
+
+  /**
+   * The gap, asserted rather than left implicit.
+   *
+   * The board asks for Android's system back to land on this dialog too. It
+   * does not, and the attempt is recorded in `ActivityTest.tsx`: trapping
+   * `popstate` from a `HashRouter` intercepted navigation it should not have,
+   * and leaked a history entry per sitting so Back needed one more press each
+   * time. This pins the current behaviour so that nobody reads the dialog's
+   * existence as meaning Back is handled.
+   */
+  it("does not yet intercept system back — a known gap, not a silent one", async () => {
+    await open("repeat");
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("carries on when the learner says keep going", async () => {
+    await open("repeat");
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/i }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(phraseOnScreen()).toBe(true);
+  });
+
+  /**
+   * Nothing to leave before the sitting starts or after it ends, and trapping
+   * Back on those screens would break the ordinary way out of the app.
+   */
+  it("does not trap Escape once the sitting is over", async () => {
+    await open("repeat");
+    take();
+    // The result phase is still in the sitting; finishing is what ends it.
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});

@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useRecorder } from "../speech/react/useRecorder.js";
 import { hangoverForReference } from "../speech/capture/recorder.js";
 import { RecordButton } from "../speech/components/RecordButton.js";
@@ -44,6 +44,7 @@ import { affordancesFor, activityNeedsMicrophone } from "../learning/affordances
 import { isSpoken } from "../activities/types.js";
 import { ListenOptions } from "../components/ListenOptions.js";
 import { MicUnavailable } from "../components/MicUnavailable.js";
+import { LeaveSittingDialog } from "../components/LeaveSittingDialog.js";
 import { useMicEnvironment } from "../hooks/useMicEnvironment.js";
 import { readCheck } from "../stores/micCheckStore.js";
 import { listenOptions } from "../activities/listen.js";
@@ -101,6 +102,17 @@ export function ActivityTest() {
    * cannot arrive at a `recall` activity with the answer already on screen.
    */
   const [revealed, setRevealed] = useState(false);
+
+  /**
+   * Whether "Leave this sitting?" is open — board 1i.
+   *
+   * Opened by Esc and by Android's system back, and by nothing else. It is not
+   * a confirmation of a destructive act: there is no destructive act here, and
+   * the dialog exists so that leaving is a decision rather than something that
+   * happens to a learner who pressed Back out of habit.
+   */
+  const [leaving, setLeaving] = useState(false);
+  const navigate = useNavigate();
 
   const [celebration, setCelebration] = useState<{ kind: "pass" | "personalBest" | "firstTry"; score: number } | null>(
     null,
@@ -331,6 +343,48 @@ export function ActivityTest() {
   // Screen must stay awake for the whole session, not just while recording —
   // most of the risk is the learner reading the prompt before they tap Record.
   useWakeLock(started && !finished);
+
+  /**
+   * Esc opens "Leave this sitting?" — board 1i.
+   *
+   * ## Why Esc only, and what is missing
+   *
+   * The board asks for Android's system back to land here too. Doing that from
+   * a `HashRouter` means pushing a history entry when the sitting starts and
+   * intercepting `popstate`, and that approach failed twice in ways worth
+   * recording rather than repeating:
+   *
+   *  - It intercepted navigation it had no business touching — any `popstate`,
+   *    including a real move to another route — and then fought it by pushing
+   *    again.
+   *  - The pushed entries **leaked**. Nothing removed them, so every sitting
+   *    added one and Back needed one more press than the last time. An
+   *    end-to-end suite surfaced it as a dialog appearing in a test that never
+   *    asked for one, which is the same fault seen from outside.
+   *
+   * Removing an entry on the way out means calling `history.back()` from a
+   * cleanup, which navigates asynchronously and can land somewhere else
+   * entirely. The correct mechanism is a router-level blocker, and `useBlocker`
+   * needs a data router — a migration off `HashRouter`, which is a separate
+   * decision with its own reasons (see App.tsx on why the hash is there).
+   *
+   * So: Esc works, is reliable, and touches nothing. Android back still leaves
+   * immediately, which is what it did before — no worse, and honestly stated
+   * rather than half-trapped.
+   */
+  const inSitting = started && !finished;
+
+  useEffect(() => {
+    if (!inSitting) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      // The dialog owns Esc once open — it closes itself as "keep going".
+      if (event.key === "Escape") setLeaving(true);
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [inSitting]);
 
   /**
    * Let the microphone go the moment the session is over.
@@ -798,6 +852,23 @@ export function ActivityTest() {
 
   return (
     <section key={activity.id} className="enter-1">
+      {/*
+        Board 1i. Rendered inside the session rather than at the app shell,
+        because what it says depends on where the learner is in *this* sitting
+        — and because the shell has no business knowing there is one.
+      */}
+      {leaving && (
+        <LeaveSittingDialog
+          position={index + 1}
+          total={activities.length}
+          hasScoredTake={scoredAttempts > 0}
+          onKeepGoing={() => setLeaving(false)}
+          onLeave={() => {
+            setLeaving(false);
+            navigate("/");
+          }}
+        />
+      )}
       <div className="activity-head">
         {/*
           The activity's own name, which is what the learner is about to do.
