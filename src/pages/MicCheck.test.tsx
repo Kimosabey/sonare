@@ -29,12 +29,18 @@ import { MemoryRouter } from "react-router-dom";
 import type { MicAvailability } from "../speech/capture/micCheck.js";
 
 let availability: MicAvailability = { state: "available" };
+let inputs: { deviceId: string; label: string }[] = [
+  { deviceId: "default", label: "Built-in Microphone" },
+];
 const recheck = vi.fn();
 
 vi.mock("../hooks/useMicEnvironment.js", () => ({
   useMicEnvironment: () => ({
     availability,
-    inputCount: 1,
+    inputCount: inputs.length,
+    // Added when the check gained a device picker; a mock that omits it
+    // crashes the component rather than failing an assertion.
+    inputs,
     origin: "http://192.168.1.24:5180",
     recheck,
   }),
@@ -51,6 +57,7 @@ async function open() {
 
 beforeEach(() => {
   availability = { state: "available" };
+  inputs = [{ deviceId: "default", label: "Built-in Microphone" }];
   recheck.mockClear();
 });
 
@@ -242,5 +249,62 @@ describe("the check itself", () => {
   it("lets a learner skip it", async () => {
     await open();
     expect(screen.getByRole("link", { name: /Skip the check/i })).toBeInTheDocument();
+  });
+});
+
+describe("choosing an input", () => {
+  /**
+   * Board 1p. The commonest cause of a check coming back **silent** is not a
+   * broken microphone but the wrong one selected — a headset left connected, a
+   * virtual device from a meeting app. So the picker is the fix for the state
+   * the check most often lands in.
+   */
+  it("offers a picker when there is more than one input", async () => {
+    inputs = [
+      { deviceId: "a", label: "MacBook Pro Microphone" },
+      { deviceId: "b", label: "AirPods Pro" },
+    ];
+    await open();
+
+    const picker = screen.getByLabelText("Input");
+    expect(picker).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "AirPods Pro" })).toBeInTheDocument();
+  });
+
+  /**
+   * One input is not a choice. A control that can only confirm what already
+   * happened is a decision a learner has to make for no reason.
+   */
+  it("offers none when there is only one", async () => {
+    inputs = [{ deviceId: "a", label: "Built-in Microphone" }];
+    await open();
+
+    expect(screen.queryByLabelText("Input")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Labels are empty until permission is granted — the browser withholds them
+   * against fingerprinting. A numbered fallback still works: trying each in
+   * turn finds the one that moves the meter, which is the whole job.
+   */
+  it("names unlabelled inputs so they can still be told apart", async () => {
+    inputs = [
+      { deviceId: "a", label: "" },
+      { deviceId: "b", label: "" },
+    ];
+    await open();
+
+    expect(screen.getByRole("option", { name: "Input 1" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Input 2" })).toBeInTheDocument();
+  });
+
+  it("says why the choice matters", async () => {
+    inputs = [
+      { deviceId: "a", label: "One" },
+      { deviceId: "b", label: "Two" },
+    ];
+    await open();
+
+    expect(screen.getByText(/commonest reason a check comes back silent/i)).toBeInTheDocument();
   });
 });

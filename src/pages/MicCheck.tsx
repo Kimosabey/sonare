@@ -74,6 +74,17 @@ export function MicCheck() {
   const [seconds, setSeconds] = useState(0);
   const [result, setResult] = useState<CheckResult | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  /**
+   * Which input to open, or null for whatever the browser picks.
+   *
+   * The commonest cause of a check coming back **silent** is not a broken
+   * microphone — it is the wrong one selected: a headset left connected, a
+   * virtual device from a meeting app, a monitor's input. On a phone there is
+   * usually one and the picker is noise; on a desktop a learner plausibly has
+   * three, which is why the board promotes this to a real control at 1280 and
+   * leaves it out of the way below that.
+   */
+  const [deviceId, setDeviceId] = useState<string | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
@@ -150,7 +161,15 @@ export function MicCheck() {
     setSeconds(0);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      /**
+       * `exact`, not a preference. A soft constraint silently falls back to
+       * the default device, which would mean a learner picking their headset,
+       * getting the built-in microphone anyway, and being told *that* is what
+       * they sound like — the exact confusion this control exists to end.
+       */
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: deviceId === null ? true : { deviceId: { exact: deviceId } },
+      });
       streamRef.current = stream;
       deviceLabelRef.current = stream.getAudioTracks()[0]?.label || null;
       const context = new AudioContext();
@@ -189,7 +208,7 @@ export function MicCheck() {
       setFailed("The microphone could not be opened. Check it is connected and try again.");
       setPhase("idle");
     }
-  }, [teardown]);
+  }, [teardown, deviceId]);
 
   /* ── the three the environment settles, before any audio ──────────────── */
 
@@ -431,6 +450,8 @@ export function MicCheck() {
         the bar count are printed beside it. Both survive reduced motion, and a
         screen reader gets the numbers rather than an animation.
       */}
+      <div className="check-wide">
+      <div>
       <div className="check-meter" aria-hidden="true">
         {Array.from({ length: BARS }, (_, i) => (
           <span key={i} className={i < bars ? "check-bar on" : "check-bar"} />
@@ -448,6 +469,42 @@ export function MicCheck() {
         </p>
       )}
 
+      {/*
+        Offered only where there is a choice to make, and only before the
+        microphone is open — switching mid-take would measure two devices and
+        report one number. A single input is not a choice, and a picker over it
+        is a control that can only confirm what already happened.
+      */}
+      {env.inputs.length > 1 && phase !== "listening" && (
+        <p className="row authoring-field check-devices">
+          <label htmlFor="check-device">Input</label>
+          <select
+            id="check-device"
+            value={deviceId ?? ""}
+            onChange={(event) => setDeviceId(event.target.value === "" ? null : event.target.value)}
+          >
+            <option value="">Whatever this device chooses</option>
+            {env.inputs.map((input, index) => (
+              <option key={input.deviceId} value={input.deviceId}>
+                {/*
+                  Labels are empty until permission is granted — the browser
+                  withholds them against fingerprinting. A numbered fallback is
+                  still useful: a learner who tries each in turn finds the one
+                  that moves the meter, which is the whole job.
+                */}
+                {input.label === "" ? `Input ${String(index + 1)}` : input.label}
+              </option>
+            ))}
+          </select>
+          <span className="hint">
+            The wrong one selected is the commonest reason a check comes back silent.
+          </span>
+        </p>
+      )}
+
+      </div>
+
+      <div>
       <div className="row">
         {phase === "listening" ? (
           <button type="button" className="enter-cta" onClick={stop}>
@@ -466,6 +523,8 @@ export function MicCheck() {
       <p className="hint">
         Nothing from this check is uploaded or scored. It never leaves the device.
       </p>
+      </div>
+      </div>
     </section>
   );
 }

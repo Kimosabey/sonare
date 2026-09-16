@@ -139,6 +139,12 @@ export function Progress() {
     <section>
       <h2>{language.label} progress</h2>
 
+      {/*
+        Two regions from 1100px up — board 1j. Below that the grid does not
+        apply and this renders exactly as it did: one column, sounds first.
+      */}
+      <div className="progress-wide">
+      <div>
       <h3 className="today-heading">Your sounds</h3>
       {trends.length === 0 ? (
         <p className="hint">
@@ -217,6 +223,9 @@ export function Progress() {
         </p>
       )}
 
+      </div>
+
+      <div>
       <h3 className="today-heading">Practice days</h3>
       <p className="what">
         {streak.current > 0
@@ -251,6 +260,9 @@ export function Progress() {
           ? `${language.activities.length} to try`
           : `${set.passed} of ${set.total} passed`}
       </p>
+
+      </div>
+      </div>
 
       <p className="row">
         <Link to={`/${language.slug}`}>

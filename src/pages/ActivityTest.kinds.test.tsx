@@ -167,6 +167,7 @@ vi.mock("../hooks/useMicEnvironment.js", () => ({
   useMicEnvironment: () => ({
     availability: micState,
     inputCount: 1,
+    inputs: [{ deviceId: "default", label: "Built-in Microphone" }],
     origin: "https://sonare.example",
     recheck: micRecheck,
   }),

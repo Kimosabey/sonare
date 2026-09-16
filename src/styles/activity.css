@@ -751,3 +751,83 @@
   width: 100%;
   min-height: var(--tap);
 }
+
+/* ── the wider widths ───────────────────────────────────────────────────────
+ *
+ * Boards 1o/1p (the check), 1i (Journey) and 1j (Progress). One markup, laid
+ * out differently — every rule below is grid or flex, because a width should
+ * change where things sit and never what they say.
+ *
+ * The thresholds match the navigation's: 620px is where the tab bar becomes a
+ * rail and the content stops being a single phone column, 1100px is where the
+ * rail gains its labels. Two sets of breakpoints would drift, and a screen
+ * would reflow at a width the navigation had not.
+ */
+
+/*
+ * The sound check at 768 — board 1o. The meter and the verdict side by side,
+ * so nothing about the device is a scroll away while the learner is speaking
+ * and watching the bars.
+ */
+@media (min-width: 620px) {
+  .check-wide {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-5);
+    align-items: start;
+  }
+}
+
+/*
+ * The device picker is a real control from 1100px up — board 1p. Below that it
+ * still renders when there is a choice to make; it just does not take a row of
+ * its own next to the thing it configures.
+ */
+@media (min-width: 1100px) {
+  .check-devices select {
+    min-width: 22ch;
+  }
+}
+
+/*
+ * Journey at 768 — board 1i. Units on the left, the open unit's lessons and
+ * receipts on the right, rather than one column a learner scrolls through.
+ */
+@media (min-width: 620px) {
+  .journey-units {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-4);
+    align-items: start;
+  }
+}
+
+/*
+ * Progress at 1280 — board 1j. The sounds keep the left and the full table;
+ * attendance and coverage take the right column instead of sitting below a
+ * scroll, which is where a learner never reaches them.
+ */
+@media (min-width: 1100px) {
+  .progress-wide {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  /* The table can be wide; its own scroller must not push the page sideways. */
+  .progress-wide .scroll-x {
+    max-width: 100%;
+  }
+}
+
+/*
+ * The listening question at 768 — board 1n. The audio control and the answers
+ * side by side, so replaying never scrolls the options away.
+ */
+@media (min-width: 620px) {
+  .listen-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+}

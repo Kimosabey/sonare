@@ -17,10 +17,25 @@ import { useCallback, useEffect, useState } from "react";
 import { availabilityFrom, type MicAvailability } from "../speech/capture/micCheck.js";
 import { useMicrophonePermission } from "./useMicrophonePermission.js";
 
+/** One audio input the browser will admit to. */
+export interface AudioInput {
+  deviceId: string;
+  /** Empty until permission is granted — the browser withholds labels. */
+  label: string;
+}
+
 export interface MicEnvironment {
   availability: MicAvailability;
   /** Audio inputs, or null before the browser has been asked. */
   inputCount: number | null;
+  /**
+   * The inputs themselves, for the picker on wider screens.
+   *
+   * Labels are empty until permission is granted — that is the browser
+   * protecting against fingerprinting, not a bug — so a picker built on these
+   * has to survive a list of unnamed devices and say something useful anyway.
+   */
+  inputs: AudioInput[];
   /** The origin the page was opened on, for the insecure-address screen. */
   origin: string;
   /** Ask the browser again — after a headset is plugged in, or settings change. */
@@ -35,28 +50,30 @@ export interface MicEnvironment {
  * reports nothing on some engines, and calling that "no hardware" tells a
  * learner with a working microphone that their device has none.
  */
-async function countInputs(): Promise<number | null> {
+async function listInputs(): Promise<AudioInput[] | null> {
   try {
     const devices = await navigator.mediaDevices?.enumerateDevices();
     if (!devices) return null;
-    return devices.filter((device) => device.kind === "audioinput").length;
+    return devices
+      .filter((device) => device.kind === "audioinput")
+      .map((device) => ({ deviceId: device.deviceId, label: device.label }));
   } catch {
-    // Unsupported, or refused. Not an answer, so not zero.
+    // Unsupported, or refused. Not an answer, so not an empty list.
     return null;
   }
 }
 
 export function useMicEnvironment(): MicEnvironment {
   const permission = useMicrophonePermission();
-  const [inputCount, setInputCount] = useState<number | null>(null);
+  const [inputs, setInputs] = useState<AudioInput[] | null>(null);
   const [nonce, setNonce] = useState(0);
 
   const recheck = useCallback(() => setNonce((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
-    void countInputs().then((count) => {
-      if (!cancelled) setInputCount(count);
+    void listInputs().then((found) => {
+      if (!cancelled) setInputs(found);
     });
     return () => {
       cancelled = true;
@@ -85,6 +102,8 @@ export function useMicEnvironment(): MicEnvironment {
   const hasMediaDevices =
     typeof navigator !== "undefined" && typeof navigator.mediaDevices?.getUserMedia === "function";
 
+  const inputCount = inputs === null ? null : inputs.length;
+
   return {
     availability: availabilityFrom({
       secureContext,
@@ -93,6 +112,7 @@ export function useMicEnvironment(): MicEnvironment {
       permission,
     }),
     inputCount,
+    inputs: inputs ?? [],
     origin: typeof window === "undefined" ? "" : window.location.origin,
     recheck,
   };
