@@ -16,8 +16,14 @@ import { LANGUAGES, MAX_ATTEMPTS, PASS_SCORE, getLanguage } from "./index.js";
 const LOCALE = /^[a-z]{2}-[A-Z]{2}$/;
 
 describe("the language set as a whole", () => {
-  it("ships the four languages the product claims", () => {
-    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es", "de", "hi"]);
+  /**
+   * Two, not four. German and Hindi are still written and one array entry away,
+   * but offering a language is a promise — a picker entry leads to content, a
+   * course, a model voice and a scoring locale — and the MVP makes that promise
+   * for French and Spanish only.
+   */
+  it("offers exactly the languages the MVP promises", () => {
+    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es"]);
   });
 
   it("has no duplicate slugs — getLanguage() returns the first match", () => {

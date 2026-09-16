@@ -34,15 +34,22 @@ function claimedIds(set: LanguageActivitySet): number[] {
 }
 
 describe("which languages have a course", () => {
-  it("has one for French and German, and for nothing else", () => {
+  it("has one for each language the product offers, and for nothing else", () => {
     /**
-     * Scope, stated as a test rather than as a comment. Spanish and Hindi are
-     * deliberately still flat — no spine has been authored for them, and hi-IN
-     * cannot carry honest sound targets at all, because the provider returns no
-     * syllable graphemes for Devanagari.
+     * Scope, stated as a test rather than as a comment. French and Spanish are
+     * what `LANGUAGES` offers, and both have a spine.
+     *
+     * German still *has* a course — the file is unchanged — but it is not in
+     * `COURSES`, because its language is no longer offered and a course whose
+     * language nobody can open is content these tests would otherwise be
+     * vouching for on behalf of no one.
+     *
+     * Hindi has neither, and cannot honestly have one: hi-IN returns no
+     * syllable graphemes at all, so every sound target would be a mapping that
+     * can never match what the scorer returns.
      */
-    expect(COURSES.map((c) => c.slug)).toEqual(["fr", "de"]);
-    expect(getCourse("es")).toBeUndefined();
+    expect(COURSES.map((c) => c.slug)).toEqual(["fr", "es"]);
+    expect(getCourse("de")).toBeUndefined();
     expect(getCourse("hi")).toBeUndefined();
     expect(getCourse(undefined)).toBeUndefined();
   });

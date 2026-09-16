@@ -24,10 +24,30 @@
 
 import { FRENCH_COURSE } from "./french.js";
 import { GERMAN_COURSE } from "./german.js";
+import { SPANISH_COURSE } from "./spanish.js";
 import type { LanguageActivitySet } from "../types.js";
 
 /** Every language with a spine authored, in the language picker's order. */
-export const COURSES: LanguageActivitySet[] = [FRENCH_COURSE, GERMAN_COURSE];
+/**
+ * The courses this product ships.
+ *
+ * French and Spanish — the MVP scope. `GERMAN_COURSE` is still written and
+ * still imported below so nothing about it is lost, but it is not listed here:
+ * a course whose language is not in `LANGUAGES` is unreachable, and leaving it
+ * in this array would mean the coverage tests vouching for content no learner
+ * can open.
+ */
+export const COURSES: LanguageActivitySet[] = [FRENCH_COURSE, SPANISH_COURSE];
+
+/**
+ * Re-exported so it is kept rather than merely imported.
+ *
+ * German's course is complete and unchanged; it is out of `COURSES` only
+ * because German is out of `LANGUAGES`. Naming it here is what makes "still
+ * written, one entry from shipping" a fact somebody can act on instead of a
+ * claim in a comment above a dead import.
+ */
+export { GERMAN_COURSE };
 
 /**
  * The course set for one language, or undefined where none is authored.

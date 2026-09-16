@@ -39,7 +39,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { LANGUAGES } from "../src/activities/languages/index.js";
+// Authored rather than offered — see the note on AUTHORED_SETS.
+import { AUTHORED_SETS as LANGUAGES } from "../src/activities/languages/index.js";
 
 const ROOT = join(import.meta.dirname, "..");
 

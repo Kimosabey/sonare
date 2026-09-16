@@ -32,6 +32,7 @@
 
 import { describe, expect, it } from "vitest";
 import { LANGUAGES, getLanguage } from "./index.js";
+import { HINDI } from "./hindi.js";
 import { buildReport } from "../report.js";
 import type { Activity, ActivityAttempt, ActivityProgress } from "../types.js";
 import type { PronunciationResult, ScoredWord } from "../../speech/scoring/types.js";
@@ -143,10 +144,10 @@ const ACTIVITY: Activity = {
   focus: "f",
 };
 
-describe("all four languages are shipped and addressable", () => {
-  it("ships exactly fr, es, de and hi, each with a locale and a slug", () => {
-    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es", "de", "hi"]);
-    expect(LANGUAGES.map((l) => l.code)).toEqual(["fr-FR", "es-ES", "de-DE", "hi-IN"]);
+describe("every offered language is shipped and addressable", () => {
+  it("offers exactly fr and es, each with a locale and a slug", () => {
+    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es"]);
+    expect(LANGUAGES.map((l) => l.code)).toEqual(["fr-FR", "es-ES"]);
     for (const language of LANGUAGES) {
       expect(getLanguage(language.slug)).toBe(language);
     }
@@ -173,6 +174,13 @@ describe("all four languages are shipped and addressable", () => {
 });
 
 describe("each language is written in its own script", () => {
+  /**
+   * Hindi is written but not offered — see `LANGUAGES`. The rule is still worth
+   * holding, because the set is one array entry from shipping and a
+   * transliterated target would be the kind of thing nobody re-checks on the
+   * way back in. Read from the module rather than through `getLanguage`, which
+   * now only answers for what is offered.
+   */
   it("keeps Hindi in Devanagari, with no transliteration anywhere", () => {
     /**
      * hi-IN's assessment expects Devanagari, and a transliterated target
@@ -181,9 +189,8 @@ describe("each language is written in its own script", () => {
      * between a learner reading their own language and reading a spelling of
      * it invented for English keyboards.
      */
-    const hindi = getLanguage("hi");
-    expect(hindi).toBeDefined();
-    for (const activity of hindi?.activities ?? []) {
+    expect(HINDI).toBeDefined();
+    for (const activity of HINDI.activities) {
       const where = `hi activity ${activity.id}`;
       expect(activity.target, where).toMatch(/\p{Script=Devanagari}/u);
       // Not one Latin letter in a target. The gloss and prompt are English

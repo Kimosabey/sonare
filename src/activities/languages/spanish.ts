@@ -21,6 +21,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "Hello, how are you?",
       target: "Hola, ¿cómo está usted?",
       focus: "The tapped /ɾ/ in cómo, and the /w/ glide in usted",
+      soundTargets: ["ho", "la", "mo", "ted"],
     },
     {
       id: 2,
@@ -30,6 +31,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "My name is María and I live in Madrid.",
       target: "Me llamo María y vivo en Madrid",
       focus: "The palatal /ʎ/ or /j/ in llamo, and final /d/ devoicing in Madrid",
+      soundTargets: ["lla", "mo", "rí", "drid"],
     },
     {
       id: 3,
@@ -39,6 +41,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "I would like a coffee and churros, please.",
       target: "Quisiera un café y churros, por favor",
       focus: "The trilled /r/ in churros, distinct from the tap in favor",
+      soundTargets: ["qui", "chu", "rros", "vor"],
     },
     {
       id: 4,
@@ -48,6 +51,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "There are forty-four guests at the wedding.",
       target: "Hay cuarenta y cuatro invitados en la boda",
       focus: "The /kw/ cluster in cuarenta and cuatro, and the silent h in Hay",
+      soundTargets: ["hay", "cua", "ren", "tro"],
     },
     {
       id: 5,
@@ -57,6 +61,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "Where is the nearest pharmacy?",
       target: "¿Dónde está la farmacia más cercana?",
       focus: "The Castilian θ in cercana — distinción, not seseo",
+      soundTargets: ["dón", "far", "cia", "cer"],
     },
     {
       id: 6,
@@ -66,6 +71,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "It is very cold and it is raining a lot today.",
       target: "Hace mucho frío y está lloviendo mucho hoy",
       focus: "The jota /x/ in mucho and hoy's silent h",
+      soundTargets: ["mu", "cho", "frí", "hoy"],
     },
     {
       id: 7,
@@ -75,6 +81,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "The concert starts at half past nine.",
       target: "El concierto empieza a las nueve y media",
       focus: "The θ in empieza, and the soft /ð/ in media",
+      soundTargets: ["cier", "za", "nue", "dia"],
     },
     {
       id: 8,
@@ -84,6 +91,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "How much do these black shoes cost?",
       target: "¿Cuánto cuestan estos zapatos negros?",
       focus: "The θ in cuánto and cuestan",
+      soundTargets: ["cuán", "cues", "za", "gros"],
     },
     {
       id: 9,
@@ -93,6 +101,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "The bill, please. It was exquisite.",
       target: "La cuenta, por favor. Estaba exquisito",
       focus: "The /ks/ cluster in exquisito, and the tap /ɾ/ in por favor",
+      soundTargets: ["cuen", "vor", "ex", "qui"],
     },
     {
       id: 10,
@@ -102,6 +111,7 @@ export const SPANISH: LanguageActivitySet = {
       gloss: "Goodbye, see you soon, and have a good night.",
       target: "Adiós, nos vemos pronto, que tengas una buena noche",
       focus: "The soft /β/ in vemos and buena, and the diphthong /we/ in buena",
+      soundTargets: ["diós", "ve", "pron", "bue"],
     },
   ],
 };

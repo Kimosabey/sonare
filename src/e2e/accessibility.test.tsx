@@ -80,6 +80,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+/** What a learner can actually open — this suite drives the real app. */
 import { LANGUAGES } from "../activities/languages/index.js";
 import {
   LEARNER_NAME_KEY,
@@ -136,16 +137,18 @@ vi.mock("../hooks/useWakeLock.js", () => ({ useWakeLock: () => undefined }));
 
 const FRENCH = (() => {
   const set = LANGUAGES.find((l) => l.slug === "fr");
-  if (!set) throw new Error("French is no longer a shipped language");
+  if (!set) throw new Error("French is no longer an offered language");
   return set;
 })();
 
-/** Devanagari, because a `lang` bug is invisible in Latin script. */
-const HINDI = (() => {
-  const set = LANGUAGES.find((l) => l.slug === "hi");
-  if (!set) throw new Error("Hindi is no longer a shipped language");
-  return set;
-})();
+/*
+ * Hindi used to be bound here, because Devanagari is what makes a missing
+ * `lang` a correctness bug rather than a polish one — an English voice given
+ * Devanagari says nothing rather than saying it wrongly. It is written but no
+ * longer offered, so it has no route through the app and cannot be driven
+ * here. The rule that it stays in Devanagari, untransliterated, still runs
+ * over `AUTHORED_SETS` in src/activities/languages/i18n.test.ts.
+ */
 
 /* ── the conservative accname subset ──────────────────────────────────────── */
 
@@ -513,18 +516,32 @@ describe("lang marks the language being taught, and only that", () => {
     }
   });
 
-  it("tags a Devanagari phrase too, where a missing tag is silence rather than an accent", async () => {
-    /**
-     * Hindi is the case that makes this a correctness bug rather than a
-     * polish one: an English voice given Devanagari does not mispronounce it,
-     * it says nothing.
-     */
-    await renderApp(`#/${HINDI.slug}`);
-    press(/^Start$/);
-    const activity = HINDI.activities[0];
-    if (!activity) throw new Error("Hindi has no first activity");
+  /**
+   * The rule holds for every offered language, not only the one the first case
+   * happens to use.
+   *
+   * This drove Hindi until Hindi stopped being offered, and it was the right
+   * language to pick: Devanagari is what makes a missing `lang` a correctness
+   * bug rather than a polish one, because an English voice given Devanagari
+   * does not mispronounce it — it says nothing at all. That set is still
+   * authored and its content rules still run (see `AUTHORED_SETS`), but it has
+   * no route, so the rule is exercised here against what a learner can
+   * actually open.
+   */
+  it("tags the phrase in every language the product offers", async () => {
+    for (const language of LANGUAGES) {
+      cleanup();
+      await renderApp(`#/${language.slug}`);
+      press(/^Start$/);
 
-    expect(screen.getByText(activity.target)).toHaveAttribute("lang", HINDI.code);
+      const activity = language.activities[0];
+      if (!activity) throw new Error(`${language.label} has no first activity`);
+
+      expect(screen.getByText(activity.target), language.label).toHaveAttribute(
+        "lang",
+        language.code,
+      );
+    }
   });
 
   it("tags the syllable and the word inside the score card", async () => {

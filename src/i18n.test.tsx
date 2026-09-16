@@ -26,7 +26,9 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { LANGUAGES } from "./activities/languages/index.js";
+// Authored rather than offered: these rules are about the quality of the
+// writing, which still applies to a set that is one array entry from shipping.
+import { AUTHORED_SETS as LANGUAGES } from "./activities/languages/index.js";
 import { ScoreCard } from "./speech/components/ScoreCard.js";
 import { SyllableChips } from "./speech/components/SyllableChips.js";
 import { WordChips } from "./speech/components/WordChips.js";
