@@ -49,13 +49,14 @@
  * that reads as a punishment is honest copy, not a currency to buy it back.
  */
 
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useLearnerName } from "../hooks/useLearnerName.js";
 import { allProgress, nextUp } from "../learning/nextUp.js";
 import { composeSession } from "../learning/composeSession.js";
 import { resolveLanguage } from "../content/resolve.js";
 import { readProgress } from "../hooks/useProgressPersistence.js";
 import { TodaysSitting } from "../components/TodaysSitting.js";
+import { hasOnboarded } from "../stores/onboardingStore.js";
 import { readStreak, daysInLast, practisedToday } from "../stores/streakStore.js";
 import { readSkills, weakestSkills, type SkillTrend } from "../stores/skillStore.js";
 
@@ -207,6 +208,25 @@ export function Today() {
   // with four zeroes on it. `nextUp` returns null exactly when no language has
   // a `lastPractisedAt`, which is the real first-visit signal.
   if (resume === null) {
+    /**
+     * A learner who has never been here goes through onboarding — boards
+     * 1a–1d, and then the microphone check.
+     *
+     * This redirect is the whole reason any of that is reachable. Without it
+     * the flow existed only if somebody typed `#/welcome`, so the microphone
+     * prompt fired on a learner's first record with none of the explanation
+     * board 1d puts in front of it — which is the one thing that board exists
+     * to prevent, given the browser asks once and iOS cannot be re-asked.
+     *
+     * Gated on the flag rather than on "has no progress", because those are
+     * different questions: a learner who read the explanation and chose
+     * "start with listening only" has been onboarded and has no progress, and
+     * sending them back would ignore the answer they just gave.
+     */
+    if (!hasOnboarded(learnerName)) {
+      return <Navigate to="/welcome" replace />;
+    }
+
     return (
       <section>
         <h2 className="enter-1">{learnerName === null ? "Welcome" : `Welcome, ${learnerName}`}</h2>

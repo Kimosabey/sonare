@@ -51,8 +51,29 @@ import type { RecorderState } from "../speech/capture/types.js";
  * going through the app — which is the only way to observe the things no
  * screen renders, such as the dirty flags or a `skipped` activity.
  */
+/**
+ * Marks the device as already onboarded, unless a suite says otherwise.
+ *
+ * Today redirects a learner who has never been through onboarding, so without
+ * this every end-to-end journey would begin on `#/welcome` instead of the
+ * screen it is about. A returning learner is the normal case these suites
+ * exercise; `firstRun.test.tsx` removes the key because the other case is
+ * precisely its subject.
+ */
+export const ONBOARDED_KEY = "sonare.onboarded.v1.anonymous";
+
 export function installStorage(seed?: Record<string, string>): Map<string, string> {
-  const data = new Map(Object.entries(seed ?? {}));
+  const stamp = "2026-01-01T00:00:00.000Z";
+  const named = seed?.[LEARNER_NAME_KEY];
+  const data = new Map(
+    Object.entries({
+      [ONBOARDED_KEY]: stamp,
+      // Per learner, so a suite that names one still gets the screen rather
+      // than the first-run flow that precedes it.
+      ...(named === undefined ? {} : { [`sonare.onboarded.v1.${named}`]: stamp }),
+      ...seed,
+    }),
+  );
   const storage: Storage = {
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => void data.set(key, String(value)),

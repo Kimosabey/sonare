@@ -42,6 +42,8 @@ import { knownLearners } from "../lib/learnerId.js";
 import { DeviceLink } from "../components/DeviceLink.js";
 import { clearProgress, readProgress } from "../hooks/useProgressPersistence.js";
 import { clearLearnerId, readLearnerId } from "../lib/learnerId.js";
+import { clearOnboarded } from "../stores/onboardingStore.js";
+import { clearCheck } from "../stores/micCheckStore.js";
 import { clearSkills, readSkills } from "../stores/skillStore.js";
 import { clearStreak, readStreak } from "../stores/streakStore.js";
 import { clearAllDirty, readDirty } from "../sync/dirty.js";
@@ -156,6 +158,14 @@ function eraseDevice(learnerName: string | null): void {
   clearAllDirty(learnerName);
   clearToken(learnerName);
   clearLearnerId(learnerName);
+  /**
+   * Including the onboarding flag and the sound-check verdict, so an erased
+   * learner is genuinely a fresh start: they meet the explanation of what
+   * happens to a recording again, and are not told a check passed on a record
+   * that no longer exists.
+   */
+  clearOnboarded(learnerName);
+  clearCheck(learnerName);
 }
 
 /**

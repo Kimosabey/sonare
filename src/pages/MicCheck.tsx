@@ -41,6 +41,7 @@ import {
 import { analyseSignal } from "../speech/capture/snr.js";
 import { writeCheck } from "../stores/micCheckStore.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
+import { resolveLanguages } from "../content/resolve.js";
 
 type Phase = "idle" | "listening" | "done";
 
@@ -59,6 +60,14 @@ export function MicCheck() {
   const env = useMicEnvironment();
   const navigate = useNavigate();
   const [learnerName] = useLearnerName();
+  /**
+   * Where "say your first phrase" goes. Onboarding does not persist the
+   * language it offered, so this is the first the app ships with rather than
+   * the one they tapped — and it falls back to Today if there is none, which
+   * only happens if the bundle carries no languages at all.
+   */
+  const firstSlug = resolveLanguages()[0]?.slug;
+  const firstLanguage = firstSlug === undefined ? "/" : `/${firstSlug}`;
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [levelDb, setLevelDb] = useState(FLOOR_DB);
@@ -375,8 +384,14 @@ export function MicCheck() {
         )}
 
         <div className="row">
+          {/*
+            A passing check goes into the phrase, not back to Today — board 1m.
+            A learner who has just passed a sound check is one tap from
+            speaking, and routing them to a dashboard first spends that tap on
+            navigation.
+          */}
           {result.verdict === "good" ? (
-            <button type="button" className="enter-cta" onClick={() => navigate("/")}>
+            <button type="button" className="enter-cta" onClick={() => navigate(firstLanguage)}>
               Say your first phrase
             </button>
           ) : (

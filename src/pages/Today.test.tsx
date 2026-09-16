@@ -30,8 +30,31 @@ import { Today } from "./Today.js";
 import { LANGUAGES } from "../activities/languages/index.js";
 import type { ActivityProgress } from "../activities/types.js";
 
+/**
+ * The onboarding flag, for whichever learner the seed names.
+ *
+ * It is keyed per learner, so seeding only `anonymous` leaves a named learner
+ * looking like a first visit — which renders a redirect and no roles at all.
+ * Both are seeded, because a suite that names a learner still wants the screen
+ * rather than the flow that precedes it.
+ */
+function onboardedSeed(seed?: Record<string, string>): Record<string, string> {
+  const stamp = "2026-01-01T00:00:00.000Z";
+  const named = seed?.["sonare.learnerName"];
+  return {
+    "sonare.onboarded.v1.anonymous": stamp,
+    ...(named === undefined ? {} : { [`sonare.onboarded.v1.${named}`]: stamp }),
+  };
+}
+
 function installStorage(seed?: Record<string, string>): Map<string, string> {
-  const data = new Map(Object.entries(seed ?? {}));
+  /**
+   * Onboarded by default: Today redirects a learner who has never been through
+   * the first-run flow, so without this every case here would render a
+   * redirect and no roles at all. The redirect itself is covered in
+   * `src/e2e/firstRun.test.tsx`, against the real app.
+   */
+  const data = new Map(Object.entries({ ...onboardedSeed(seed), ...seed }));
   Object.defineProperty(window, "localStorage", {
     configurable: true,
     value: {

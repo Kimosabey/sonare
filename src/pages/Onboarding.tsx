@@ -31,6 +31,7 @@ import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { resolveLanguages } from "../content/resolve.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
+import { markOnboarded } from "../stores/onboardingStore.js";
 import { useModelSpeech } from "../hooks/useModelSpeech.js";
 import { band } from "../speech/components/band.js";
 
@@ -63,7 +64,7 @@ const DEMO = {
 export function Onboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("demo");
-  const [, setLearnerName] = useLearnerName();
+  const [learnerName, setLearnerName] = useLearnerName();
   const [typedName, setTypedName] = useState("");
   const languages = resolveLanguages();
   const [slug, setSlug] = useState(languages[0]?.slug ?? "fr");
@@ -288,10 +289,29 @@ export function Onboarding() {
       </div>
 
       <div className="row">
-        <button type="button" className="enter-cta" onClick={() => navigate("/check")}>
+        {/*
+          Marked on the way out by **either** route. A learner who declines the
+          microphone has still been onboarded — they read the explanation and
+          answered — so sending them back through it would ignore the answer
+          they just gave.
+        */}
+        <button
+          type="button"
+          className="enter-cta"
+          onClick={() => {
+            markOnboarded(learnerName);
+            navigate("/check");
+          }}
+        >
           Ask for the microphone
         </button>
-        <button type="button" onClick={() => navigate(`/${slug}`)}>
+        <button
+          type="button"
+          onClick={() => {
+            markOnboarded(learnerName);
+            navigate(`/${slug}`);
+          }}
+        >
           Not yet — start with listening only
         </button>
       </div>
