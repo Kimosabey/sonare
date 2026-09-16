@@ -663,3 +663,46 @@ The device-link flake is properly fixed. `waitFor` advances fake timers *itself*
 while polling, so `findBy` could run the fake clock past the expiry before the
 code was found — the test was failing on its own setup, and widening the window
 could not help because the advancing is unbounded.
+### 2026-09-16 — Every route mounted in the real app (0eee38d)
+
+**The gap that had gone unnoticed.** Each screen had its own suite and every one
+rendered the component *in isolation* — own router, own stubs, no shell. Five
+screens went in over two days and **none was mounted through `App` by any
+test**. A screen can be thoroughly tested and still be unable to render inside
+the actual application.
+
+It found a real defect immediately, on exactly the three routes added this
+session. `#/welcome`, `#/check` and `#/fr/journey` each rendered **two `<h1>`s**
+— the screen's own, and above it the shell's saying **"Today"**, because the
+shell derives a heading from the path and recognised none of them. A
+screen-reader user navigating by heading met a wrong label before the right one.
+
+Fixed by naming the routes whose screens title themselves, rather than moving
+all eight older screens onto their own headings — eight screens and their tests,
+for a defect three routes wide. The invariant is asserted for *every* route now,
+so a screen on either side of that line cannot reintroduce the pair.
+
+**Two mistakes of mine, the same shape.** The first version waited for "some
+heading exists", which the shell satisfies in the first frame everywhere — so it
+reported three working screens as broken, and a follow-up probe inherited the
+flaw and reported one heading on every route. Waiting for the *expected* thing
+rather than for any thing is what made both honest. Worth remembering: a wait
+that the wrong state also satisfies is not a wait.
+
+**Production build verified by hand**, which no gate does: `vite preview` serves
+the shell, the manifest, the service worker and all three new lazy chunks
+(Journey, MicCheck, Onboarding) at 200. The service worker is runtime-caching
+with no precache manifest — a documented trade, so the new chunks cache on first
+visit rather than at install.
+
+### Where this leaves the queue
+
+Every item that can be built without an owner decision is done: **19 of 24**.
+The five that remain are C12 and N8 (the formant estimator, parked with a
+diagnosis), N7 (authored linguistic data), N10 (needs Playwright installed) and
+N11 (hands-on-device).
+
+**Not in this queue and worth naming:** the **Teacher board** has no item. It was
+scoped out as a secondary surface on its own address — B2C learner-first, not
+reachable from the learner's four tabs — and it sits behind the teacher-accounts
+decision already listed as blocked.
