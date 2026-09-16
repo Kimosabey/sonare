@@ -216,6 +216,30 @@ function Header() {
     );
   }
 
+  /**
+   * Screens that render their own `<h1>`, where the shell must not.
+   *
+   * Every screen that shipped before the course work relied on the shell for
+   * its heading, and the ones added since name themselves — which produced
+   * **two** `<h1>`s on each of these routes, the shell's saying "Today"
+   * because it did not recognise the path. A screen-reader user navigating by
+   * heading landed on a wrong label before the right one.
+   *
+   * Listed rather than inferred, because the alternative — moving every screen
+   * onto its own heading — is a change to eight screens' markup and their
+   * tests for a defect that is three routes wide. The route-level test asserts
+   * exactly one `<h1>` everywhere, so a screen added on either side of this
+   * line cannot reintroduce the pair silently.
+   */
+  const ownsItsHeading =
+    location.pathname === "/welcome" ||
+    location.pathname === "/check" ||
+    /^\/[a-z]{2}\/journey$/.test(location.pathname);
+
+  if (ownsItsHeading) {
+    return <div className="eyebrow">Sonare · phoneme pronunciation scoring</div>;
+  }
+
   // Parsed straight from the path rather than via useParams() — the header
   // sits outside the <Routes> tree that actually matches /:slug, so it has
   // no route params of its own to read.
