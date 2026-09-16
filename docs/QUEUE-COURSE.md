@@ -706,3 +706,54 @@ N11 (hands-on-device).
 scoped out as a secondary surface on its own address — B2C learner-first, not
 reachable from the learner's four tabs — and it sits behind the teacher-accounts
 decision already listed as blocked.
+### 2026-09-16 — the flow, the scope, and the widths
+
+**The end-to-end validation found the flow broken at the front door** (923f783).
+`#/welcome` was reachable by nobody — no link, no redirect — so a first visit
+went Today → picker → straight into an activity, and boards 1a–1d plus all eight
+mic-check states existed only if somebody typed the URL. The check was worse
+than unreachable, it was **circular**: its only inbound link is the carried
+verdict line, which renders only once a verdict is stored, and none could be.
+
+Every screen in that flow had a passing suite. The flow had none, because no
+test mounted the *entry*. That is how a whole feature came to be built, tested
+and unreachable.
+
+**Scope is French and Spanish** (2086453), and Spanish had no course — it was a
+flat ten-phrase set while German, now out of scope, was the one with a spine. It
+now has eighteen activities across three units, mirroring French: the bundled
+ten plus eight written here, four `read` and four `recall`, without which two of
+the five kinds were unreachable in Spanish whatever the screens supported.
+
+Every syllable was verified against its own phrase and every target for
+uniqueness before anything was written. **What no check can tell us is whether
+the Spanish is good Spanish** — every phrase, gloss, focus line and can-do
+statement is mine, flagged as a draft in the file, and each target is scored
+against, so a phrase that reads oddly to a native speaker is one a learner is
+marked on.
+
+`AUTHORED_SETS` is now separate from `LANGUAGES`, and the split is worth more
+than the scope change: *offered* is a product decision, *authored* is what
+content rules apply to. Without it, taking a language out of the product would
+have silently taken its content rules out with it.
+
+**The widths** (b21d72c), boards 1o/1p/1i/1j. One of the four is a fix rather
+than a layout: the **device picker**. The commonest reason a check comes back
+silent is the wrong input selected, and the check could report silence while
+offering nothing to do about it. `deviceId: { exact }` rather than a preference,
+because a soft constraint falls back to the default silently — which would mean
+picking a headset, getting the built-in microphone, and being told that is how
+you sound.
+
+### Where this leaves it
+
+Every buildable queue item is done, and so is the per-width work that was the
+remainder of the design migration. What is left needs an owner decision: C12 and
+N8 (the parked formant estimator), N7 (authored linguistic data), N10
+(Playwright), N11 (hands-on-device), and the Teacher board.
+
+**Two things still outstanding that are not queue items:**
+
+- `LEARNER_TOKEN_SECRET` is absent from `.env`, so registration, `GET /next`,
+  sync and device linking all 503 on the running dev server.
+- The Spanish content wants a native reader before it ships.
