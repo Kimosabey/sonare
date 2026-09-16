@@ -312,6 +312,47 @@ export function ActivityTest() {
    * compared against a memory.
    */
   const compare = useCompareToModel(playback, model, activeLanguage?.code ?? "en-US");
+
+  /**
+   * Tapping a syllable: hear yourself, then the model saying the word it came
+   * from — board 1e.
+   *
+   * Both halves already existed and only ever met on the weakest syllable,
+   * behind a "Hear yours, then mine" button. Everywhere else a tap played the
+   * learner back and stopped, which is the half that cannot teach anything:
+   * hearing your own vowel again tells you what you did, not what to aim at.
+   *
+   * The word is found from the result rather than threaded through
+   * `WordChips` → `PhonemeDetail` → `SyllableChips` as a fourth argument.
+   * Those three pass the handler straight down and none of them needs to know
+   * what it does; widening all of them so the last could carry a value the
+   * first already has would be three signatures changed to avoid one lookup.
+   *
+   * Falls back to playing the take alone whenever the comparison is not
+   * available — no voice for the language, which is the ordinary case for
+   * Hindi on some devices — because a tap that did nothing would read as a
+   * broken chip.
+   */
+  const hearSyllable = useCallback(
+    (syllable: { offsetTicks: number; durationTicks: number }) => {
+      const owner = recorder.result?.indeterminate
+        ? undefined
+        : recorder.result?.words.find((word) =>
+            word.syllables.some((s) => s.offsetTicks === syllable.offsetTicks),
+          );
+
+      if (compare.available && owner !== undefined) {
+        compare.compare({
+          offsetTicks: syllable.offsetTicks,
+          durationTicks: syllable.durationTicks,
+          word: owner.word,
+        });
+        return;
+      }
+      playback.play(syllable.offsetTicks, syllable.durationTicks);
+    },
+    [compare, playback, recorder.result],
+  );
   const weakest = recorder.result ? weakestSyllable(recorder.result) : null;
 
   /**
@@ -1168,9 +1209,7 @@ export function ActivityTest() {
                 lang={activeLanguage.code}
                 previousBest={bestBeforeAttempt}
                 detailed={debugEnabled}
-                {...(playback.available
-                  ? { onSelectSyllable: (s: { offsetTicks: number; durationTicks: number }) => playback.play(s.offsetTicks, s.durationTicks) }
-                  : {})}
+                {...(playback.available ? { onSelectSyllable: hearSyllable } : {})}
                 playingOffsetTicks={playback.playingOffsetTicks}
               />
             ) : recorder.state === "processing" ? (

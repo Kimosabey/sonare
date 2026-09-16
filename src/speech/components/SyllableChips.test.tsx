@@ -298,7 +298,7 @@ describe("SyllableChips — replay affordance", () => {
     // screen reader user hears it once per syllable, every word.
     render(<SyllableChips syllables={NAMED} onSelect={() => undefined} />);
 
-    expect(screen.getByText(/tap a syllable to hear it back/i)).toBeInTheDocument();
+    expect(screen.getByText(/tap a syllable to hear yourself, then the model/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "bon, scored 100 out of 100" })).toBeInTheDocument();
   });
 

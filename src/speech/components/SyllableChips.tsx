@@ -96,8 +96,14 @@ function SyllableChipsBase({ syllables, onSelect, id, lang, playingOffsetTicks }
          * "Activate to hear it back" on twelve chips is heard twelve times,
          * and an accessible name should say what a control *is*, not how to
          * operate it — the button role already carries that.
+         *
+         * It says "then the model" because that is what a tap does now (board
+         * 1e). It used to play the take alone, and "hear it back" described
+         * that honestly — but hearing your own vowel again tells you what you
+         * did, not what to aim at. The model follows wherever the platform has
+         * a voice for the language.
          */
-        <p className="hint sy-hint">Tap a syllable to hear it back.</p>
+        <p className="hint sy-hint">Tap a syllable to hear yourself, then the model.</p>
       )}
       {total === 0 ? (
         <span className="hint">{NO_SYLLABLES_COPY}</span>
