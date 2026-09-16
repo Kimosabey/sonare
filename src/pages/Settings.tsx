@@ -40,6 +40,7 @@ import { resolveLanguages } from "../content/resolve.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
 import { knownLearners } from "../lib/learnerId.js";
 import { DeviceLink } from "../components/DeviceLink.js";
+import { ClassPromise } from "../components/ClassPromise.js";
 import { clearProgress, readProgress } from "../hooks/useProgressPersistence.js";
 import { clearLearnerId, readLearnerId } from "../lib/learnerId.js";
 import { clearOnboarded } from "../stores/onboardingStore.js";
@@ -402,6 +403,17 @@ export function Settings() {
 
       <section>
         <DeviceLink learnerName={learnerName} />
+      </section>
+
+      {/*
+        Board 1h's right-hand panel, on the You tab where the board puts it —
+        "so a pupil can check the promise rather than take it".
+        Shown before any class exists, because the list is what the decision to
+        join would need, and it is true of this app whether or not a class is
+        ever joined.
+      */}
+      <section>
+        <ClassPromise />
       </section>
 
       <section>
