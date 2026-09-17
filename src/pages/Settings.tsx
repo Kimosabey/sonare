@@ -41,6 +41,7 @@ import { useLearnerName } from "../hooks/useLearnerName.js";
 import { knownLearners } from "../lib/learnerId.js";
 import { DeviceLink } from "../components/DeviceLink.js";
 import { ClassPromise } from "../components/ClassPromise.js";
+import { JoinClassFlow } from "../components/JoinClassFlow.js";
 import { clearProgress, readProgress } from "../hooks/useProgressPersistence.js";
 import { clearLearnerId, readLearnerId } from "../lib/learnerId.js";
 import { clearOnboarded } from "../stores/onboardingStore.js";
@@ -414,6 +415,13 @@ export function Settings() {
       */}
       <section>
         <ClassPromise />
+        {/*
+          Directly under the promise, because the promise is what the decision
+          needs. Board 1c puts the pupil's join on the You tab and shows them
+          this same list before they agree — reading it and acting on it are
+          one flow rather than two screens.
+        */}
+        <JoinClassFlow learnerName={learnerName} />
       </section>
 
       <section>

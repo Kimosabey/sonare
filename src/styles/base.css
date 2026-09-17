@@ -86,8 +86,37 @@ header::after {
   animation: draw-rule var(--dur-slow) var(--ease) 260ms both;
 }
 
+/* ── iOS gestures the app has to opt out of ────────────────────────────────
+ *
+ * `overscroll-behavior-y: contain` stops two things that are fine on a web
+ * page and wrong in an installed app. Pull-to-refresh at the top of Today
+ * reloads the page — during a sitting that discards a take in flight, and the
+ * gesture is an easy accident on a phone held one-handed. Scroll chaining is
+ * the other: dragging past the end of the syllable list would otherwise scroll
+ * the page behind it.
+ *
+ * `contain` rather than `none`, so the rubber-band bounce at the end of a
+ * scroll is kept. That bounce is the feedback telling an iOS reader they have
+ * reached the end, and removing it makes the app feel like a web page in a
+ * frame.
+ */
+html,
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Every image is bounded by its container before anything else styles it.
+   One image ships today, which is exactly when a rule like this is cheap. */
+img {
+  max-width: 100%;
+}
+
 .logo {
   height: 28px;
+  /* Stated rather than left to the default. `auto` against a fixed height is
+     what makes the intrinsic ratio on the element decide the width, so the
+     wordmark can never be stretched by a container. */
+  width: auto;
   display: block;
   animation: rise-in var(--dur-standard) var(--ease) both;
 }

@@ -22,11 +22,32 @@
 
 import { describe, expect, test } from "vitest";
 
-const modules = import.meta.glob("../**/*.{ts,tsx}", {
+const globbed = import.meta.glob("../**/*.{ts,tsx}", {
   query: "?raw",
   import: "default",
   eager: true,
 }) as Record<string, string>;
+
+/**
+ * Paths as `src/<dir>/<file>`, rather than as Vite hands them over.
+ *
+ * `import.meta.glob` returns paths relative to *this* file, so a sibling in
+ * `src/components/` arrives as `./VowelChart.tsx` and everything else as
+ * `../pages/Today.tsx`. The first version of this file filtered components
+ * with `path.includes("/components/")`, which no sibling ever matches — so the
+ * component check ran against an empty list and passed for every build.
+ *
+ * That is the same failure this file was written to catch, in the file that
+ * catches it: green, silent, and vouching for nothing. The hook check was
+ * unaffected — `../hooks/…` does contain its directory — which is why the
+ * mutation run at the time reported the guard as working.
+ */
+const modules: Record<string, string> = Object.fromEntries(
+  Object.entries(globbed).map(([path, source]) => [
+    path.startsWith("./") ? `src/components/${path.slice(2)}` : `src/${path.replace(/^\.\.\//, "")}`,
+    source,
+  ]),
+);
 
 /** Source files that ship — tests are not evidence that anything is reachable. */
 function shipping(): [string, string][] {

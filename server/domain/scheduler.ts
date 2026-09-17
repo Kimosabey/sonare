@@ -49,8 +49,8 @@ export const LADDER = [1, 3, 7, 16, 35] as const;
  * band is about colour and this is about curriculum. Sharing them would mean
  * that restyling a chip silently rescheduled every learner's practice.
  */
-const STRONG = 80;
-const WEAK = 60;
+export const STRONG = 80;
+export const WEAK = 60;
 
 /**
  * How much the most recent samples outweigh the oldest.

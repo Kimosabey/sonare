@@ -6,6 +6,7 @@ import { syncRouter } from "./routes/sync.js";
 import { nextRouter } from "./routes/next.js";
 import { healthRouter } from "./routes/health.js";
 import { contentRouter } from "./routes/content.js";
+import { classesRouter } from "./routes/classes.js";
 import { modelVoiceRouter } from "./routes/modelVoice.js";
 import { warnIfIdentityDisabled } from "./identity.js";
 import { countPending, replayPending } from "./fallbackLog.js";
@@ -58,6 +59,7 @@ app.use("/api/v1", learnersRouter);
 app.use("/api/v1", syncRouter);
 app.use("/api/v1", nextRouter);
 app.use("/api/v1", contentRouter);
+app.use("/api/v1", classesRouter);
 /**
  * The cached model voice, as static files. Mounted here rather than at the
  * root because the dev server proxies exactly `/api` to this process, so one

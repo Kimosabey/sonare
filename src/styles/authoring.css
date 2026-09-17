@@ -288,7 +288,12 @@
   .authoring-col {
     position: sticky;
     top: var(--space-4);
+    /* `vh` first as the fallback, then `dvh`. On iOS Safari `100vh` is the
+       viewport *with the URL bar hidden*, so a column sized to it is taller
+       than the screen until the bar retracts — the classic jump. `dvh`
+       tracks the bar. */
     max-height: calc(100vh - var(--space-8));
+    max-height: calc(100dvh - var(--space-8));
     overflow-y: auto;
   }
 }

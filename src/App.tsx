@@ -43,6 +43,7 @@ const FixtureRunner = lazy(() =>
  * carries an editor for every field of every activity, and the learner who
  * opens it is nobody.
  */
+const Teacher = lazy(() => import("./pages/Teacher.js").then((m) => ({ default: m.Teacher })));
 const Authoring = lazy(() =>
   import("./pages/Authoring.js").then((m) => ({ default: m.Authoring })),
 );
@@ -354,7 +355,23 @@ function Shell() {
   return (
     <div className={inSitting ? "wrap" : "wrap has-tabs"}>
       <header>
-        <img className="logo" src="/brand/wordmark-purple.png" alt="Lingotran" />
+        {/*
+          `width` and `height` carry the *intrinsic* size, not the rendered
+          one. CSS sets the height to 28px and leaves the width automatic, so
+          these attributes are read only for the ratio — which is what lets the
+          browser reserve the right box before the PNG has downloaded. Without
+          them the header is zero-width on first paint and everything beside it
+          jumps when the image arrives.
+        */}
+        <img
+          className="logo"
+          src="/brand/wordmark-purple.png"
+          alt="Lingotran"
+          width={1819}
+          height={571}
+          /* Decoded off the main thread; nothing is waiting on it. */
+          decoding="async"
+        />
         {/*
           The way back, on every screen that is not a tab root — board 1e.
           An installed iOS PWA has no browser back button at all, so without
@@ -405,6 +422,9 @@ function Shell() {
           <Route path="/check" element={<MicCheck />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/authoring" element={<Authoring />} />
+          {/* Internal, like /authoring and /diagnostics — linked from nowhere,
+              and deliberately absent from the learner's four tabs. */}
+          <Route path="/teacher" element={<Teacher />} />
           <Route path="/:slug" element={<ActivityTestRoute />} />
         </Routes>
         </ScreenTransition>

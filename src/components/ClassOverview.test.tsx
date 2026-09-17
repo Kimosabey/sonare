@@ -14,42 +14,57 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClassOverview } from "./ClassOverview.js";
-import { summariseClass, type PupilPractice } from "../teacher/classSummary.js";
+import type { ClassSummary, SoundDifficulty } from "../teacher/classSummary.js";
 import { forbiddenPathsIn } from "../teacher/promise.js";
 
 afterEach(cleanup);
 
-function pupil(id: string, over: Partial<PupilPractice> = {}): PupilPractice {
-  return { pupilId: id, standing: {}, days: [], ...over };
+/**
+ * A summary in the shape the server sends, with the board's own numbers: a
+ * class of 28, 9 / 13 / 6 on ʁ, and 22 of them still working on it.
+ *
+ * Built directly rather than by running the aggregator. The aggregator lives
+ * on the server and has its own tests; what this file is for is what the
+ * screen does with a summary, and a fixture that went through
+ * `summariseClass` would make every assertion here depend on two things.
+ */
+function sound(over: Partial<SoundDifficulty> = {}): SoundDifficulty {
+  return {
+    grapheme: "ʁ",
+    justStarted: 9,
+    gettingThere: 13,
+    holding: 6,
+    takes: 224,
+    working: 22,
+    notYet: 0,
+    ...over,
+  };
 }
 
-/** A class of 28 with the board's own distribution on ʁ: 9 / 13 / 6. */
-function boardClass(): PupilPractice[] {
-  const make = (n: number, prefix: string, standing: PupilPractice["standing"][string]) =>
-    Array.from({ length: n }, (_, i) =>
-      pupil(`${prefix}${i}`, {
-        standing: { "ʁ": standing },
-        takes: { "ʁ": 8 },
-        days: ["2026-09-14", "2026-09-15"],
-      }),
-    );
-
-  return [...make(9, "a", "just-started"), ...make(13, "b", "getting-there"), ...make(6, "c", "holding")];
+function boardSummary(over: Partial<Extract<ClassSummary, { reportable: true }>> = {}): ClassSummary {
+  return {
+    reportable: true,
+    joinedCount: 28,
+    sounds: [sound()],
+    attendance: [
+      { day: "2026-09-14", practisedCount: 17 },
+      { day: "2026-09-15", practisedCount: 19 },
+    ],
+    ...over,
+  };
 }
 
-function show(pupils: PupilPractice[], over: Partial<Parameters<typeof ClassOverview>[0]> = {}) {
-  const onOpenSound = over.onOpenSound;
+function show(summary: ClassSummary, over: Partial<Parameters<typeof ClassOverview>[0]> = {}) {
   render(
     <ClassOverview
       className="Year 9 French"
       code="fr-FR"
-      summary={summariseClass(pupils)}
+      summary={summary}
       expectedCount={31}
       heardIn={{ "ʁ": ["voudrais", "très", "proche"] }}
       {...over}
     />,
   );
-  return { onOpenSound };
 }
 
 describe("what it will not show", () => {
@@ -59,21 +74,12 @@ describe("what it will not show", () => {
    * second column exists.
    */
   it("offers no way to sort the class", () => {
-    show(boardClass());
+    show(boardSummary());
 
     const headers = screen.getAllByRole("columnheader");
     for (const header of headers) {
       expect(within(header).queryByRole("button")).toBeNull();
       expect(header).not.toHaveAttribute("aria-sort");
-    }
-  });
-
-  it("names no pupil, because it was never given one", () => {
-    const pupils = boardClass();
-    show(pupils);
-
-    for (const p of pupils) {
-      expect(document.body.textContent ?? "").not.toContain(p.pupilId);
     }
   });
 
@@ -83,7 +89,7 @@ describe("what it will not show", () => {
    * child enters the payload — before any markup could render it.
    */
   it("is handed nothing the promise forbids", () => {
-    expect(forbiddenPathsIn(summariseClass(boardClass()))).toEqual([]);
+    expect(forbiddenPathsIn(boardSummary())).toEqual([]);
   });
 
   /**
@@ -96,7 +102,7 @@ describe("what it will not show", () => {
    * it caught nothing at all.
    */
   it("renders attendance as a list of day counts, not as a table", () => {
-    show(boardClass());
+    show(boardSummary());
 
     expect(screen.getByText("Turning up")).toBeInTheDocument();
     const strip = document.querySelector(".class-attendance-strip");
@@ -109,7 +115,7 @@ describe("what it will not show", () => {
    * if a score column is ever added beside them.
    */
   it("has exactly the four columns the board names", () => {
-    show(boardClass());
+    show(boardSummary());
 
     expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
       "Sound",
@@ -122,39 +128,39 @@ describe("what it will not show", () => {
 
 describe("sound difficulty", () => {
   it("counts pupils, not an average", () => {
-    show(boardClass());
+    show(boardSummary());
 
     expect(screen.getByText("22 of 28")).toBeInTheDocument();
   });
 
   it("shows the words a sound is heard in, marked as the content language", () => {
-    show(boardClass());
+    show(boardSummary());
 
     expect(screen.getByText("voudrais · très · proche")).toHaveAttribute("lang", "fr-FR");
   });
 
   it("shows how many takes the class has made on it", () => {
-    show(boardClass());
+    show(boardSummary());
 
     // Twenty-eight pupils at eight takes each.
     expect(screen.getByText("224")).toBeInTheDocument();
   });
 
   it("leads with the hardest sound as something worth a lesson", () => {
-    show(boardClass());
+    show(boardSummary());
 
     expect(screen.getByText(/a class problem, not 22 individual ones/)).toBeInTheDocument();
   });
 
   it("opens a sound when asked, and only when a handler was given", () => {
     const onOpenSound = vi.fn();
-    show(boardClass(), { onOpenSound });
+    show(boardSummary(), { onOpenSound });
 
     screen.getByRole("button", { name: "ʁ" }).click();
     expect(onOpenSound).toHaveBeenCalledWith("ʁ");
 
     cleanup();
-    show(boardClass());
+    show(boardSummary());
     expect(screen.queryByRole("button", { name: "ʁ" })).toBeNull();
   });
 });
@@ -165,13 +171,13 @@ describe("pupils who have not joined", () => {
    * have or have not practised." A count of them is the whole of it.
    */
   it("states how many have not joined and nothing else about them", () => {
-    show(boardClass());
+    show(boardSummary());
 
     expect(screen.getByText(/3 pupils have not joined/)).toBeInTheDocument();
   });
 
   it("says nothing at all when the teacher has not said how many to expect", () => {
-    show(boardClass(), { expectedCount: null });
+    show(boardSummary(), { expectedCount: null });
 
     expect(screen.queryByText(/have not joined/)).toBeNull();
     expect(screen.getByText(/28 joined/)).toBeInTheDocument();
@@ -184,14 +190,14 @@ describe("a class too small to describe", () => {
    * would be read as "nobody is struggling", which is the opposite of unknown.
    */
   it("explains why there are no counts, rather than showing an empty table", () => {
-    show([pupil("a", { standing: { "ʁ": "getting-there" } }), pupil("b")]);
+    show({ reportable: false, joinedCount: 2, reason: "class-too-small" });
 
     expect(screen.getByText(/too small to describe as a group/i)).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
   });
 
   it("does not leak the sounds it is withholding", () => {
-    show([pupil("a", { standing: { "ʁ": "getting-there" } })]);
+    show({ reportable: false, joinedCount: 1, reason: "class-too-small" });
 
     expect(document.body.textContent ?? "").not.toContain("ʁ");
   });

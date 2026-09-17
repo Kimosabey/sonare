@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from "vitest";
 import { MIN_REPORTABLE_CLASS, summariseClass, type PupilPractice } from "./classSummary.js";
-import { forbiddenPathsIn } from "./promise.js";
+import { forbiddenPathsIn } from "../../src/teacher/promise.js";
 
 function pupil(id: string, over: Partial<PupilPractice> = {}): PupilPractice {
   return { pupilId: id, standing: {}, days: [], ...over };
