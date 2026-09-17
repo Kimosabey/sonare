@@ -70,6 +70,21 @@ export const SHARED_WITH_CLASS: readonly SharedFact[] = [
     because: "So a class can be taught what it has actually reached.",
   },
   {
+    /**
+     * Added when board 1g was built, because that screen shows a teacher which
+     * sounds each pupil is working on — and this list, which is what a pupil
+     * is shown before agreeing, did not mention it. The board's rule is that
+     * neither side is told a different story, and the side that was wrong was
+     * this one.
+     *
+     * Shareable because it is not a figure: which sounds, never how well. The
+     * teacher's own screen says so in those words.
+     */
+    label: "Which sounds you are working on",
+    because:
+      "So a teacher can see whether the class is stuck on the same sounds, and teach them.",
+  },
+  {
     label: "Your first name, if you gave one",
     because: "So a teacher can talk to you rather than to a row in a table.",
   },
@@ -130,6 +145,11 @@ export const TEACHER_WILL_SEE: readonly SharedFact[] = [
   {
     label: "Which lessons the class has been through",
     because: "So a class can be taught what it has actually reached.",
+  },
+  {
+    label: "Which sounds each pupil is working on",
+    because:
+      "Which sounds, never how well — it is the one per-pupil fact on this screen, and it is not a measurement of them.",
   },
 ];
 

@@ -52,12 +52,53 @@ describe("the destinations", () => {
    * the app, and these are four short words. The glyphs are decorative, so a
    * screen reader announces each destination once rather than twice.
    */
-  it("labels every tab, and announces the glyph as nothing", () => {
+  it("labels every tab, and announces the mark as nothing", () => {
     show({ slug: "fr" });
 
     expect(screen.getByRole("link", { name: "Today" })).toBeInTheDocument();
-    for (const glyph of document.querySelectorAll(".tab-glyph")) {
-      expect(glyph).toHaveAttribute("aria-hidden", "true");
+
+    const marks = document.querySelectorAll(".tab-icon");
+    // Asserted rather than assumed: the loop below vouches for nothing if the
+    // selector matches no elements, which is exactly what happened when the
+    // marks stopped being `.tab-glyph` spans and this test kept passing.
+    expect(marks).toHaveLength(4);
+    for (const mark of marks) {
+      expect(mark).toHaveAttribute("aria-hidden", "true");
+    }
+  });
+
+  /**
+   * Drawn, not typed. `⚙` U+2699 defaults to *emoji* presentation on iOS and
+   * Android with no U+FE0E selector, so one tab in four rendered as a
+   * full-colour gear beside three monochrome outlines — and a colour emoji
+   * ignores `color`, so the current state's colour never reached it.
+   */
+  it("draws every mark rather than typing a character", () => {
+    show({ slug: "fr" });
+
+    const marks = [...document.querySelectorAll(".tab-icon")];
+    expect(marks).toHaveLength(4);
+    for (const mark of marks) {
+      expect(mark.tagName.toLowerCase()).toBe("svg");
+      // Takes the tab's colour, which is what the emoji could not do.
+      expect(mark.getAttribute("stroke")).toBe("currentColor");
+    }
+  });
+
+  /**
+   * No tab renders a character from the ranges that default to emoji. Written
+   * as a rule over the whole bar rather than as a check on the gear, so
+   * reaching for another decorative codepoint later fails here.
+   */
+  it("carries no character that a platform may render in colour", () => {
+    show({ slug: "fr" });
+
+    const text = document.querySelector(".tabs")?.textContent ?? "";
+    for (const character of text) {
+      const cp = character.codePointAt(0) ?? 0;
+      const defaultsToEmoji =
+        cp === 0x2699 || cp === 0x2600 || cp === 0x26a0 || (cp >= 0x1f300 && cp <= 0x1faff);
+      expect(defaultsToEmoji, `U+${cp.toString(16)} may render as a colour emoji`).toBe(false);
     }
   });
 

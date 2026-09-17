@@ -24,6 +24,7 @@
  * sitting in progress" is the session's fact, not navigation's.
  */
 
+import { TabIcon, type TabIconProps } from "./TabIcon.js";
 import { NavLink } from "react-router-dom";
 
 export interface NavigationProps {
@@ -35,9 +36,7 @@ export interface NavigationProps {
 
 interface Destination {
   to: string;
-  label: string;
-  /** Decorative: the label beside it is what is announced. */
-  glyph: string;
+  label: TabIconProps["name"];
 }
 
 export function Navigation({ slug, hidden = false }: NavigationProps) {
@@ -51,10 +50,10 @@ export function Navigation({ slug, hidden = false }: NavigationProps) {
    * use it is one nobody can learn.
    */
   const destinations: Destination[] = [
-    { to: "/", label: "Today", glyph: "▣" },
-    { to: slug === null ? "/languages" : `/${slug}/journey`, label: "Journey", glyph: "☰" },
-    { to: slug === null ? "/languages" : `/${slug}/progress`, label: "Progress", glyph: "△" },
-    { to: "/settings", label: "You", glyph: "⚙" },
+    { to: "/", label: "Today" },
+    { to: slug === null ? "/languages" : `/${slug}/journey`, label: "Journey" },
+    { to: slug === null ? "/languages" : `/${slug}/progress`, label: "Progress" },
+    { to: "/settings", label: "You" },
   ];
 
   return (
@@ -73,12 +72,11 @@ export function Navigation({ slug, hidden = false }: NavigationProps) {
               className={({ isActive }) => (isActive ? "tab is-current" : "tab")}
             >
               {/*
-                Decorative. The label below carries the name, so announcing the
-                glyph as well would read every destination twice.
+                Decorative, and drawn rather than typed — see TabIcon. The
+                label below carries the name, so announcing the mark as well
+                would read every destination twice.
               */}
-              <span className="tab-glyph" aria-hidden="true">
-                {destination.glyph}
-              </span>
+              <TabIcon name={destination.label} />
               {/*
                 Always rendered, never hidden at narrow widths. An icon-only
                 tab bar is a guessing game for anyone who does not already know

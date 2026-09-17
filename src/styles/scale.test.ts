@@ -163,7 +163,7 @@ describe("font sizes come from the scale", () => {
      * `.journey-unit-head h2`, `.journey-count` and `.journey-outcome`, and +1
      * for `.sitting-tag`, the NEW/DUE marks on Today's sitting (all
      * src/styles/activity.css), and +5 for the four-destination navigation:
-     * `.tab`, `.tab-glyph`, `.tab` again at the sidebar width, `.back-link`
+     * `.tab`, `.tab` again at the sidebar width, `.back-link`
      * and `.back-chevron` (src/styles/components/navigation.css), and +2 for
      * the device link: `.link-code` and `.device-link h4`
      * (src/styles/settings.css), and +1 for `.leave-dialog h2`, the
@@ -194,7 +194,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(94);
+    expect(onScale.length).toBe(93);
   });
 });
 
