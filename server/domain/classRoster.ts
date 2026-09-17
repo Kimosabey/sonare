@@ -83,8 +83,6 @@ export interface PupilRow {
  */
 export const MIN_TAKES_FOR_CAPTURE_HEALTH = 5;
 
-/** The share of unusable takes at which a teacher should look at the device. */
-export const CAPTURE_CONCERN_RATIO = 0.5;
 
 /**
  * Builds the roster, alphabetically, with no figure anywhere in it.
@@ -134,19 +132,4 @@ export function buildRoster(
       anonymous: true,
     })),
   ].map(({ sharedName: _sharedName, ...row }) => row);
-}
-
-/** Whether a row's capture health is worth a teacher's attention. */
-export function captureNeedsAttention(row: PupilRow): boolean {
-  if (row.capture === null) return false;
-  return row.capture.unusable / row.capture.total >= CAPTURE_CONCERN_RATIO;
-}
-
-/** Days since a pupil last practised, or null if they never have. */
-export function daysSincePractice(row: PupilRow, today: Date): number | null {
-  if (row.lastPractised === null) return null;
-  const last = Date.parse(`${row.lastPractised}T00:00:00.000Z`);
-  if (Number.isNaN(last)) return null;
-  const day = Date.parse(`${today.toISOString().slice(0, 10)}T00:00:00.000Z`);
-  return Math.max(0, Math.round((day - last) / 86_400_000));
 }

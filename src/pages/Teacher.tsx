@@ -22,6 +22,9 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ClassLimits } from "../components/ClassLimits.js";
 import { ClassOverview } from "../components/ClassOverview.js";
 import { SoundDetail } from "../components/SoundDetail.js";
+import { PupilList } from "../components/PupilList.js";
+import { PupilDetail } from "../components/PupilDetail.js";
+import type { PupilRow } from "../teacher/roster.js";
 import type { ClassSummary } from "../teacher/classSummary.js";
 
 /** The same key the diagnostics and authoring screens write. One secret. */
@@ -34,6 +37,8 @@ interface ClassResponse {
   slug: string;
   expectedCount: number | null;
   summary: ClassSummary;
+  /** Board 1g's list. Names, attendance and sounds — never a figure. */
+  roster?: PupilRow[];
 }
 
 function readStored(key: string): string | null {
@@ -50,6 +55,15 @@ function store(key: string, value: string): void {
   } catch {
     // A browser refusing storage costs a remembered class id, nothing more.
   }
+}
+
+/** The last five days, oldest first — the strip the pupil list draws. */
+function lastFiveDays(today: Date = new Date()): string[] {
+  return Array.from({ length: 5 }, (_, i) => {
+    const day = new Date(today);
+    day.setUTCDate(day.getUTCDate() - (4 - i));
+    return day.toISOString().slice(0, 10);
+  });
 }
 
 export function Teacher() {
@@ -71,6 +85,8 @@ export function Teacher() {
   const [loading, setLoading] = useState(false);
   /** Which sound is opened, by grapheme. Null is the overview. */
   const [openSound, setOpenSound] = useState<string | null>(null);
+  /** Which pupil is opened, by label. Null is the list. */
+  const [openPupil, setOpenPupil] = useState<string | null>(null);
 
   const load = useCallback(
     async (id: string): Promise<void> => {
@@ -166,6 +182,39 @@ export function Teacher() {
             difficulty={opened}
             joinedCount={data.summary.joinedCount}
           />
+        </section>
+      )}
+
+      {data?.roster !== undefined && data.roster.length > 0 && (
+        <section>
+          {openPupil === null ? (
+            <PupilList
+              rows={data.roster}
+              week={lastFiveDays()}
+              onOpen={setOpenPupil}
+            />
+          ) : (
+            (() => {
+              const row = data.roster.find((r) => r.label === openPupil);
+              if (row === undefined) return null;
+              return (
+                <>
+                  <p className="row">
+                    <button type="button" className="ghost" onClick={() => setOpenPupil(null)}>
+                      Back to the class list
+                    </button>
+                  </p>
+                  <PupilDetail
+                    row={row}
+                    code={data.slug}
+                    classSounds={
+                      data.summary.reportable ? data.summary.sounds.map((s) => s.grapheme) : []
+                    }
+                  />
+                </>
+              );
+            })()
+          )}
         </section>
       )}
 

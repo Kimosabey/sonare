@@ -157,3 +157,72 @@
   padding: 6px 12px;
   background: var(--surface);
 }
+
+/* ── the pupil list ────────────────────────────────────────────────────────
+ *
+ * Board 1g. Rows, not a table: a table invites a column, and a column here
+ * would have to hold something to rank on. Nothing does.
+ */
+.pupil-rows {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pupil-rows > li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.pupil-name {
+  flex: 1 1 auto;
+  text-align: left;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 0;
+}
+
+.pupil-days {
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+/* Five weekdays. The count beside it is the readable form; this is the shape
+   of a fortnight at a glance, and never the only carrier. */
+.pupil-strip {
+  display: flex;
+  gap: 3px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pupil-strip > li > span[aria-hidden] {
+  display: block;
+  width: 10px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--rule);
+}
+
+.pupil-strip > li.is-on > span[aria-hidden] {
+  background: var(--signal);
+}
+
+/* The one thing on a pupil's page that might explain them giving up. Marked
+   like the class's "worth a lesson" panel, because it is the same kind of
+   thing: a fact with something to do about it. */
+.pupil-capture {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--warn);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-top: 18px;
+}

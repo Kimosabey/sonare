@@ -286,9 +286,28 @@ describe("the class summary", () => {
 
     expect(text).not.toContain("learner-aaa");
     expect(text).not.toContain("learner-bbb");
-    // And not the name a pupil shared, which belongs to the roster rather than
-    // to the group figures this endpoint reports.
-    expect(text).not.toContain("Maya");
+  });
+
+  /**
+   * A shared name **is** in the payload, and that is board 1g rather than a
+   * leak: the pupil list names pupils, the pupil agreed to it on the join
+   * screen, and `SHARED_WITH_CLASS` says so in their own words.
+   *
+   * The distinction this pins is between an identifier and a name. The learner
+   * id is how the server addresses a record and nobody consented to it
+   * travelling; a first name is what a pupil chose to hand over.
+   */
+  it("carries the names pupils chose to share, but never the id behind them", async () => {
+    store.membersOf.mockResolvedValue([
+      { classId: "c1", learnerId: "learner-aaa", sharedName: "Maya", joinedAt: new Date() },
+    ]);
+
+    const text = await (
+      await fetch(`${base}/api/v1/classes/c1/summary`, { headers: auth })
+    ).text();
+
+    expect(text).toContain("Maya");
+    expect(text).not.toContain("learner-aaa");
   });
 
   it("says so when the class does not exist", async () => {

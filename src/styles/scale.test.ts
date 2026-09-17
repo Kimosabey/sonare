@@ -185,7 +185,9 @@ describe("font sizes come from the scale", () => {
      * `.activity-overview-sounds`, and +6 for the teacher's class view
      * (src/styles/teacher.css): `.class-sounds th`, `.class-sounds tbody th`,
      * `.class-attendance-count`, `.class-attendance-day`,
-     * `.sound-bucket-count` and `.sound-bucket-label`.
+     * `.sound-bucket-count` and `.sound-bucket-label`, and +0 for the pupil
+     * list (board 1g), whose rows take the body size — the only figure on them
+     * is a day count, and sizing it apart would make it look like a score.
      *
      * Exact equality on purpose, even though it means every new rule that sets
      * a font-size has to come past this line. That is the notification: a

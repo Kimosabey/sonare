@@ -35,6 +35,7 @@ import {
 import { readSkills } from "../store/skills.js";
 import { readProgress } from "../store/progress.js";
 import { standingsFor, takesFor } from "../domain/classStanding.js";
+import { buildRoster, type PupilRecord } from "../domain/classRoster.js";
 import { summariseClass, type PupilPractice } from "../domain/classSummary.js";
 
 export const classesRouter = Router();
@@ -211,6 +212,12 @@ classesRouter.get(
 
         const members = await membersOf(classId);
         const practice: PupilPractice[] = [];
+        /**
+         * Board 1g's list, built in the same pass. It names pupils and carries
+         * no figure — `buildRoster` reads the skills and emits graphemes, so
+         * the accuracies stop here exactly as they do for the summary.
+         */
+        const records: PupilRecord[] = [];
 
         for (const member of members) {
           const [skills, progress] = await Promise.all([
@@ -227,6 +234,13 @@ classesRouter.get(
             // up", which is exactly what a dated attempt records.
             days: [...new Set((progress?.entries ?? []).map((entry) => entry.at.slice(0, 10)))],
           });
+
+          records.push({
+            learnerId: member.learnerId,
+            sharedName: member.sharedName,
+            skills: skills?.skills ?? [],
+            progress: progress?.entries ?? [],
+          });
         }
 
         res.json({
@@ -234,6 +248,7 @@ classesRouter.get(
           slug: klass.slug,
           expectedCount: klass.expectedCount,
           summary: summariseClass(practice),
+          roster: buildRoster(records),
         });
       })
       .catch((err: unknown) => {

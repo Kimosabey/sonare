@@ -119,8 +119,17 @@ const APP_ENTRY_GZIP_CEILING = 45 * KIB;
  */
 const LEARNER_CHUNKS_GZIP_CEILING = 141 * KIB;
 
-/** The three internal operator screens, gzipped. Measured 20,573 B; +19%. */
-const INTERNAL_CHUNKS_GZIP_CEILING = 24 * KIB;
+/**
+ * The four internal operator screens, gzipped. Measured 25,203 B; +19%.
+ *
+ * Raised from 24 KiB when `/teacher` gained board 1g — the class list and one
+ * pupil. Nobody on a learner's path pays for this: these four screens are
+ * linked from nowhere and refused server-side without a token, which is the
+ * whole reason they have a ceiling of their own rather than sharing the
+ * learner's. The headroom is kept at the same 19% it had, so the check still
+ * fails when a screen doubles.
+ */
+const INTERNAL_CHUNKS_GZIP_CEILING = 30 * KIB;
 
 /**
  * Which emitted chunks belong to an internal screen.
