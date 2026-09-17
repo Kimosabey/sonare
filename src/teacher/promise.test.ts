@@ -23,6 +23,8 @@ import {
   FORBIDDEN_IN_CLASS_VIEW,
   NEVER_SHARED_WITH_CLASS,
   SHARED_WITH_CLASS,
+  TEACHER_WILL_NOT_SEE,
+  TEACHER_WILL_SEE,
   forbiddenPathsIn,
 } from "./promise.js";
 
@@ -157,6 +159,62 @@ describe("the shape a class view may receive", () => {
   it("is untroubled by nulls, primitives and empty structures", () => {
     for (const value of [null, undefined, 3, "x", true, [], {}]) {
       expect(forbiddenPathsIn(value)).toEqual([]);
+    }
+  });
+});
+
+/**
+ * The two voices of one promise.
+ *
+ * The board's rule is that the pupil deciding whether to join sees the same
+ * list the teacher was shown, "so neither side is told a different story". The
+ * lists are not word-for-word identical — one is in a pupil's voice about
+ * themselves, the other in a teacher's about a class — so identity is the
+ * wrong test. What has to hold is the negative side.
+ */
+describe("the teacher's promise agrees with the pupil's", () => {
+  /**
+   * The failure this exists for is not a teacher list that says too little. It
+   * is one that quietly stops denying something a pupil was promised — a
+   * pupil told "they will never see your scores" while the teacher's screen no
+   * longer mentions scores at all is exactly the divergence the board rules
+   * out, and nothing else would catch it.
+   */
+  it("denies everything the pupil is promised is never shared", () => {
+    const denied = new Set(TEACHER_WILL_NOT_SEE.map((fact) => fact.withholds));
+
+    for (const promised of NEVER_SHARED_WITH_CLASS) {
+      expect(
+        denied.has(promised.withholds),
+        `the teacher's list does not deny "${promised.label}"`,
+      ).toBe(true);
+    }
+  });
+
+  it("never lists the same fact as both seen and withheld", () => {
+    const seen = new Set(TEACHER_WILL_SEE.map((f) => f.label.toLowerCase()));
+    for (const withheld of TEACHER_WILL_NOT_SEE) {
+      expect(seen.has(withheld.label.toLowerCase())).toBe(false);
+    }
+  });
+
+  /**
+   * Every capability the teacher is told they have is about a group or about
+   * membership, never about one pupil's performance. A `true` answer to a
+   * question about a pupil's score would be a contradiction of the list above
+   * that no screen test would notice.
+   */
+  it("allows no capability that would produce a figure about a named pupil", () => {
+    for (const capability of CLASS_CAPABILITIES) {
+      if (!capability.allowed) continue;
+      expect(capability.request.toLowerCase()).not.toMatch(/score|accuracy|rank|recording/);
+    }
+  });
+
+  it("gives every capability an answer that says why, not just yes or no", () => {
+    for (const capability of CLASS_CAPABILITIES) {
+      expect(capability.answer.length).toBeGreaterThan("Yes".length + 2);
+      expect(capability.answer).toMatch(/—|because|not stored|nothing/i);
     }
   });
 });

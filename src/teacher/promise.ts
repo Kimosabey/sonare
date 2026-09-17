@@ -37,6 +37,17 @@ export interface SharedFact {
 
 /** Something a class is never given, and the reason it is not a setting. */
 export interface WithheldFact {
+  /**
+   * What is being withheld, as an identifier rather than as a sentence.
+   *
+   * This is what ties the pupil's copy of the promise to the teacher's. The
+   * two are worded for different readers — "Your scores, on anything" against
+   * "Any pupil's pronunciation score" — so the only way to check that neither
+   * side has quietly stopped denying something is to link them by key. An
+   * earlier version of that test compared nouns and broke on a plural, which
+   * is the kind of check that gets loosened until it catches nothing.
+   */
+  withholds: "scores" | "recordings" | "comparison" | "unjoined";
   label: string;
   /** What would go wrong if it were shared. */
   because: string;
@@ -72,19 +83,91 @@ export const SHARED_WITH_CLASS: readonly SharedFact[] = [
  */
 export const NEVER_SHARED_WITH_CLASS: readonly WithheldFact[] = [
   {
+    withholds: "scores",
     label: "Your scores, on anything",
     because:
       "A pronunciation score is a judgement about a person's voice, and a class that could see one would sort by it.",
   },
   {
+    withholds: "recordings",
     label: "Recordings of your voice",
     because: "A recording never leaves your own record — not to a teacher, not to anyone.",
   },
   {
+    withholds: "comparison",
     label: "How you compare to anyone else",
     because: "Nothing is stored that a comparison could be built from.",
   },
 ];
+
+/**
+ * The same promise, in the teacher's voice — board 1a.
+ *
+ * Two lists rather than one because the teacher sees things the pupil lists
+ * do not mention: group difficulty is derived from many pupils and belongs to
+ * none of them, so it has no pupil-side counterpart to appear beside.
+ *
+ * What must hold, and `promise.test.ts` holds it, is the *negative* side.
+ * Everything a pupil is promised is never shared has to appear in what the
+ * teacher is told they will not see. The board's rule is that neither side is
+ * told a different story, and the way that breaks is not a teacher list that
+ * says too little — it is one that quietly stops denying something the pupil
+ * was promised.
+ */
+export const TEACHER_WILL_SEE: readonly SharedFact[] = [
+  {
+    label: "Which sounds the class finds hard, as a group",
+    because: "It is the one thing here that changes what you teach next.",
+  },
+  {
+    label: "The words those sounds show up in",
+    because: "So the lesson can be built from phrases the class has already met.",
+  },
+  {
+    label: "Who has practised, and when",
+    because: "Attendance is a fact about turning up, not about how well anyone spoke.",
+  },
+  {
+    label: "Which lessons the class has been through",
+    because: "So a class can be taught what it has actually reached.",
+  },
+];
+
+export const TEACHER_WILL_NOT_SEE: readonly WithheldFact[] = [
+  {
+    withholds: "scores",
+    label: "Any pupil’s pronunciation score",
+    because:
+      "Whether this scorer is fair across accents has not been measured, so it does not put a number about a named child in front of you.",
+  },
+  {
+    withholds: "comparison",
+    label: "A class average or a ranking",
+    because: "Nothing is stored that a comparison could be built from.",
+  },
+  {
+    withholds: "recordings",
+    label: "Recordings of a pupil’s voice",
+    because: "A recording never leaves the pupil’s own record.",
+  },
+  {
+    withholds: "unjoined",
+    label: "Anything a pupil has not chosen to join",
+    because: "Joining is the pupil’s decision, and nothing about them reaches you before it.",
+  },
+];
+
+/**
+ * Why there is no per-pupil figure, in the words the board uses.
+ *
+ * Unparaphrased on purpose: this is copy that carries a constraint, and the
+ * product's rule is that such copy is not reworded. It is also the paragraph
+ * that stops a teacher spending a week looking for a gradebook.
+ */
+export const WHY_NOT_PER_PUPIL = [
+  "A number attached to a child’s accent, shown to the adult who grades them, is the one use of this scorer that could do real harm — and the accent fairness needed to rule that out has not been measured. Group difficulty answers the teaching question anyway: what do I reteach on Monday.",
+  "If that measurement is ever done and comes back clean, this decision can be revisited. Until then it is not a missing feature, it is the design.",
+] as const;
 
 /**
  * Field names a class view must never carry.
