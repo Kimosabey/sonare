@@ -45,7 +45,17 @@
  * cache that is not in OWNED_CACHES, so a bump is the whole eviction
  * mechanism for a breaking change in what or how we store.
  */
-const VERSION = "v1";
+/**
+ * Bumped to v2 to drop every entry cached under the old asset rule.
+ *
+ * That rule served `/manifest.webmanifest` cache-first under a name that is
+ * not content-hashed, so a single bad response — a dev-server restart, a
+ * tunnel error page, anything that returned 200 with HTML — was stored and
+ * then served forever. The browser reported it as "Manifest: Line: 1, column:
+ * 1, Syntax error", and no amount of fixing the server changed what the
+ * worker was already holding.
+ */
+const VERSION = "v2";
 
 /** The navigation document. Exactly one entry, by construction — see below. */
 const SHELL_CACHE = `sonare-shell-${VERSION}`;
@@ -116,6 +126,19 @@ const VOICE_AUDIO_PATH = /^\/api\/v1\/model-voice\/[^/]+\/[0-9a-f]{32}\.mp3$/;
 
 /** Same-origin static assets, by extension. */
 const STATIC_PATH = /\.(?:js|mjs|css|png|jpe?g|svg|gif|webp|avif|ico|woff2?|ttf|otf|webmanifest)$/;
+
+/**
+ * Assets whose *name* contains their content hash — everything the bundler
+ * emits into `/assets/`.
+ *
+ * This is the distinction cache-first actually depends on, and it used to be
+ * assumed rather than tested. "A chunk's bytes cannot change under its name"
+ * is true of `index-B1kuTzwL.js` and false of `manifest.webmanifest`,
+ * `brand/wordmark-purple.png` and every splash frame. All of those matched
+ * STATIC_PATH and were therefore cached first and never revalidated, so one
+ * wrong response became permanent.
+ */
+const HASHED_PATH = /^\/assets\//;
 
 /**
  * Install: warm the navigation document, and nothing else.
@@ -272,10 +295,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Same-origin static assets: cache-first. Content-hashed names make this
-  // safe — a chunk's bytes cannot change under its name.
-  if (STATIC_PATH.test(url.pathname)) {
+  // Content-hashed assets: cache-first, and safe precisely because the bytes
+  // cannot change under the name.
+  if (STATIC_PATH.test(url.pathname) && HASHED_PATH.test(url.pathname)) {
     event.respondWith(cacheFirst(request, ASSET_CACHE, MAX_ASSET_ENTRIES));
+    return;
+  }
+
+  // Every other static file — the manifest, the brand images, the splash
+  // frames — has a stable name whose contents can change. Stale-while-
+  // revalidate keeps the instant paint that cache-first was there for, and
+  // repairs a bad entry on the next load instead of holding it forever.
+  if (STATIC_PATH.test(url.pathname)) {
+    event.respondWith(staleWhileRevalidate(request, ASSET_CACHE, MAX_ASSET_ENTRIES));
     return;
   }
 
@@ -329,6 +361,55 @@ async function cacheFirst(request, cacheName, max) {
     await trim(cache, max);
   }
   return response;
+}
+
+/**
+ * Stale-while-revalidate: answer from cache at once, then repair it.
+ *
+ * For files whose name stays the same while their contents may not. The cached
+ * copy is served immediately so the logo and the manifest cost nothing on a
+ * repeat visit, and the network copy replaces it in the background — so a
+ * wrong entry survives exactly one load rather than until the cache version
+ * changes.
+ *
+ * The background fetch is deliberately allowed to fail in silence. It is a
+ * repair, not the answer: offline, the cached copy is still the right thing to
+ * have returned, and a rejection here must not surface as a failed request for
+ * something the page already has.
+ */
+async function staleWhileRevalidate(request, cacheName, max) {
+  const cache = await caches.open(cacheName);
+  const hit = await cache.match(request);
+
+  /**
+   * `try`/`catch` around the call rather than `.catch()` on the promise, which
+   * is the idiom the other strategies in this file already use. It is not
+   * stylistic: a `fetch` that throws *synchronously* never produces a promise
+   * for `.catch()` to attach to, and the exception escapes into
+   * `respondWith` — where it becomes a network error for a page that had a
+   * perfectly good cached copy.
+   */
+  const fresh = (async () => {
+    try {
+      const response = await fetch(request);
+      if (isStorable(response)) {
+        await cache.put(request, response.clone());
+        await trim(cache, max);
+      }
+      return response;
+    } catch {
+      return undefined;
+    }
+  })();
+
+  // A hit answers now; without one there is nothing to do but wait.
+  if (hit) return hit;
+
+  const response = await fresh;
+  if (response) return response;
+  // No cache, no network. Say so honestly rather than returning an empty 200
+  // the page would try to parse.
+  return new Response("", { status: 504, statusText: "Offline and not cached" });
 }
 
 /** Network-first: the cache answers only when the network could not. */

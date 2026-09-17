@@ -48,6 +48,19 @@ function constant(name: string): number {
 
 const MAX_VOICE_ENTRIES = constant("MAX_VOICE_ENTRIES");
 
+/**
+ * The cache version, read from the worker for the same reason the caps are.
+ *
+ * These names were spelled out as ASSETS in eleven places. Bumping
+ * the version in the worker — which is how a bad cached entry is swept — then
+ * failed eleven tests that were describing the previous release.
+ */
+const VERSION = /const VERSION = "([^"]+)"/.exec(SOURCE)?.[1] ?? "unknown";
+const ASSETS = `sonare-assets-${VERSION}`;
+const SHELL = `sonare-shell-${VERSION}`;
+const API = `sonare-api-${VERSION}`;
+const VOICE = `sonare-voice-${VERSION}`;
+
 /* ── the fakes ───────────────────────────────────────────────────────────── */
 
 type Fetchable = string | Request;
@@ -334,7 +347,7 @@ describe("a learner's audio and the sync batch are never touched", () => {
 
 describe("same-origin static assets are cache-first", () => {
   it("serves a cached asset without touching the network", async () => {
-    worker.caches.seed("sonare-assets-v1", "/assets/index-abc123.js", ok("cached js"));
+    worker.caches.seed(ASSETS, "/assets/index-abc123.js", ok("cached js"));
 
     const response = await worker.handleFetch(get("/assets/index-abc123.js"));
 
@@ -348,7 +361,7 @@ describe("same-origin static assets are cache-first", () => {
     const response = await worker.handleFetch(get("/assets/index-abc123.js"));
 
     expect(await response?.text()).toBe("fresh js");
-    const cache = await worker.caches.open("sonare-assets-v1");
+    const cache = await worker.caches.open(ASSETS);
     expect(cache.urls()).toEqual([`${ORIGIN}/assets/index-abc123.js`]);
     // And the stored copy is readable — a body consumed by the response
     // handed to the page would leave an empty entry behind.
@@ -447,11 +460,11 @@ describe("model-voice audio is cache-first, capped, and on demand", () => {
     const response = await worker.handleFetch(get(voicePath(1)));
 
     expect(await response?.text()).toBe("mp3 bytes");
-    const voice = await worker.caches.open("sonare-voice-v1");
+    const voice = await worker.caches.open(VOICE);
     expect(voice.urls()).toEqual([`${ORIGIN}${voicePath(1)}`]);
     // Separate cache, so the asset cap and the audio cap cannot evict each
     // other's entries.
-    expect(worker.caches.opened.has("sonare-assets-v1")).toBe(false);
+    expect(worker.caches.opened.has(ASSETS)).toBe(false);
   });
 
   it("serves the second play from the cache", async () => {
@@ -481,7 +494,7 @@ describe("model-voice audio is cache-first, capped, and on demand", () => {
       await worker.handleFetch(get(voicePath(i)));
     }
 
-    const voice = await worker.caches.open("sonare-voice-v1");
+    const voice = await worker.caches.open(VOICE);
     expect(voice.urls()).toHaveLength(MAX_VOICE_ENTRIES);
     // FIFO by store time: the first one stored is the first one dropped.
     expect(voice.urls()).not.toContain(`${ORIGIN}${voicePath(0)}`);
@@ -502,13 +515,13 @@ describe("model-voice audio is cache-first, capped, and on demand", () => {
     await worker.handleFetch(get(path));
 
     expect(worker.net.callsTo(path)).toBe(2);
-    expect(worker.caches.opened.has("sonare-voice-v1")).toBe(false);
+    expect(worker.caches.opened.has(VOICE)).toBe(false);
   });
 });
 
 describe("API GETs are network-first", () => {
   it("prefers a fresh answer over a cached one", async () => {
-    worker.caches.seed("sonare-api-v1", "/api/v1/content/fr", ok("stale"));
+    worker.caches.seed(API, "/api/v1/content/fr", ok("stale"));
     worker.net.route("/api/v1/content/fr", () => ok("fresh"));
 
     const response = await worker.handleFetch(get("/api/v1/content/fr"));
@@ -518,7 +531,7 @@ describe("API GETs are network-first", () => {
   });
 
   it("falls back to the cache when the network is gone", async () => {
-    worker.caches.seed("sonare-api-v1", "/api/v1/content/fr", ok("stale but readable"));
+    worker.caches.seed(API, "/api/v1/content/fr", ok("stale but readable"));
     worker.net.offline = true;
 
     const response = await worker.handleFetch(get("/api/v1/content/fr"));
@@ -543,7 +556,7 @@ describe("navigations are network-first onto one shell entry", () => {
 
     await worker.handleFetch(navigate("/"));
 
-    const shell = await worker.caches.open("sonare-shell-v1");
+    const shell = await worker.caches.open(SHELL);
     expect(shell.urls()).toEqual([`${ORIGIN}/`]);
   });
 
@@ -595,11 +608,11 @@ describe("install and activate", () => {
   it("deletes older versions of its own caches", async () => {
     worker.caches.seed("sonare-assets-v0", "/assets/old.js", ok("old"));
     worker.caches.seed("sonare-voice-v0", voicePath(9), ok("old mp3"));
-    worker.caches.seed("sonare-assets-v1", "/assets/new.js", ok("new"));
+    worker.caches.seed(ASSETS, "/assets/new.js", ok("new"));
 
     await worker.lifecycle("activate");
 
-    expect((await worker.caches.keys()).sort()).toEqual(["sonare-assets-v1"]);
+    expect((await worker.caches.keys()).sort()).toEqual([ASSETS]);
   });
 
   it("leaves caches it does not own alone", async () => {
@@ -651,5 +664,99 @@ describe("the waiting worker does not activate itself", () => {
     }
 
     expect(worker.skipWaitingCalls).toBe(0);
+  });
+});
+
+/**
+ * Static files whose name is stable, and the bug that made one of them
+ * unfixable.
+ *
+ * `STATIC_PATH` matches `webmanifest`, so `/manifest.webmanifest` was served
+ * **cache-first** — a strategy whose safety argument is written in the worker
+ * itself: "content-hashed names make this safe, a chunk's bytes cannot change
+ * under its name". That is true of `index-B1kuTzwL.js`. It is false of the
+ * manifest, the brand images and every splash frame, none of which carry a
+ * hash.
+ *
+ * So one bad response — a dev-server restart, a tunnel error page, anything
+ * returning 200 with HTML — was stored and then returned forever. The browser
+ * reported `Manifest: Line: 1, column: 1, Syntax error` on every load, and
+ * fixing the server changed nothing, because the network was never consulted
+ * again. It reproduced for a real user while `curl` fetched a perfectly valid
+ * manifest every time, because curl has no service worker.
+ */
+describe("unhashed static files are repaired rather than pinned", () => {
+  it("still answers instantly from cache, which is what cache-first was for", async () => {
+    worker.caches.seed(ASSETS, "/manifest.webmanifest", ok('{"name":"cached"}'));
+
+    const response = await worker.handleFetch(get("/manifest.webmanifest"));
+
+    expect(await response?.text()).toBe('{"name":"cached"}');
+  });
+
+  /**
+   * The fix, stated as the behaviour that was missing: the network is consulted
+   * even on a hit, so the next load gets the corrected file.
+   */
+  it("revalidates in the background, so a bad entry survives one load", async () => {
+    worker.caches.seed(ASSETS, "/manifest.webmanifest", ok("<!doctype html>"));
+    worker.net.route("/manifest.webmanifest", () => ok('{"name":"Sonare"}'));
+
+    // First load: the stale entry answers, and the repair is in flight.
+    const first = await worker.handleFetch(get("/manifest.webmanifest"));
+    expect(await first?.text()).toBe("<!doctype html>");
+
+    // Let the background write land.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const cache = await worker.caches.open(ASSETS);
+    expect(await cache.entries.get(`${ORIGIN}/manifest.webmanifest`)?.text()).toBe(
+      '{"name":"Sonare"}',
+    );
+  });
+
+  it("applies the same repair to the brand images and splash frames", async () => {
+    for (const path of ["/brand/wordmark-purple.png", "/splash/icon-1024.png"]) {
+      worker.caches.seed(ASSETS, path, ok("stale"));
+      worker.net.route(path, () => ok("fresh"));
+
+      await worker.handleFetch(get(path));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const cache = await worker.caches.open(ASSETS);
+      expect(
+        await cache.entries.get(`${ORIGIN}${path}`)?.text(),
+        `${path} was not repaired`,
+      ).toBe("fresh");
+    }
+  });
+
+  /**
+   * The other half of the split. A content-hashed name genuinely cannot change
+   * its bytes, so it keeps cache-first and must *not* spend a request
+   * revalidating — that is the whole reason the strategy exists.
+   */
+  it("leaves content-hashed assets on cache-first, with no revalidation", async () => {
+    worker.caches.seed(ASSETS, "/assets/index-abc123.js", ok("cached js"));
+
+    await worker.handleFetch(get("/assets/index-abc123.js"));
+
+    expect(worker.net.calls).toEqual([]);
+  });
+
+  /**
+   * Offline with nothing cached is a real state, and the honest answer is a
+   * failure rather than an empty 200 the page would try to parse — which for a
+   * manifest is the very error this whole block exists to stop.
+   */
+  it("fails honestly when there is neither a cache nor a network", async () => {
+    worker.net.route("/manifest.webmanifest", () => {
+      throw new TypeError("offline");
+    });
+
+    const response = await worker.handleFetch(get("/manifest.webmanifest"));
+
+    expect(response?.ok).toBe(false);
+    expect(await response?.text()).toBe("");
   });
 });
