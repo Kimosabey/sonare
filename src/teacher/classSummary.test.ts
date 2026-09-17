@@ -14,13 +14,12 @@ import { MIN_REPORTABLE_CLASS, summariseClass, type PupilPractice } from "./clas
 import { forbiddenPathsIn } from "./promise.js";
 
 function pupil(id: string, over: Partial<PupilPractice> = {}): PupilPractice {
-  return {
-    pupilId: id,
-    strugglingWith: [],
-    secureWith: [],
-    days: [],
-    ...over,
-  };
+  return { pupilId: id, standing: {}, days: [], ...over };
+}
+
+/** Every named grapheme at one standing, which is what most cases need. */
+function at(standing: PupilPractice["standing"][string], ...graphemes: string[]) {
+  return Object.fromEntries(graphemes.map((g) => [g, standing]));
 }
 
 /** A class large enough to report on, so the floor is not what is under test. */
@@ -36,8 +35,7 @@ describe("nothing identifying survives", () => {
    */
   it("carries no pupil identifier anywhere in the result", () => {
     const pupils = classOf(12, (i) => ({
-      strugglingWith: ["ʁ", "u"].slice(0, (i % 2) + 1),
-      secureWith: ["a"],
+      standing: { ...at("getting-there", ...["ʁ", "u"].slice(0, (i % 2) + 1)), ...at("holding", "a") },
       days: ["2026-09-01", "2026-09-02"].slice(0, (i % 2) + 1),
     }));
 
@@ -57,7 +55,7 @@ describe("nothing identifying survives", () => {
    */
   it("carries no forbidden field, by the same list the promise is built from", () => {
     const summary = summariseClass(
-      classOf(9, () => ({ strugglingWith: ["ʁ"], secureWith: ["a"], days: ["2026-09-01"] })),
+      classOf(9, () => ({ standing: { ...at("getting-there", "ʁ"), ...at("holding", "a") }, days: ["2026-09-01"] })),
     );
 
     expect(forbiddenPathsIn(summary)).toEqual([]);
@@ -77,7 +75,7 @@ describe("the small-class floor", () => {
    */
   it("withholds counts below the floor, and says why", () => {
     const summary = summariseClass(
-      classOf(MIN_REPORTABLE_CLASS - 1, () => ({ strugglingWith: ["ʁ"] })),
+      classOf(MIN_REPORTABLE_CLASS - 1, () => ({ standing: at("getting-there", "ʁ") })),
     );
 
     expect(summary.reportable).toBe(false);
@@ -88,7 +86,7 @@ describe("the small-class floor", () => {
 
   it("reports at the floor exactly", () => {
     const summary = summariseClass(
-      classOf(MIN_REPORTABLE_CLASS, () => ({ strugglingWith: ["ʁ"] })),
+      classOf(MIN_REPORTABLE_CLASS, () => ({ standing: at("getting-there", "ʁ") })),
     );
 
     expect(summary.reportable).toBe(true);
@@ -100,7 +98,7 @@ describe("the small-class floor", () => {
    * a teacher reads an empty difficulty table as "nobody is struggling".
    */
   it("withholds the figures themselves, not merely a flag", () => {
-    const summary = summariseClass([pupil("a", { strugglingWith: ["ʁ"], days: ["2026-09-01"] })]);
+    const summary = summariseClass([pupil("a", { standing: at("getting-there", "ʁ"), days: ["2026-09-01"] })]);
 
     expect(JSON.stringify(summary)).not.toContain("ʁ");
     expect(JSON.stringify(summary)).not.toContain("2026-09-01");
@@ -112,7 +110,7 @@ describe("the small-class floor", () => {
    */
   it("counts distinct pupils, so duplicates cannot unlock reporting", () => {
     const duplicated = Array.from({ length: MIN_REPORTABLE_CLASS + 3 }, () =>
-      pupil("the-same-pupil", { strugglingWith: ["ʁ"] }),
+      pupil("the-same-pupil", { standing: at("getting-there", "ʁ") }),
     );
 
     expect(summariseClass(duplicated).reportable).toBe(false);
@@ -122,14 +120,17 @@ describe("the small-class floor", () => {
 describe("sound difficulty", () => {
   it("counts pupils working on a sound, never an average", () => {
     const summary = summariseClass([
-      ...classOf(3, () => ({ strugglingWith: ["ʁ"] })),
-      ...classOf(4, () => ({ secureWith: ["ʁ"] })).map((p, i) => ({ ...p, pupilId: `s${i}` })),
+      ...classOf(3, () => ({ standing: at("getting-there", "ʁ") })),
+      ...classOf(4, () => ({ standing: at("holding", "ʁ") })).map((p, i) => ({
+        ...p,
+        pupilId: `s${i}`,
+      })),
     ]);
 
     if (!summary.reportable) throw new Error("expected a reportable summary");
     const r = summary.sounds.find((s) => s.grapheme === "ʁ");
     expect(r?.working).toBe(3);
-    expect(r?.secure).toBe(4);
+    expect(r?.holding).toBe(4);
   });
 
   /**
@@ -139,7 +140,7 @@ describe("sound difficulty", () => {
    */
   it("orders by how many are working on it, hardest first", () => {
     const summary = summariseClass([
-      ...classOf(6, (i) => ({ strugglingWith: i < 5 ? ["ʁ", "u"] : ["u"] })),
+      ...classOf(6, (i) => ({ standing: i < 5 ? at("getting-there", "ʁ", "u") : at("getting-there", "u") })),
     ]);
 
     if (!summary.reportable) throw new Error("expected a reportable summary");
@@ -154,12 +155,12 @@ describe("sound difficulty", () => {
    */
   it("breaks a tie by grapheme, so the order is stable across calls", () => {
     const pupils = [
-      pupil("a", { strugglingWith: ["u", "ʁ", "e"] }),
-      pupil("b", { strugglingWith: ["e", "u", "ʁ"] }),
-      pupil("c", { strugglingWith: ["ʁ", "e", "u"] }),
-      pupil("d", { strugglingWith: ["ʁ", "u", "e"] }),
-      pupil("e", { strugglingWith: ["e", "ʁ", "u"] }),
-      pupil("f", { strugglingWith: ["u", "e", "ʁ"] }),
+      pupil("a", { standing: at("getting-there", "u", "ʁ", "e") }),
+      pupil("b", { standing: at("getting-there", "e", "u", "ʁ") }),
+      pupil("c", { standing: at("getting-there", "ʁ", "e", "u") }),
+      pupil("d", { standing: at("getting-there", "ʁ", "u", "e") }),
+      pupil("e", { standing: at("getting-there", "e", "ʁ", "u") }),
+      pupil("f", { standing: at("getting-there", "u", "e", "ʁ") }),
     ];
 
     const first = summariseClass(pupils);
@@ -179,8 +180,8 @@ describe("sound difficulty", () => {
   it("counts a pupil once per sound, however many records they have", () => {
     const summary = summariseClass([
       ...classOf(5),
-      pupil("dup", { strugglingWith: ["ʁ"] }),
-      pupil("dup", { strugglingWith: ["ʁ"] }),
+      pupil("dup", { standing: at("getting-there", "ʁ") }),
+      pupil("dup", { standing: at("getting-there", "ʁ") }),
     ]);
 
     if (!summary.reportable) throw new Error("expected a reportable summary");
@@ -188,27 +189,28 @@ describe("sound difficulty", () => {
   });
 
   /**
-   * Contradictory input resolves towards "working". A pupil listed as both is
-   * a data problem, and the reading that tells a teacher the class is fine
-   * when it is not is the one that costs a lesson.
+   * A standing this build does not know is dropped rather than bucketed. It
+   * can only come from a newer writer, and inventing a bucket would put a
+   * pupil in a column that does not describe them — while counting it as
+   * "working" would inflate the figure a teacher plans a lesson from.
    */
-  it("does not count a pupil as secure on a sound they are working on", () => {
+  it("ignores a standing it does not recognise", () => {
     const summary = summariseClass([
       ...classOf(5),
-      pupil("both", { strugglingWith: ["ʁ"], secureWith: ["ʁ"] }),
+      pupil("odd", {
+        standing: { "ʁ": "brand-new-bucket" as PupilPractice["standing"][string] },
+      }),
     ]);
 
     if (!summary.reportable) throw new Error("expected a reportable summary");
-    const r = summary.sounds.find((s) => s.grapheme === "ʁ");
-    expect(r?.working).toBe(1);
-    expect(r?.secure).toBe(0);
+    expect(summary.sounds.find((s) => s.grapheme === "ʁ")).toBeUndefined();
   });
 
   it("accounts for pupils who have not reached a sound at all", () => {
     const summary = summariseClass([
       ...classOf(5),
-      pupil("x", { strugglingWith: ["ʁ"] }),
-      pupil("y", { secureWith: ["ʁ"] }),
+      pupil("x", { standing: at("getting-there", "ʁ") }),
+      pupil("y", { standing: at("holding", "ʁ") }),
     ]);
 
     if (!summary.reportable) throw new Error("expected a reportable summary");
@@ -220,15 +222,112 @@ describe("sound difficulty", () => {
   it("never reports more pupils in a bucket than have joined", () => {
     const summary = summariseClass(
       classOf(8, (i) => ({
-        strugglingWith: i % 2 === 0 ? ["ʁ"] : [],
-        secureWith: i % 2 === 1 ? ["ʁ"] : [],
+        standing: at(i % 2 === 0 ? "getting-there" : "holding", "ʁ"),
       })),
     );
 
     if (!summary.reportable) throw new Error("expected a reportable summary");
     for (const sound of summary.sounds) {
-      expect(sound.working + sound.secure + sound.notYet).toBe(summary.joinedCount);
+      expect(sound.working + sound.holding + sound.notYet).toBe(summary.joinedCount);
     }
+  });
+});
+
+describe("the three buckets", () => {
+  /**
+   * All three at once. The refactor that introduced them mapped every existing
+   * case onto `getting-there`, so for a while nothing exercised the other two
+   * and four mutations survived — including deleting `just-started` entirely.
+   */
+  it("counts each standing separately", () => {
+    const summary = summariseClass([
+      ...classOf(2, () => ({ standing: at("just-started", "ʁ") })),
+      ...classOf(3, () => ({ standing: at("getting-there", "ʁ") })).map((p, i) => ({
+        ...p,
+        pupilId: `g${i}`,
+      })),
+      ...classOf(4, () => ({ standing: at("holding", "ʁ") })).map((p, i) => ({
+        ...p,
+        pupilId: `h${i}`,
+      })),
+    ]);
+
+    if (!summary.reportable) throw new Error("expected a reportable summary");
+    const r = summary.sounds.find((sound) => sound.grapheme === "ʁ");
+    expect(r?.justStarted).toBe(2);
+    expect(r?.gettingThere).toBe(3);
+    expect(r?.holding).toBe(4);
+  });
+
+  /**
+   * The board's own arithmetic: its sound detail shows 9 just-started and 13
+   * getting-there, and its overview prints "22 of 28 still working on it". The
+   * overview figure is the first two buckets and nothing else — counting only
+   * `getting-there` would under-report the class problem a lesson is planned
+   * from, and including `holding` would over-report it.
+   */
+  it("reports still-working as just-started plus getting-there, and not holding", () => {
+    const summary = summariseClass([
+      ...classOf(9, () => ({ standing: at("just-started", "ʁ") })),
+      ...classOf(13, () => ({ standing: at("getting-there", "ʁ") })).map((p, i) => ({
+        ...p,
+        pupilId: `g${i}`,
+      })),
+      ...classOf(6, () => ({ standing: at("holding", "ʁ") })).map((p, i) => ({
+        ...p,
+        pupilId: `h${i}`,
+      })),
+    ]);
+
+    if (!summary.reportable) throw new Error("expected a reportable summary");
+    const r = summary.sounds.find((sound) => sound.grapheme === "ʁ");
+    expect(summary.joinedCount).toBe(28);
+    expect(r?.working).toBe(22);
+  });
+
+  /**
+   * Ordering, with a case where difficulty and code point disagree. The
+   * earlier test happened to want the same answer both ways, so removing the
+   * difficulty term from the sort changed nothing and the mutation survived.
+   */
+  it("orders by difficulty even when that contradicts the alphabet", () => {
+    const summary = summariseClass([
+      // "a" sorts first by code point but is the easiest sound here.
+      ...classOf(6, (i) => ({
+        standing: {
+          ...at("holding", "a"),
+          ...(i < 5 ? at("just-started", "ʁ") : {}),
+        },
+      })),
+    ]);
+
+    if (!summary.reportable) throw new Error("expected a reportable summary");
+    expect(summary.sounds.map((sound) => sound.grapheme)).toEqual(["ʁ", "a"]);
+  });
+
+  /**
+   * Two records for one pupil can put them in two buckets — two devices, or a
+   * sync mid-change. The buckets then sum past the class, and `notYet` is
+   * floored rather than allowed to go negative: a negative count rendered as a
+   * bar is a shape that describes no class at all.
+   */
+  it("never reports a negative not-yet count", () => {
+    // Every pupil appears twice, in two different buckets, so the buckets sum
+    // to twice the class. One duplicated pupil is not enough to drive the
+    // subtraction negative — an earlier version of this test used one, and the
+    // mutation that removed the floor survived it.
+    const ids = ["a", "b", "c", "d", "e"];
+    const summary = summariseClass([
+      ...ids.map((id) => pupil(id, { standing: at("just-started", "ʁ") })),
+      ...ids.map((id) => pupil(id, { standing: at("holding", "ʁ") })),
+    ]);
+
+    if (!summary.reportable) throw new Error("expected a reportable summary");
+    const r = summary.sounds.find((sound) => sound.grapheme === "ʁ");
+    expect(summary.joinedCount).toBe(5);
+    expect(r?.justStarted).toBe(5);
+    expect(r?.holding).toBe(5);
+    expect(r?.notYet).toBe(0);
   });
 });
 
@@ -261,7 +360,7 @@ describe("attendance", () => {
 
 describe("purity", () => {
   it("does not mutate the roll it was given", () => {
-    const pupils = classOf(6, () => ({ strugglingWith: ["ʁ"], days: ["2026-09-01"] }));
+    const pupils = classOf(6, () => ({ standing: at("getting-there", "ʁ"), days: ["2026-09-01"] }));
     const before = JSON.stringify(pupils);
 
     summariseClass(pupils);

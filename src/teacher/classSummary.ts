@@ -50,6 +50,17 @@
 export const MIN_REPORTABLE_CLASS = 5;
 
 /**
+ * Where a pupil stands on one sound — the board's three named buckets.
+ *
+ * Named rather than numbered on purpose. A 1–3 scale is a score with a short
+ * range, and the board's sound detail exists to show a *shape* a teacher reads
+ * as "reteach or move on", not a number they could average.
+ */
+export const SOUND_STANDINGS = ["just-started", "getting-there", "holding"] as const;
+
+export type SoundStanding = (typeof SOUND_STANDINGS)[number];
+
+/**
  * One pupil's practice, as it crosses into the class boundary.
  *
  * Note what is absent and cannot be added without failing `promise.test.ts`:
@@ -62,10 +73,15 @@ export interface PupilPractice {
    * in a summary — see the tests, which assert no identifier survives.
    */
   pupilId: string;
-  /** Graphemes this pupil is still working on. */
-  strugglingWith: readonly string[];
-  /** Graphemes this pupil has reached and is secure on. */
-  secureWith: readonly string[];
+  /**
+   * Where this pupil stands on each sound they have reached, keyed by
+   * grapheme. A sound absent from this map is one they have not reached.
+   *
+   * A standing, not a score. The three values are the board's own buckets, and
+   * which one a pupil falls in is decided where their accuracy already lives —
+   * so no figure crosses into this module and none can leak out of it.
+   */
+  standing: Readonly<Record<string, SoundStanding>>;
   /** ISO days (`YYYY-MM-DD`) this pupil practised. */
   days: readonly string[];
 }
@@ -79,11 +95,24 @@ export interface PupilPractice {
  */
 export interface SoundDifficulty {
   grapheme: string;
-  /** Pupils still working on it. Never an average, never a rate. */
+  justStarted: number;
+  gettingThere: number;
+  holding: number;
+  /**
+   * The overview's figure — "still working on it", which is the first two
+   * buckets together. Derived here rather than in a view so the table and the
+   * sound detail cannot disagree: on the board, 9 just-started plus 13
+   * getting-there is exactly the 22 of 28 the overview prints.
+   */
   working: number;
-  /** Pupils secure on it. */
-  secure: number;
-  /** Joined pupils who have not reached it at all. */
+  /**
+   * Joined pupils with no standing on this sound at all.
+   *
+   * Zero in the board's example, which is why its three bars sum to the class.
+   * A real class has pupils who have not reached a sound yet, and a screen
+   * that drew only three bars over a class where this is non-zero would show a
+   * distribution of a group it never names.
+   */
   notYet: number;
 }
 
@@ -138,34 +167,42 @@ export function summariseClass(pupils: readonly PupilPractice[]): ClassSummary {
     return { reportable: false, joinedCount, reason: "class-too-small" };
   }
 
-  const working = new Map<string, Set<string>>();
-  const secure = new Map<string, Set<string>>();
+  /** One set of pupil ids per bucket, per grapheme. */
+  const byStanding = new Map<SoundStanding, Map<string, Set<string>>>(
+    SOUND_STANDINGS.map((standing) => [standing, new Map<string, Set<string>>()]),
+  );
 
   for (const pupil of pupils) {
-    for (const grapheme of pupil.strugglingWith) {
-      note(working, grapheme, pupil.pupilId);
-    }
-    for (const grapheme of pupil.secureWith) {
-      // A pupil counted as working on a sound is not also counted as secure on
-      // it. The two lists disagreeing is a data problem, and resolving it
-      // towards "working" is the reading that does not tell a teacher a class
-      // is fine when it is not.
-      if (working.get(grapheme)?.has(pupil.pupilId) === true) continue;
-      note(secure, grapheme, pupil.pupilId);
+    for (const [grapheme, standing] of Object.entries(pupil.standing)) {
+      const index = byStanding.get(standing);
+      // A standing this code does not know is dropped rather than guessed. It
+      // can only arrive from a newer writer, and inventing a bucket for it
+      // would put a pupil in a column that does not describe them.
+      if (index === undefined) continue;
+      note(index, grapheme, pupil.pupilId);
     }
   }
 
-  const graphemes = [...new Set([...working.keys(), ...secure.keys()])];
+  const graphemes = [
+    ...new Set(SOUND_STANDINGS.flatMap((s) => [...(byStanding.get(s)?.keys() ?? [])])),
+  ];
 
   const sounds: SoundDifficulty[] = graphemes
     .map((grapheme) => {
-      const workingCount = working.get(grapheme)?.size ?? 0;
-      const secureCount = secure.get(grapheme)?.size ?? 0;
+      const count = (standing: SoundStanding): number =>
+        byStanding.get(standing)?.get(grapheme)?.size ?? 0;
+
+      const justStarted = count("just-started");
+      const gettingThere = count("getting-there");
+      const holding = count("holding");
+
       return {
         grapheme,
-        working: workingCount,
-        secure: secureCount,
-        notYet: Math.max(0, joinedCount - workingCount - secureCount),
+        justStarted,
+        gettingThere,
+        holding,
+        working: justStarted + gettingThere,
+        notYet: Math.max(0, joinedCount - justStarted - gettingThere - holding),
       };
     })
     /**
@@ -180,7 +217,11 @@ export function summariseClass(pupils: readonly PupilPractice[]): ClassSummary {
      * a dictionary and arbitrary for a list of IPA symbols and written
      * syllables from four languages.
      */
-    .sort((a, b) => b.working - a.working || (a.grapheme < b.grapheme ? -1 : a.grapheme > b.grapheme ? 1 : 0));
+    .sort(
+      (a, b) =>
+        b.working - a.working ||
+        (a.grapheme < b.grapheme ? -1 : a.grapheme > b.grapheme ? 1 : 0),
+    );
 
   const byDay = new Map<string, Set<string>>();
   for (const pupil of pupils) {
