@@ -34,6 +34,8 @@ import { useWakeLock } from "../hooks/useWakeLock.js";
 import { useOnlineStatus } from "../hooks/useOnlineStatus.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
 import { useSyllablePlayback } from "../hooks/useSyllablePlayback.js";
+import { useVowelEstimate } from "../hooks/useVowelEstimate.js";
+import { VowelChart } from "../components/VowelChart.js";
 import { phraseTokens, useModelSpeech } from "../hooks/useModelSpeech.js";
 import { useMicrophonePermission } from "../hooks/useMicrophonePermission.js";
 import { newSessionId } from "../lib/sessionId.js";
@@ -297,6 +299,15 @@ export function ActivityTest() {
    * the next take replaces it — the audio is never persisted anywhere.
    */
   const playback = useSyllablePlayback(recorder.lastCapture?.wav ?? null);
+  /**
+   * Where the tapped syllable's vowel actually sat — board 1j.
+   *
+   * Driven by the same tap as the playback comparison rather than shown
+   * unasked. A chart that appeared under every result would be a measurement
+   * nobody requested, on syllables that mostly have no vowel worth placing;
+   * a tap is the learner pointing at one sound and asking about it.
+   */
+  const vowel = useVowelEstimate(recorder.lastCapture?.wav ?? null);
 
   /**
    * The model pronunciation of the current target.
@@ -341,6 +352,15 @@ export function ActivityTest() {
             word.syllables.some((s) => s.offsetTicks === syllable.offsetTicks),
           );
 
+      // Measured from the same tap, and before the audio starts: the estimate
+      // is about the slice, not about anything the playback does to it.
+      const scored = owner?.syllables.find((s) => s.offsetTicks === syllable.offsetTicks);
+      vowel.measure({
+        offsetTicks: syllable.offsetTicks,
+        durationTicks: syllable.durationTicks,
+        grapheme: scored?.grapheme ?? "",
+      });
+
       if (compare.available && owner !== undefined) {
         compare.compare({
           offsetTicks: syllable.offsetTicks,
@@ -351,7 +371,7 @@ export function ActivityTest() {
       }
       playback.play(syllable.offsetTicks, syllable.durationTicks);
     },
-    [compare, playback, recorder.result],
+    [compare, playback, recorder.result, vowel],
   );
   const weakest = recorder.result ? weakestSyllable(recorder.result) : null;
 
@@ -1218,6 +1238,22 @@ export function ActivityTest() {
             ) : recorder.state === "processing" ? (
               <ScoreCardSkeleton />
             ) : null}
+
+            {/*
+              Below the card, because it is about one syllable of the result
+              rather than about the result. `target` is null: no content names
+              the vowel a syllable is aiming at yet, and the chart is built to
+              show a measurement against the four landmarks without one —
+              inventing a goal would put a number on the screen that nothing
+              measured.
+            */}
+            {vowel.estimate !== null && (
+              <VowelChart
+                outcome={vowel.estimate.outcome}
+                target={null}
+                grapheme={vowel.estimate.grapheme}
+              />
+            )}
           </>
         )}
       </div>
