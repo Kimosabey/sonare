@@ -103,7 +103,22 @@ header::after {
   animation: rise-in var(--dur-standard) var(--ease) both;
 }
 
+/*
+ * A real target, not a 17px line of text that happens to be a link.
+ *
+ * This is the control NFR-03 could never see: that rule flags a *declared*
+ * `min-height` under 44px, and this declared none at all, so it inherited the
+ * breadcrumb's 11px line and passed every check for months. A browser test
+ * measuring what renders found it at 17px — the fourth time in this project a
+ * rule has held a floor everywhere except on the thing that never mentioned it.
+ *
+ * `inline-flex` rather than `block`, so it keeps its place in the breadcrumb
+ * row and only grows the row's height.
+ */
 .breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
   color: var(--dim);
   text-decoration: none;
 }
@@ -128,9 +143,17 @@ header::after {
 /* Overrides the global input/select rule (100% width, 16px, bordered card
    style) — here it must read as breadcrumb text with a dropdown affordance,
    not a form field. */
+/*
+ * The language switcher is a real control and was rendering at 21px.
+ *
+ * Same blind spot as the breadcrumb link above: it declared no `min-height`,
+ * so NFR-03 — which flags declared values under the floor — had nothing to
+ * flag. Found by measuring what renders.
+ */
 .breadcrumb-lang-wrap select.breadcrumb-lang {
   appearance: none;
   -webkit-appearance: none;
+  min-height: var(--tap);
   width: auto;
   font: inherit;
   font-family: var(--mono);
@@ -233,6 +256,39 @@ h1 {
 }
 .enter-cta {
   animation: rise-in-cta var(--dur-slow) var(--ease) 250ms both;
+}
+
+/*
+ * The same class on an anchor, which was rendering as plain text.
+ *
+ * `.enter-cta` is an *animation*: on a `<button>` the rule above only adds the
+ * entrance, and everything that makes it look like a control — the fill, the
+ * weight, the padding, the height — comes from the global `button` rule. On a
+ * `<Link>` none of that applies, so five primary calls-to-action across four
+ * screens were 21px text links wearing the animation of a button.
+ *
+ * Restated here rather than made a shared class, because the button rule is
+ * an element selector and there is nothing to share. Kept in step by being
+ * immediately below it, and by the browser suite measuring what renders.
+ */
+a.enter-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  font-family: var(--sans);
+  font-size: var(--text-base);
+  font-weight: 700;
+  padding: 11px 20px;
+  border-radius: 10px;
+  border: 1.5px solid var(--signal);
+  background: var(--signal);
+  color: var(--on-accent);
+  text-decoration: none;
+}
+
+a.enter-cta:active {
+  transform: scale(0.97);
 }
 
 section {
@@ -355,7 +411,21 @@ textarea {
   margin-top: 12px;
 }
 
+/*
+ * `min-height` is the line that was missing, and it was missing everywhere.
+ *
+ * The padding above gave a button 42px — near enough to look right, two pixels
+ * under the floor the design constraints state, and invisible to NFR-03
+ * because that rule flags a *declared* height under 44 and this declared none.
+ * So every button in the product sat under the tap floor while the check that
+ * exists to prevent exactly that reported nothing. Found by measuring what a
+ * browser renders.
+ */
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
   font-family: var(--sans);
   font-size: var(--text-base);
   font-weight: 700;
@@ -377,9 +447,29 @@ button:disabled {
   cursor: default;
 }
 
-button.ghost {
+button.ghost,
+a.ghost {
   background: transparent;
   color: var(--signal);
+}
+
+/*
+ * The quieter variant on an anchor. Same reasoning as `a.enter-cta` above: the
+ * class only says "quieter", and everything that makes it a control comes from
+ * the element rule an anchor never matches.
+ */
+a.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 11px 20px;
+  border-radius: 10px;
+  border: 1.5px solid transparent;
+  font-family: var(--sans);
+  font-size: var(--text-base);
+  font-weight: 700;
+  text-decoration: none;
 }
 
 button.rec {

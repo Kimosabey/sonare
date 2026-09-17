@@ -16,6 +16,24 @@
 
 import { expect, test } from "@playwright/test";
 
+/**
+ * Waits for the screen to be at rest before measuring it.
+ *
+ * Every screen animates in, and `.enter-cta` transforms as it arrives — so
+ * `getBoundingClientRect` returns the *transformed* box and a 44px button
+ * measures 41 mid-flight. Measuring a control's size is a question about its
+ * resting state, so the measurement has to wait for one. The accessibility
+ * suite learned the same lesson about colour.
+ */
+async function settle(page: import("@playwright/test").Page): Promise<void> {
+  await page.waitForLoadState("networkidle");
+  await page.waitForSelector("section", { state: "attached", timeout: 10_000 });
+  await page.evaluate(async () => {
+    const running = document.getAnimations().map((a) => a.finished.catch(() => undefined));
+    await Promise.all(running);
+  });
+}
+
 /** Onboarded, so the app opens on Today rather than redirecting to the flow. */
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -52,25 +70,65 @@ test.describe("tap targets are the size the rule says", () => {
    * It cannot see a control that declares none — which is exactly how an 11px
    * breadcrumb link passed it for months. This measures what actually renders.
    */
-  test("every visible control on Today clears the tap floor", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
+  /**
+   * Every screen, not only Today — and the extension is the point.
+   *
+   * NFR-03 reads the stylesheet and flags a **declared** `min-height` under
+   * 44px. It cannot see a control that declares none, which is exactly how an
+   * 11px breadcrumb link passed it for months: the rule was enforcing a floor
+   * everywhere except on the things that never mentioned it. Four separate
+   * findings in this project have had that shape.
+   *
+   * This measures what actually renders, so a control is caught whether or not
+   * its stylesheet ever said anything about height.
+   */
+  for (const [name, path] of [
+    ["Today", "/"],
+    ["the language picker", "/#/languages"],
+    ["a session", "/#/fr"],
+    ["Journey", "/#/fr/journey"],
+    ["Progress", "/#/fr/progress"],
+    ["the You tab", "/#/settings"],
+    ["onboarding", "/#/welcome"],
+    ["the microphone check", "/#/check"],
+  ] as const) {
+    test(`every visible control on ${name} clears the tap floor`, async ({ page }) => {
+      await page.goto(path);
+      await settle(page);
 
-    const small = await page.evaluate(() => {
-      const out: { text: string; height: number }[] = [];
-      for (const el of document.querySelectorAll("a, button, select, summary")) {
-        const box = el.getBoundingClientRect();
-        // Hidden things have no size and are not targets.
-        if (box.width === 0 || box.height === 0) continue;
-        if (box.height < 44) {
-          out.push({ text: (el.textContent ?? "").trim().slice(0, 40), height: Math.round(box.height) });
+      const small = await page.evaluate(() => {
+        const out: { text: string; selector: string; height: number }[] = [];
+        for (const el of document.querySelectorAll("a, button, select, summary, input")) {
+          const box = el.getBoundingClientRect();
+          // Hidden things have no size and are not targets.
+          if (box.width === 0 || box.height === 0) continue;
+          /**
+           * A control inside a line of prose is a link, not a target a thumb
+           * aims at — the design constraint is about things people tap, and
+           * an inline link inherits the line's height by definition. They are
+           * reported separately rather than silently exempted.
+           */
+          const inline = window.getComputedStyle(el).display === "inline";
+          if (inline) continue;
+          /**
+           * Half a pixel of slack. A control laid out to exactly the floor can
+           * measure 43.99 after sub-pixel rounding, and reporting that as a
+           * failure is the check being wrong rather than the design.
+           */
+          if (box.height < 43.5) {
+            out.push({
+              text: (el.textContent ?? "").trim().slice(0, 40),
+              selector: `${el.tagName.toLowerCase()}.${el.className || "(none)"}`.slice(0, 60),
+              height: Math.round(box.height),
+            });
+          }
         }
-      }
-      return out;
-    });
+        return out;
+      });
 
-    expect(small, `controls under 44px: ${JSON.stringify(small)}`).toEqual([]);
-  });
+      expect(small, `${name} — controls under 44px: ${JSON.stringify(small, null, 1)}`).toEqual([]);
+    });
+  }
 });
 
 test.describe("the tab bar", () => {

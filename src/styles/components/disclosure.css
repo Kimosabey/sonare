@@ -24,8 +24,18 @@ details {
   margin-top: 14px;
 }
 
+/*
+ * A disclosure is tapped, so it takes the tap floor.
+ *
+ * It was 39px — close enough to look right and under the line, which is the
+ * hardest kind of miss to notice. The padding alone gave it its height; adding
+ * the floor is what makes it a target rather than text that happens to react.
+ */
 summary {
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
   padding: 11px 14px;
   font-family: var(--mono);
   font-size: var(--text-xs);

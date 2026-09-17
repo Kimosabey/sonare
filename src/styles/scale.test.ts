@@ -154,7 +154,10 @@ describe("font sizes come from the scale", () => {
      * (src/styles/settings.css), and +1 for `.leave-dialog h2`, the
      * leave-a-sitting question (src/styles/activity.css), and +1 for
      * `.class-promise h4`, the two headings on the pupil's copy of what a
-     * class can see (src/styles/settings.css).
+     * class can see (src/styles/settings.css), and +1 for `a.enter-cta`, which
+     * restates the button rule for anchors carrying that class
+     * (src/styles/base.css), and +1 for `a.ghost`, the same restatement for the
+     * quieter variant (src/styles/base.css).
      *
      * Exact equality on purpose, even though it means every new rule that sets
      * a font-size has to come past this line. That is the notification: a
@@ -163,7 +166,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(78);
+    expect(onScale.length).toBe(80);
   });
 });
 
