@@ -52,6 +52,18 @@ const ALLOWED_LITERALS: Record<string, number> = {
   "base.css:.breadcrumb-lang-caret": 9,
   "components/card.css:.lang-card-label": 19,
   "components/toast.css:.toast-close": 24,
+  /**
+   * Three inside the vowel chart's `viewBox`.
+   *
+   * SVG text is scaled by the viewBox, not by the root font size, so a token
+   * from the type scale would not mean what it means everywhere else — a
+   * `--text-sm` label in a 320-unit box renders at whatever the box happens to
+   * be drawn at. These are sized in the chart's own coordinate space, which is
+   * the only space they exist in.
+   */
+  "activity.css:.vowel-axis": 9,
+  "activity.css:.vowel-label": 11,
+  "activity.css:.vowel-landmark": 13,
 };
 
 describe("the sheets are actually being read", () => {
@@ -95,6 +107,9 @@ describe("font sizes come from the scale", () => {
       .map((d) => `${d.sheet} -> ${d.value}`);
 
     expect(literals.sort()).toEqual([
+      "activity.css -> 11px",
+      "activity.css -> 13px",
+      "activity.css -> 9px",
       "base.css -> 9px",
       "components/card.css -> 19px",
       "components/toast.css -> 24px",
@@ -157,7 +172,8 @@ describe("font sizes come from the scale", () => {
      * class can see (src/styles/settings.css), and +1 for `a.enter-cta`, which
      * restates the button rule for anchors carrying that class
      * (src/styles/base.css), and +1 for `a.ghost`, the same restatement for the
-     * quieter variant (src/styles/base.css).
+     * quieter variant (src/styles/base.css), and +1 for `.vowel-chart h4`, the
+     * "how the sound is made" heading (src/styles/activity.css).
      *
      * Exact equality on purpose, even though it means every new rule that sets
      * a font-size has to come past this line. That is the notification: a
@@ -166,7 +182,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(80);
+    expect(onScale.length).toBe(81);
   });
 });
 

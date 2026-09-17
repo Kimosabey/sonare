@@ -92,7 +92,24 @@ export type FormantRefusalReason =
   | "no-signal"
   | "not-voiced"
   | "no-resonance"
-  | "unstable";
+  | "unstable"
+  /**
+   * The voice is pitched too high for this method to be trusted.
+   *
+   * Above roughly 140 Hz the harmonics are far enough apart that the LPC fit
+   * latches onto one of them instead of the formant, and F1 comes back wrong
+   * by hundreds of Hz — *confidently* wrong, because the frame-to-frame spread
+   * stays near zero, so none of the other guards notice.
+   *
+   * Measured, not assumed: formants.accuracy.test.ts sweeps f0 and the failure
+   * is identical at every LPC order from 20 to 34, which is what makes it a
+   * property of the method rather than of the tuning.
+   *
+   * Refusing costs a learner one chart. Not refusing shows most women and all
+   * children a point on the wrong vowel and tells them to move their mouth
+   * toward it.
+   */
+  | "pitch-too-high";
 
 export interface FormantRefusal {
   kind: "refused";
@@ -140,6 +157,19 @@ const F2_MIN_HZ = 550;
 const F2_MAX_HZ = 3200;
 /** Any closer and the two are one resonance the fit happened to split. */
 const MIN_SEPARATION_HZ = 150;
+
+/**
+ * The fundamental above which this method stops being trustworthy.
+ *
+ * See `pitch-too-high`. 140 Hz sits above a typical adult male voice (85-155)
+ * and below a typical adult female one (165-255), which is exactly where the
+ * measured failure begins.
+ */
+const MAX_TRUSTED_F0_HZ = 140;
+
+/** Search range for the pitch estimate itself, in Hz. */
+const F0_MIN_HZ = 60;
+const F0_MAX_HZ = 400;
 
 /** Grid step for the envelope, in Hz. Parabolic refinement sits inside it. */
 const GRID_STEP_HZ = 5;
@@ -205,6 +235,18 @@ export function estimateFormants(samples: Float32Array, sampleRate: number): For
   if (!Number.isFinite(sampleRate) || sampleRate < 8000) return refuse("too-short");
   if (samples.length < frameSize + hop * (MIN_FRAMES - 1)) return refuse("too-short");
   if (peak(samples) < SILENCE_AMPLITUDE) return refuse("no-signal");
+
+  /**
+   * Before anything else is measured, whether it is worth measuring.
+   *
+   * This method's answer for F1 is wrong above `MAX_TRUSTED_F0_HZ` and wrong
+   * in the worst available way — confidently, with the spread guard reporting
+   * near zero, so nothing downstream can tell. Checking first means the cost
+   * of a high-pitched voice is one refusal rather than a point on the wrong
+   * vowel.
+   */
+  const f0Hz = estimateF0(samples, sampleRate);
+  if (f0Hz !== null && f0Hz > MAX_TRUSTED_F0_HZ) return refuse("pitch-too-high");
 
   const emphasised = preEmphasise(samples);
   const window = hamming(frameSize);
@@ -494,4 +536,50 @@ function median(values: number[]): number {
  */
 function medianAbsoluteDeviation(values: number[], centre: number): number {
   return median(values.map((v) => Math.abs(v - centre)));
+}
+
+/**
+ * The fundamental, by autocorrelation, or null when there is no clear one.
+ *
+ * Deliberately simple: this is a gate, not a measurement anybody is shown. All
+ * it has to answer is "is this voice above the line where F1 stops being
+ * trustworthy", and for that a peak in the autocorrelation over the plausible
+ * pitch range is enough.
+ *
+ * Null when nothing stands out — an unvoiced or noisy slice has no fundamental
+ * to find, and the voicing guards further down are what handle that. Null
+ * therefore means "carry on", not "refuse": refusing on a failed pitch search
+ * would refuse every fricative before the code that knows about fricatives
+ * ever ran.
+ */
+function estimateF0(samples: Float32Array, sampleRate: number): number | null {
+  const minLag = Math.floor(sampleRate / F0_MAX_HZ);
+  const maxLag = Math.min(Math.floor(sampleRate / F0_MIN_HZ), samples.length - 1);
+  if (maxLag <= minLag) return null;
+
+  let energy = 0;
+  for (let i = 0; i < samples.length; i++) energy += (samples[i] ?? 0) * (samples[i] ?? 0);
+  if (energy <= 0) return null;
+
+  let bestLag = 0;
+  let bestScore = 0;
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let sum = 0;
+    for (let i = 0; i + lag < samples.length; i++) {
+      sum += (samples[i] ?? 0) * (samples[i + lag] ?? 0);
+    }
+    const score = sum / energy;
+    if (score > bestScore) {
+      bestScore = score;
+      bestLag = lag;
+    }
+  }
+
+  /**
+   * A weak peak is not a pitch. 0.3 of the zero-lag energy is low enough to
+   * accept a breathy vowel and high enough to reject noise that happens to
+   * correlate with itself at some lag.
+   */
+  if (bestLag === 0 || bestScore < 0.3) return null;
+  return sampleRate / bestLag;
 }

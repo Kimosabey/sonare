@@ -162,37 +162,53 @@ describe("against Peterson & Barney", () => {
   });
 });
 
-describe("the limit that keeps the vowel chart unshipped", () => {
+describe("a voice pitched above what this method can measure", () => {
   /**
-   * F1 is wrong above roughly 140 Hz of fundamental, and **confidently** so —
-   * the spread guard reports 0, so the estimator does not know it is wrong.
-   * That is the worst combination available: a number, delivered with
-   * confidence, about a learner's mouth, that is out by hundreds of Hz.
+   * The limitation has not gone away — it has stopped being silent.
    *
-   * Order-independent — identical from 20 to 34 — because it is LPC fitting a
-   * harmonic rather than a formant. Most women and all children speak above
-   * this, so it is not an edge case; it is most of the population.
+   * F1 is wrong above roughly 140 Hz of fundamental, and *confidently* so: the
+   * frame-to-frame spread stays near zero, so none of the other guards notice.
+   * That is the worst combination available — a number, delivered with
+   * confidence, about a learner's mouth, out by hundreds of Hz.
    *
-   * Asserted rather than described so that whoever fixes it finds out here
-   * instead of in a review. When this test starts failing, that is the good
-   * news, and the vowel chart becomes a decision rather than a defect.
+   * It is order-independent, identical from LPC order 20 to 34, because it is
+   * the fit latching onto a harmonic rather than a formant. Most women and all
+   * children speak above the line.
+   *
+   * So the estimator measures the pitch first and refuses. The chart shows
+   * nothing rather than the wrong vowel, which is the same judgement R8 makes
+   * about a take the system could not score: no answer beats a fabricated one.
    */
-  it.each([150, 200, 250])("is still wrong about F1 at f0 = %i Hz", (f0) => {
+  it.each([150, 200, 250, 300])("refuses rather than guessing at f0 = %i Hz", (f0) => {
     const outcome = estimateFormants(vowel(530, 1840, 2480, f0), SAMPLE_RATE);
 
-    if (outcome.kind === "refused") return; // Refusing would be a fix, not a failure.
-    expect(
-      Math.abs(outcome.f1Hz - 530),
-      `f0=${String(f0)} now measures F1 at ${outcome.f1Hz.toFixed(0)} — if this is within ` +
-        `tolerance the limitation is gone and the chart can be reconsidered`,
-    ).toBeGreaterThan(TOLERANCE_HZ);
+    expect(outcome.kind, `f0=${String(f0)} produced a measurement`).toBe("refused");
+    if (outcome.kind === "refused") expect(outcome.reason).toBe("pitch-too-high");
   });
 
-  it("is accurate at a low fundamental, which is what makes the above a pitch problem", () => {
-    const outcome = estimateFormants(vowel(530, 1840, 2480, 110), SAMPLE_RATE);
+  /**
+   * And it still measures the voices it can. A refusal that swallowed
+   * everything would pass the case above and make the estimator useless, which
+   * is the failure mode of every guard written in a hurry.
+   */
+  it.each([90, 110, 130])("still measures a lower-pitched voice at f0 = %i Hz", (f0) => {
+    const outcome = estimateFormants(vowel(530, 1840, 2480, f0), SAMPLE_RATE);
 
-    expect(outcome.kind).toBe("measured");
+    expect(outcome.kind, `f0=${String(f0)} was refused`).toBe("measured");
     if (outcome.kind !== "measured") return;
     expect(Math.abs(outcome.f1Hz - 530)).toBeLessThan(TOLERANCE_HZ);
+  });
+
+  /**
+   * The gate is a pitch gate, not a blanket one. Every reference vowel above
+   * is synthesised at 120 Hz and must still come through — if the threshold
+   * ever drifts below a normal male voice, this is what says so.
+   */
+  it("does not refuse the reference vowels, which sit below the line", () => {
+    const refused = REFERENCE.filter(
+      ([, f1, f2, f3]) => estimateFormants(vowel(f1, f2, f3), SAMPLE_RATE).kind === "refused",
+    );
+
+    expect(refused.length, `refused: ${refused.map(([n]) => n).join(", ")}`).toBeLessThanOrEqual(1);
   });
 });

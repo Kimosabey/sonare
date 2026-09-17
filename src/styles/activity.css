@@ -831,3 +831,87 @@
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   }
 }
+
+/*
+ * The vowel chart — Session board 1j.
+ *
+ * Nothing here is banded or coloured by accuracy, and that is the design
+ * rather than an omission: the board says twice that this is "a measurement,
+ * not a grade". A score colour on a position would turn "your tongue is here"
+ * into "you did badly", which is the one reading it must not have.
+ */
+.vowel-plot {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  margin: var(--space-2) 0;
+}
+
+.vowel-frame {
+  fill: var(--surface);
+  stroke: var(--rule);
+  stroke-width: 1;
+}
+
+/* The landmark vowels, quiet enough to be a backdrop rather than a reading. */
+.vowel-landmark {
+  fill: var(--dim);
+  font-family: var(--sans);
+  font-size: 13px; /* OFF THE TYPE SCALE — drawn inside an SVG viewBox, where
+                      the scale's rem-based steps do not apply. */
+  font-style: italic;
+}
+
+.vowel-axis {
+  fill: var(--dim);
+  font-family: var(--mono);
+  font-size: 9px; /* OFF THE TYPE SCALE — an axis label inside the viewBox. */
+  letter-spacing: 0.08em;
+}
+
+/* The gap is the instruction, so it is drawn as a line rather than implied by
+   two dots a learner has to relate themselves. */
+.vowel-gap {
+  stroke: var(--signal);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  opacity: 0.6;
+}
+
+.vowel-target {
+  stroke: var(--ink);
+  stroke-width: 2;
+  fill: none;
+}
+
+.vowel-you {
+  fill: var(--signal);
+}
+
+/*
+ * The width of the answer, drawn.
+ *
+ * Half the frames behind this estimate landed inside this ellipse. A learner
+ * reading a bare dot would take the position as exact; the area says how
+ * precisely the sound was actually pinned down, which is the difference
+ * between a measurement and a claim.
+ */
+.vowel-you-spread {
+  fill: var(--signal-soft);
+  stroke: var(--signal);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.vowel-label {
+  fill: var(--ink);
+  font-family: var(--sans);
+  font-size: 11px; /* OFF THE TYPE SCALE — inside the viewBox. */
+  font-weight: 600;
+}
+
+.vowel-chart h4 {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-base);
+}
