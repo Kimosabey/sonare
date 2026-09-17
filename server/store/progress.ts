@@ -75,3 +75,49 @@ export async function mergeAndSaveProgress(
 export async function deleteProgress(learnerId: string): Promise<void> {
   return deleteAllFor("progress", learnerId);
 }
+
+/**
+ * How many learners have taken at least one attempt at each of these
+ * activities, in this language.
+ *
+ * Exists for the publish diff (Platform board 1k), which has to say who a
+ * removal reaches before an operator commits to it — "41 learners have
+ * attempts against this activity" is the sentence that makes the irreversible
+ * case visible, and it is only worth showing if it is true. The alternative
+ * was a plausible-looking number, which is the one thing this product refuses
+ * everywhere else it reports a measurement.
+ *
+ * `attemptsUsed > 0` rather than the entry merely existing. A progress entry
+ * is written when an activity is *offered*, so counting rows would report
+ * every learner the activity was ever scheduled for — a much larger number
+ * than the one an operator is being asked to weigh, and wrong in the direction
+ * that makes the warning easy to dismiss.
+ *
+ * One document per learner per language, so counting documents counts
+ * learners; `$addToSet` on the id would be the same answer at more cost.
+ * Activities nobody has attempted are absent from the result rather than
+ * present as zero — the caller distinguishes "no learner is affected" from
+ * "this activity was not asked about", and a defaulted zero conflates them.
+ */
+export async function countLearnersWithAttempts(
+  slug: string,
+  activityIds: number[],
+): Promise<Map<number, number>> {
+  const counts = new Map<number, number>();
+  if (activityIds.length === 0) return counts;
+
+  const db = await getDb();
+  const rows = await db
+    .collection<ProgressDocument>("progress")
+    .aggregate<{ _id: number; learners: number }>([
+      { $match: { slug } },
+      { $unwind: "$entries" },
+      { $match: { "entries.activityId": { $in: activityIds }, "entries.attemptsUsed": { $gt: 0 } } },
+      { $group: { _id: "$entries.activityId", learners: { $addToSet: "$learnerId" } } },
+      { $project: { learners: { $size: "$learners" } } },
+    ])
+    .toArray();
+
+  for (const row of rows) counts.set(row._id, row.learners);
+  return counts;
+}

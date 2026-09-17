@@ -44,6 +44,7 @@ import { diagnosticsLimiter } from "../rateLimit.js";
 import { isSlug } from "../domain/merge.js";
 import { getDb } from "../db.js";
 import { listVersions, publish, latestVersion, readDraft, readLatest, readVersion } from "../store/content.js";
+import { countLearnersWithAttempts } from "../store/progress.js";
 import { requireDiagnosticsToken } from "./diagnostics.js";
 import { logger } from "../logger.js";
 
@@ -227,6 +228,77 @@ contentRouter.get(
  * and publishing it forward as 4 is the documented way to roll back, and it
  * must not read as a conflict with itself.
  */
+/**
+ * How many learners have actually practised each of these activities.
+ *
+ * The publish diff asks this before an operator removes something (Platform
+ * board 1k). A removal does not erase anybody's takes or sound history, but
+ * the activity stops resolving — so it leaves their lesson, and any outcome
+ * that counted it quietly rests on less. That is worth one round trip to state
+ * truthfully rather than to estimate.
+ *
+ * Ids come in the query string because this is a read, and a read that changes
+ * nothing should survive a retry, a reload and a back button. They are capped
+ * at MAX_REACH_IDS: an operator is asking about the handful of activities in
+ * one diff, and an unbounded `$in` is a query somebody else pays for.
+ *
+ * An activity nobody has attempted is **absent** from the response rather than
+ * present as zero, and the screen keeps that distinction — "no learner has
+ * practised this" and "this was not asked about" are different sentences, and
+ * only one of them makes a removal safe.
+ */
+const MAX_REACH_IDS = 64;
+
+contentRouter.get(
+  "/content/:slug/reach",
+  diagnosticsLimiter,
+  requireDiagnosticsToken,
+  (req: Request, res: Response) => {
+    const slug = slugFrom(req, res);
+    if (slug === null) return;
+
+    const raw = typeof req.query.activities === "string" ? req.query.activities : "";
+    const parts = raw.split(",").filter((part) => part.length > 0);
+
+    if (parts.length > MAX_REACH_IDS) {
+      fail(
+        res,
+        400,
+        `at most ${MAX_REACH_IDS} activities per request`,
+        "Too many activities to check at once.",
+      );
+      return;
+    }
+
+    const ids: number[] = [];
+    for (const part of parts) {
+      const id = Number(part);
+      // Refused rather than skipped. Dropping an unparseable id would answer a
+      // question that was not asked, and the caller would read the gap as
+      // "nobody has practised that" — the reading that makes a removal look
+      // safer than it is.
+      if (!Number.isInteger(id) || id < 1) {
+        fail(res, 400, "activity ids must be whole numbers of 1 or more", "Could not check that.");
+        return;
+      }
+      if (!ids.includes(id)) ids.push(id);
+    }
+
+    countLearnersWithAttempts(slug, ids)
+      .then((counts) => {
+        const reach: Record<string, number> = {};
+        for (const [id, learners] of counts) reach[String(id)] = learners;
+        res.json({ slug, reach });
+      })
+      .catch((err: unknown) => {
+        logger.error({ err, slug }, "[content] reach count failed");
+        // 503, not an empty body. A zero here would be read as "this reaches
+        // nobody" by the one screen that must not be told that wrongly.
+        fail(res, 503, "could not count learners", "Could not check who this reaches.");
+      });
+  },
+);
+
 contentRouter.post(
   "/content/:slug",
   diagnosticsLimiter,
