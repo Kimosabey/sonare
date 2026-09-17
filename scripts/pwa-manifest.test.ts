@@ -246,17 +246,18 @@ describe("the icons", () => {
 
   it("does not claim the un-padded brand icon is maskable", () => {
     /**
-     * Measured, not assumed. `public/brand/icon.png` is the mortarboard mark
-     * on a pale circular plate, and the brim runs almost the full width: the
-     * violet ink's smallest margin is 23px of 512, i.e. 4.5% per side, where a
-     * maskable icon needs roughly 10% per side (the ~20% total safe-zone
-     * padding). 4,524 ink pixels — 6.3% of the mark — sit outside the central
-     * 80% safe circle Android is allowed to crop to.
+     * Measured, not assumed, and re-measured when the artwork changed.
      *
-     * So declaring `purpose: "maskable"` on this file would have Android crop
-     * into the logo on any device using a circular or squircle mask. It is
-     * declared `"any"` instead, and a padded maskable variant is a design
-     * task, not something to relabel.
+     * `public/brand/favicon.png` is the mortarboard mark on transparency, and
+     * the brim runs nearly the full width: the ink's smallest margin is **3px
+     * of 512 — 0.6% per side**, where a maskable icon needs roughly 10% per
+     * side (the ~20% total safe-zone padding). 13,905 ink pixels, 15.9% of the
+     * mark, sit outside the central 80% circle Android is allowed to crop to.
+     *
+     * It replaced `brand/icon.png`, which had the same problem less severely
+     * (4.5% margin, 6.3% outside) because its pale circular plate padded the
+     * mark. Dropping the plate removed that padding along with 110 KB, so this
+     * rule matters more now rather than less.
      *
      * Written as a rule rather than a flat "nothing is maskable": adding a
      * genuinely padded second asset later passes, and relabelling this one
@@ -265,8 +266,8 @@ describe("the icons", () => {
     const maskable = icons.filter((icon) => (icon.purpose ?? "").split(/\s+/).includes("maskable"));
     expect(
       maskable.map((icon) => icon.src),
-      "this artwork has 4.5% edge padding; a maskable icon needs ~10% per side",
-    ).not.toContain("/brand/icon.png");
+      "this artwork has 0.6% edge padding; a maskable icon needs ~10% per side",
+    ).not.toContain("/brand/favicon.png");
   });
 
   it("declares exactly one maskable icon, and it is the padded export", () => {
@@ -523,5 +524,80 @@ describe("the worker the page registers", () => {
 
     const workerSource = readFileSync(join(ROOT, "public", "sw.js"), "utf8");
     expect(workerSource).toContain(`data.type === "${posted}"`);
+  });
+});
+
+/**
+ * Which artwork lands in which slot, and why the three slots differ.
+ *
+ * One mark, two files, three declarations — and nothing asserted any of it
+ * until two mutations survived: dropping the dark-scheme icon entirely, and
+ * putting the transparent purple mark back on `apple-touch-icon`. Both are
+ * invisible failures. The page still loads, the manifest still validates, and
+ * the icon is simply hard to see in the one place it matters.
+ */
+describe("the icon in each slot suits the surface it lands on", () => {
+  /** Every `<link rel="icon">`, with its attributes, comments already stripped. */
+  const iconLinks = [...HEAD.matchAll(/<link\s+[^>]*rel="icon"[^>]*>/g)].map((m) => m[0]);
+
+  it("declares the purple mark as the default tab icon", () => {
+    const plain = iconLinks.filter((link) => !link.includes("prefers-color-scheme"));
+
+    expect(plain, "no unconditional icon link").toHaveLength(1);
+    expect(plain[0]).toContain("/brand/favicon.png");
+  });
+
+  /**
+   * The mark sits on transparency, so it takes the colour of the chrome behind
+   * it. On a dark tab strip that is violet on near-black — the one place this
+   * artwork stops being legible.
+   */
+  it("serves the white variant to a dark browser chrome", () => {
+    const dark = iconLinks.filter((link) => link.includes("prefers-color-scheme: dark"));
+
+    expect(dark, "nothing is declared for dark browser chrome").toHaveLength(1);
+    expect(dark[0]).toContain("/brand/favicon-white.png");
+  });
+
+  /**
+   * The fallback order matters as much as the pair. A browser that does not
+   * understand the media query takes the first link it recognises, and that
+   * should be the brand's own colour rather than the exception.
+   */
+  it("puts the light icon first, so an old browser gets the brand colour", () => {
+    const first = iconLinks[0] ?? "";
+    expect(first).toContain("/brand/favicon.png");
+    expect(first).not.toContain("prefers-color-scheme");
+  });
+
+  /**
+   * iOS ignores the manifest's icon list and composites a transparent touch
+   * icon onto **black** rather than onto the wallpaper. The purple mark would
+   * be violet ink on a black tile; the white one reads.
+   */
+  it("gives iOS artwork that reads on black", () => {
+    const touch = /<link\s+[^>]*rel="apple-touch-icon"[^>]*>/.exec(HEAD)?.[0] ?? "";
+
+    expect(touch, "no apple-touch-icon declared").not.toBe("");
+    expect(
+      touch,
+      "iOS composites a transparent touch icon onto black, so this slot needs the white mark",
+    ).toContain("/brand/favicon-white.png");
+  });
+
+  /** Both files are actually shipped, not merely referenced. */
+  it("ships every icon it declares", () => {
+    for (const name of ["favicon.png", "favicon-white.png"]) {
+      expect(existsSync(join(ROOT, "public", "brand", name)), `${name} is missing`).toBe(true);
+    }
+  });
+
+  /**
+   * The old asset is gone rather than orphaned. Vite copies `public/`
+   * verbatim, so a file nothing references is still bytes every learner
+   * fetches — and this one was 130 KB.
+   */
+  it("no longer ships the icon it replaced", () => {
+    expect(existsSync(join(ROOT, "public", "brand", "icon.png"))).toBe(false);
   });
 });

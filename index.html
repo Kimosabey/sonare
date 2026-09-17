@@ -3,7 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <link rel="icon" href="/brand/icon.png" />
+    <!--
+      Two icons, one artwork. The purple mark sits on transparency, so it takes
+      the colour of whatever chrome the browser paints behind it — which on a
+      dark tab strip means violet on near-black, and that is the one place this
+      mark stops being legible. The white variant is served there instead.
+
+      A browser that does not understand the media query takes the first link,
+      which is the light one. That is the right fallback: a dark tab strip is
+      the exception, and the purple mark is the brand.
+    -->
+    <link rel="icon" href="/brand/favicon.png" />
+    <link
+      rel="icon"
+      href="/brand/favicon-white.png"
+      media="(prefers-color-scheme: dark)"
+    />
 
     <!-- ── installable PWA ─────────────────────────────────────────────── -->
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -44,9 +59,15 @@
     -->
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Sonare" />
-    <!-- iOS ignores the manifest's icon list. Same 512x512 artwork; iOS
+    <!--
+      iOS ignores the manifest's icon list, and it composites a transparent
+      touch icon onto **black** rather than onto the wallpaper. So this slot
+      needs artwork that reads on black, and the white mark is exactly that —
+      the purple one would be violet ink on a black tile.
+
+      iOS
          downscales it for the home screen. -->
-    <link rel="apple-touch-icon" href="/brand/icon.png" />
+    <link rel="apple-touch-icon" href="/brand/favicon-white.png" />
     <!--
       ── the iOS splash ───────────────────────────────────────────────────
 

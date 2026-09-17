@@ -567,7 +567,14 @@ describe("the bundle a learner downloads", () => {
     // moving out of this bucket — into `splash/`, say, where the ceiling is
     // eight times looser — rather than the bucket growing.
     expect(eager.map((f) => f.name).sort()).toEqual([
-      "brand/icon.png",
+      // Two icons where there was one, and smaller than the one they replaced.
+      // `brand/icon.png` was the mark on a pale antialiased plate: 7,702
+      // distinct colours and 130 KB. The same artwork without the plate is two
+      // colours and 20 KB, and the white variant covers the two places
+      // transparency does not work — a dark browser tab, and iOS, which
+      // composites a touch icon onto black.
+      "brand/favicon-white.png",
+      "brand/favicon.png",
       "brand/wordmark-purple.png",
       "manifest.webmanifest",
       "sw.js",
