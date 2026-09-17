@@ -43,10 +43,14 @@
   margin: 10px 0 8px;
 }
 
+/* Three segments partitioning one bar, so each one's width sets where the next
+   begins — this is the one fill in the product that cannot be a scaleX.
+   It carries no transition instead: the segments change on a poll, seconds
+   apart, and animating a layout property to decorate that is the cost without
+   the benefit. */
 .band-bar-seg {
   display: block;
   height: 100%;
-  transition: width var(--dur-standard) var(--ease);
 }
 
 .band-bar-seg.pass {

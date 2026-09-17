@@ -36,8 +36,14 @@
 .interim-bar i {
   display: block;
   height: 100%;
+  width: 100%;
   background: var(--warn);
-  transition: width 0.1s linear;
+  /* Full width, scaled down — InterimFeedback.tsx drives transform: scaleX()
+     so the countdown's ~10Hz updates stay off the layout path while the
+     microphone is open. */
+  transform-origin: left center;
+  transform: scaleX(1);
+  transition: transform 0.1s linear;
 }
 
 .interim-note {

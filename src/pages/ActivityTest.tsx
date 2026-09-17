@@ -939,7 +939,10 @@ export function ActivityTest() {
         )}
       </div>
       <div className="steps-track" aria-hidden="true">
-        <div className="steps-fill" style={{ width: `${(passedCount / activities.length) * 100}%` }} />
+        <div
+          className="steps-fill"
+          style={{ transform: `scaleX(${activities.length === 0 ? 0 : passedCount / activities.length})` }}
+        />
       </div>
       <div className="steps" role="list" aria-label={`Activity ${activity.id} of ${activities.length}`}>
         {activities.map((a, i) => {

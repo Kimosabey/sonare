@@ -655,16 +655,21 @@ describe("mid-session progress", () => {
      * exactly what the three-try soft gate allows.
      */
     await open();
-    const fill = () => (document.querySelector(".steps-fill") as HTMLElement | null)?.style.width ?? "";
+    // Scaled rather than widened, so the fill animates on the compositor.
+    const fill = (): number => {
+      const el = document.querySelector(".steps-fill") as HTMLElement | null;
+      const match = /scaleX\(([\d.]+)\)/.exec(el?.style.transform ?? "");
+      return match === null ? Number.NaN : Number(match[1]) * 100;
+    };
 
-    expect(fill()).toBe("0%");
+    expect(fill()).toBe(0);
 
     take(88);
     await waitFor(() => expect(nextButton()).not.toBeNull());
     fireEvent.click(nextButton()!);
 
-    await waitFor(() => expect(fill()).not.toBe("0%"));
-    expect(Number.parseFloat(fill())).toBeCloseTo(100 / LANGUAGE.activities.length, 1);
+    await waitFor(() => expect(fill()).not.toBe(0));
+    expect(fill()).toBeCloseTo(100 / LANGUAGE.activities.length, 1);
   });
 
   it("names each segment for a screen reader, and hides the decorative track", async () => {

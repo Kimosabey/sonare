@@ -58,6 +58,19 @@ function panel(props: Partial<Parameters<typeof InterimFeedback>[0]> = {}) {
   );
 }
 
+/**
+ * The bar's fill, 0–100, read from `transform: scaleX()`.
+ *
+ * It is scaled rather than widened so the ~10Hz countdown stays off the layout
+ * path while the microphone is open — see `interim.css`. The assertions below
+ * are about the fraction shown, which that change does not touch.
+ */
+function barPercent(): number {
+  const bar = document.querySelector(".interim-bar > i") as HTMLElement | null;
+  const match = /scaleX\(([\d.]+)\)/.exec(bar?.style.transform ?? "");
+  return match === null ? Number.NaN : Number(match[1]) * 100;
+}
+
 describe("it is not transcription", () => {
   it("renders nothing at all when not recording", () => {
     // No residue between takes: a panel left on screen after a take would
@@ -180,22 +193,21 @@ describe("warning that the take is about to end", () => {
       advance(100);
     }
 
-    const width = (document.querySelector(".interim-bar > i") as HTMLElement | null)?.style.width ?? "";
-    expect(Number(width.replace("%", ""))).toBeGreaterThan(85);
+    expect(barPercent()).toBeGreaterThan(85);
   });
 
   it("drains the budget once the learner stops", () => {
     // The half that carries the information: a pause visibly costs something.
     const { rerender } = panel({ speaking: true, level: -20 });
     advance(100);
-    const before = (document.querySelector(".interim-bar > i") as HTMLElement).style.width;
+    const before = barPercent();
 
     rerender(<InterimFeedback recording speaking level={-80} hangoverMs={HANGOVER} autoStop />);
     advance(600);
-    const after = (document.querySelector(".interim-bar > i") as HTMLElement).style.width;
+    const after = barPercent();
 
-    expect(Number(after.replace("%", ""))).toBeLessThan(Number(before.replace("%", "")));
-    expect(Number(after.replace("%", ""))).toBeGreaterThan(0);
+    expect(after).toBeLessThan(before);
+    expect(after).toBeGreaterThan(0);
   });
 
   it("says it is finishing rather than showing a negative countdown", () => {
@@ -240,8 +252,7 @@ describe("warning that the take is about to end", () => {
     rerender(<InterimFeedback recording speaking level={-80} hangoverMs={HANGOVER} autoStop />);
     advance(600);
 
-    const width = (document.querySelector(".interim-bar > i") as HTMLElement | null)?.style.width ?? "";
-    const percent = Number(width.replace("%", ""));
+    const percent = barPercent();
     expect(percent).toBeGreaterThan(0);
     expect(percent).toBeLessThan(100);
   });

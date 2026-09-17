@@ -70,7 +70,10 @@ function InterimFeedbackBase({ recording, speaking, level, hangoverMs, autoStop 
       {closing && (
         <>
           <div className="interim-bar">
-            <i style={{ width: `${(remaining / hangoverMs) * 100}%` }} />
+            {/* scaleX, not width. This ticks about every 100ms while the
+                microphone is open, and width puts a layout pass on each one —
+                the same reason LevelMeter.tsx drives its bar this way. */}
+            <i style={{ transform: `scaleX(${Math.min(1, Math.max(0, remaining / hangoverMs))})` }} />
           </div>
           <div className="interim-note">
             {remaining > 0

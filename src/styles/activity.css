@@ -138,8 +138,12 @@
 
 .steps-fill {
   height: 100%;
+  width: 100%;
   background: var(--pass);
-  transition: width var(--dur-slow) var(--ease);
+  /* Scaled rather than widened, so the fill animates on the compositor. */
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform var(--dur-slow) var(--ease);
 }
 
 .steps {
