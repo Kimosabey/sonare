@@ -259,3 +259,119 @@
   background: var(--surface);
   color: var(--ink);
 }
+
+/* ── operator density at 1280 ───────────────────────────────────────────────
+ *
+ * Board 1h. One column until 1100px, because an authoring form on a phone is
+ * a form and splitting it would make both halves too narrow to read — the
+ * same breakpoint the rest of the product uses for "this is no longer a phone
+ * column".
+ *
+ * The spine is the narrower half on purpose: a unit is a title and a handful
+ * of lessons, while the activity being edited is seven fields and a phrase in
+ * the language being learnt, which needs the width.
+ */
+.authoring-cols {
+  display: grid;
+  gap: var(--space-6);
+}
+
+@media (min-width: 1100px) {
+  .authoring-cols {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+    align-items: start;
+  }
+
+  /* Each column scrolls against its own heading rather than the page, so an
+     operator comparing a lesson against the activity in it keeps both in
+     view — which is the whole point of putting them side by side. */
+  .authoring-col {
+    position: sticky;
+    top: var(--space-4);
+    max-height: calc(100vh - var(--space-8));
+    overflow-y: auto;
+  }
+}
+
+.authoring-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Language, what is published, and how much is uncommitted — the board's
+   status line. Monospace because the three facts are scanned, not read. */
+.authoring-status {
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  margin: 2px 0 0;
+}
+
+/* An anchor carrying a button's job, so it restates the tap floor the way
+   a.ghost and a.enter-cta already do in base.css. */
+a.authoring-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 11px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--signal);
+  text-decoration: none;
+  font-family: var(--sans);
+}
+
+.activity-overview {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.activity-overview th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 500;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.activity-overview td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+
+.activity-overview .is-selected,
+.activity-overview tr.is-selected td {
+  background: var(--signal-soft);
+}
+
+/* The row's control. Quiet, but a real button at the tap floor — a table of
+   twelve rows is twelve targets an operator hits at speed. */
+.activity-overview-pick {
+  min-width: var(--tap);
+  padding: 8px 10px;
+  font-family: var(--mono);
+}
+
+.activity-overview-kind {
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.activity-overview-sounds {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+}

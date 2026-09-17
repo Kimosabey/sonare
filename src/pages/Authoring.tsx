@@ -52,6 +52,7 @@ import { LANGUAGES, getLanguage } from "../activities/languages/index.js";
 import type { LanguageActivitySet } from "../activities/types.js";
 import { diffContent } from "../content/diff.js";
 import { PublishDiff } from "../components/PublishDiff.js";
+import { ActivityOverview } from "../components/ActivityOverview.js";
 import { getCourse } from "../activities/courses/index.js";
 import {
   DRAFT_KINDS,
@@ -186,6 +187,18 @@ export function Authoring() {
    * screen keeps distinct from an empty map. One says a removal is safe, the
    * other says nothing at all.
    */
+  /**
+   * The draft exactly as it was loaded, so "unsaved changes" is a count rather
+   * than a flag. An author who has been editing for ten minutes needs to know
+   * *how much* is uncommitted before they publish, and a boolean says the same
+   * thing for one typo as for a rewritten unit.
+   *
+   * Compared with `diffContent` — the same differ the publish panel uses — so
+   * the two can never disagree about what counts as a change.
+   */
+  const [seeded, setSeeded] = useState<ContentDraft | null>(null);
+  /** Which row of the overview is open in the editor below it. */
+  const [selected, setSelected] = useState<number | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [baseline, setBaseline] = useState<LanguageActivitySet | null>(null);
   const [reach, setReach] = useState<Map<number, number> | null>(null);
@@ -228,6 +241,8 @@ export function Authoring() {
     // the fields belong to a language, and publishing French text under the
     // Spanish slug is the one mistake this screen must not make easy.
     setDraft(null);
+    setSeeded(null);
+    setSelected(null);
     setLoadedFrom(null);
     setOutcome(null);
     setReviewing(false);
@@ -238,7 +253,12 @@ export function Authoring() {
   const startFromBundle = useCallback(() => {
     const bundled = getLanguage(slug);
     if (bundled === undefined) return;
-    setDraft(draftFromSet(bundled));
+    // Snapshotted as well as loaded, so "unsaved changes" can be counted
+    // against what was actually opened.
+    const fresh = draftFromSet(bundled);
+    setDraft(fresh);
+    setSeeded(fresh);
+    setSelected(null);
     setLoadedFrom("the set built into the app");
     setOutcome(null);
   }, [slug]);
@@ -258,7 +278,12 @@ export function Authoring() {
   const startFromCourse = useCallback(() => {
     const authored = getCourse(slug);
     if (authored === undefined) return;
-    setDraft(draftFromSet(authored));
+    // Snapshotted as well as loaded, so "unsaved changes" can be counted
+    // against what was actually opened.
+    const fresh = draftFromSet(authored);
+    setDraft(fresh);
+    setSeeded(fresh);
+    setSelected(null);
     setLoadedFrom("the course built into the app");
     setOutcome(null);
   }, [slug]);
@@ -272,7 +297,12 @@ export function Authoring() {
         if (!response.ok) throw new Error("request failed");
 
         const body = (await response.json()) as PublishedSet;
-        setDraft(draftFromSet(body));
+                // Snapshotted as well as loaded, so "unsaved changes" can be counted
+        // against what was actually opened.
+        const fresh = draftFromSet(body);
+        setDraft(fresh);
+        setSeeded(fresh);
+        setSelected(null);
         setLoadedFrom(`version ${version}`);
       } catch {
         setOutcome({ kind: "failed", message: `Couldn’t load version ${version}.` });
@@ -285,6 +315,16 @@ export function Authoring() {
 
   const problems = draft === null ? [] : draftProblems(draft);
 
+  /**
+   * How much is uncommitted, counted the same way a publish counts it.
+   *
+   * Zero when nothing has been seeded — a draft with no snapshot is not a
+   * draft with no edits, and claiming "no unsaved changes" over one would be
+   * the more dangerous of the two wrong answers.
+   */
+  const unsavedCount =
+    draft === null || seeded === null ? 0 : diffContent(setFromDraft(seeded), setFromDraft(draft)).length;
+
 /**
  * The draft as it would be published, in the shape the differ reads.
  *
@@ -295,8 +335,8 @@ export function Authoring() {
  * to open and repair, and refusing to diff it would leave no way to see what
  * is wrong with it.
  */
-  function setFromDraft(): LanguageActivitySet {
-    const payload = draftToPayload(draft as ContentDraft, latest);
+  function setFromDraft(from: ContentDraft | null = draft): LanguageActivitySet {
+    const payload = draftToPayload(from as ContentDraft, latest);
     return {
       code: payload.code,
       slug,
@@ -703,106 +743,49 @@ export function Authoring() {
       )}
 
       {draft !== null && !reviewing && (
-        <section>
-          <h2>Editing {loadedFrom === null ? "a set" : loadedFrom}</h2>
-
-          <p className="row">
-            <label htmlFor="authoring-label">Label</label>
-            <input
-              id="authoring-label"
-              type="text"
-              value={draft.label}
-              onChange={(event) => setDraft({ ...draft, label: event.target.value })}
-            />
-          </p>
-          <p className="row">
-            <label htmlFor="authoring-code">Locale</label>
-            <input
-              id="authoring-code"
-              type="text"
-              value={draft.code}
-              spellCheck={false}
-              onChange={(event) => setDraft({ ...draft, code: event.target.value })}
-            />
-          </p>
-
-          {draft.activities.map((activity, index) => (
-            <details key={index} className="authoring-activity">
-              <summary>
-                {activity.id || "?"} · {activity.title.trim() === "" ? "untitled" : activity.title}
-              </summary>
-
-              <p className="row">
-                <label htmlFor={`authoring-${index}-id`}>id</label>
-                <input
-                  id={`authoring-${index}-id`}
-                  type="text"
-                  inputMode="numeric"
-                  className="authoring-narrow"
-                  value={activity.id}
-                  onChange={(event) => editActivity(index, "id", event.target.value)}
-                />
-                <label htmlFor={`authoring-${index}-kind`}>kind</label>
-                {/* A select, not a text field: a mistyped kind renders as a
-                    blank task, and the three the UI can render are known. */}
-                <select
-                  id={`authoring-${index}-kind`}
-                  value={activity.kind}
-                  onChange={(event) => editActivity(index, "kind", event.target.value)}
-                >
-                  {DRAFT_KINDS.map((kind) => (
-                    <option key={kind} value={kind}>
-                      {kind}
-                    </option>
-                  ))}
-                  {/* An unknown kind loaded from an older document stays
-                      visible rather than being silently rewritten to
-                      "repeat" — it is a problem to be seen and fixed. */}
-                  {!(DRAFT_KINDS as readonly string[]).includes(activity.kind) && (
-                    <option value={activity.kind}>{activity.kind || "(none)"}</option>
-                  )}
-                </select>
-              </p>
-
+        <section className="authoring-editor">
+          <div className="authoring-head">
+            <div>
+              <h2>Editing {loadedFrom === null ? "a set" : loadedFrom}</h2>
               {/*
-                `distractors` is shown only on the kind that reads them.
-
-                Not a space saving. Publishing refuses near-misses on any other
-                kind — an author who fills the box on a `repeat` row has
-                written a listening exercise that is not one — so offering the
-                field everywhere invites a mistake and then reports it as a
-                refusal after the round trip. A field that cannot be used is
-                better absent than present and rejected.
+                The board's status line — language, what is published, and how
+                much is uncommitted. The count comes from the same differ the
+                publish panel uses, so the two cannot disagree about what a
+                change is.
               */}
-              {FIELDS.filter(
-                (field) => field !== "distractors" || activity.kind === "listen",
-              ).map((field) => (
-                <p className="row authoring-field" key={field}>
-                  <label htmlFor={`authoring-${index}-${field}`}>{field}</label>
-                  <input
-                    id={`authoring-${index}-${field}`}
-                    type="text"
-                    value={activity[field]}
-                    onChange={(event) => editActivity(index, field, event.target.value)}
-                  />
-                  <span className="hint">{FIELD_HINTS[field]}</span>
-                </p>
-              ))}
-
-              <p className="row">
-                <button type="button" className="ghost" onClick={() => removeActivity(index)}>
-                  Remove activity {index + 1}
-                </button>
+              <p className="authoring-status">
+                {(draft.label.trim() === "" ? slug : draft.label.trim()).toUpperCase()} ·{" "}
+                {latest === 0 ? "nothing published" : `v${latest} published`} ·{" "}
+                {unsavedCount === 0
+                  ? "no unsaved changes"
+                  : unsavedCount === 1
+                    ? "1 unsaved change"
+                    : `${unsavedCount} unsaved changes`}
               </p>
-            </details>
-          ))}
+            </div>
+            {/*
+              Opens the language as a learner meets it. The published version,
+              not this draft — nothing here has been published yet, and a
+              preview that showed unsaved edits would be showing something no
+              learner can reach.
+            */}
+            <Link to={`/${slug}`} className="ghost authoring-preview">
+              Preview as learner
+            </Link>
+          </div>
 
-          <p className="row">
-            <button type="button" className="ghost" onClick={addActivity}>
-              Add an activity
-            </button>
-          </p>
+          {/*
+            Two columns from 1100px — board 1h's operator density: the course
+            spine on the left, the activity being edited on the right.
 
+            The spine comes first in the DOM as well as on screen. Placing it
+            second and moving it left with grid would leave a keyboard operator
+            tabbing through every activity before reaching the units they are
+            looking at, which is the kind of mismatch that only shows up for
+            the people who cannot see the layout.
+          */}
+          <div className="authoring-cols">
+            <div className="authoring-col">
           <h3>Course spine</h3>
           <p className="what">
             Units and lessons are optional. A set with none is a flat list, which is what three
@@ -942,6 +925,115 @@ export function Authoring() {
               Add a unit
             </button>
           </p>
+            </div>
+
+            <div className="authoring-col">
+          <h3>Activities</h3>
+          <ActivityOverview
+            activities={draft.activities}
+            code={draft.code.trim()}
+            selected={selected}
+            onSelect={setSelected}
+          />
+
+          <p className="row">
+            <label htmlFor="authoring-label">Label</label>
+            <input
+              id="authoring-label"
+              type="text"
+              value={draft.label}
+              onChange={(event) => setDraft({ ...draft, label: event.target.value })}
+            />
+          </p>
+          <p className="row">
+            <label htmlFor="authoring-code">Locale</label>
+            <input
+              id="authoring-code"
+              type="text"
+              value={draft.code}
+              spellCheck={false}
+              onChange={(event) => setDraft({ ...draft, code: event.target.value })}
+            />
+          </p>
+
+          {draft.activities.map((activity, index) => (
+            <details key={index} className="authoring-activity" open={selected === index}>
+              <summary>
+                {activity.id || "?"} · {activity.title.trim() === "" ? "untitled" : activity.title}
+              </summary>
+
+              <p className="row">
+                <label htmlFor={`authoring-${index}-id`}>id</label>
+                <input
+                  id={`authoring-${index}-id`}
+                  type="text"
+                  inputMode="numeric"
+                  className="authoring-narrow"
+                  value={activity.id}
+                  onChange={(event) => editActivity(index, "id", event.target.value)}
+                />
+                <label htmlFor={`authoring-${index}-kind`}>kind</label>
+                {/* A select, not a text field: a mistyped kind renders as a
+                    blank task, and the three the UI can render are known. */}
+                <select
+                  id={`authoring-${index}-kind`}
+                  value={activity.kind}
+                  onChange={(event) => editActivity(index, "kind", event.target.value)}
+                >
+                  {DRAFT_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {kind}
+                    </option>
+                  ))}
+                  {/* An unknown kind loaded from an older document stays
+                      visible rather than being silently rewritten to
+                      "repeat" — it is a problem to be seen and fixed. */}
+                  {!(DRAFT_KINDS as readonly string[]).includes(activity.kind) && (
+                    <option value={activity.kind}>{activity.kind || "(none)"}</option>
+                  )}
+                </select>
+              </p>
+
+              {/*
+                `distractors` is shown only on the kind that reads them.
+
+                Not a space saving. Publishing refuses near-misses on any other
+                kind — an author who fills the box on a `repeat` row has
+                written a listening exercise that is not one — so offering the
+                field everywhere invites a mistake and then reports it as a
+                refusal after the round trip. A field that cannot be used is
+                better absent than present and rejected.
+              */}
+              {FIELDS.filter(
+                (field) => field !== "distractors" || activity.kind === "listen",
+              ).map((field) => (
+                <p className="row authoring-field" key={field}>
+                  <label htmlFor={`authoring-${index}-${field}`}>{field}</label>
+                  <input
+                    id={`authoring-${index}-${field}`}
+                    type="text"
+                    value={activity[field]}
+                    onChange={(event) => editActivity(index, field, event.target.value)}
+                  />
+                  <span className="hint">{FIELD_HINTS[field]}</span>
+                </p>
+              ))}
+
+              <p className="row">
+                <button type="button" className="ghost" onClick={() => removeActivity(index)}>
+                  Remove activity {index + 1}
+                </button>
+              </p>
+            </details>
+          ))}
+
+          <p className="row">
+            <button type="button" className="ghost" onClick={addActivity}>
+              Add an activity
+            </button>
+          </p>
+            </div>
+          </div>
 
           {problems.length > 0 && (
             <div className="authoring-problems" role="status">

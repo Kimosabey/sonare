@@ -178,7 +178,11 @@ describe("font sizes come from the scale", () => {
      * (`.publish-diff-versions`, `.diff-tag`, `.diff-where`, `.diff-kind`)
      * share one declaration because they share a step, then `.diff-before,
      * .diff-after` for the two sides of an edit, and `.diff-consequence` for
-     * the sentence saying what a change does to a record that already exists.
+     * the sentence saying what a change does to a record that already exists,
+     * and +4 for board 1h's authoring density (src/styles/authoring.css):
+     * `.authoring-status` (the language/published/unsaved line),
+     * `.activity-overview th`, `.activity-overview-kind` and
+     * `.activity-overview-sounds`.
      *
      * Exact equality on purpose, even though it means every new rule that sets
      * a font-size has to come past this line. That is the notification: a
@@ -187,7 +191,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(84);
+    expect(onScale.length).toBe(88);
   });
 });
 

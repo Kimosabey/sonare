@@ -10,9 +10,10 @@ needed:
 - **partial** — built, with what is missing stated.
 - **not started**.
 - **⚠ built, not reachable** — the code and its tests exist, and nothing
-  renders it. It counts as not delivered. Two items are in this state and both
-  were found by this audit rather than by a failing test, because a component
-  nobody imports breaks nothing.
+  renders it. It counts as not delivered. This audit found one such item (2-1j,
+  the vowel chart), which is now wired; `src/components/reachable.test.ts`
+  fails the build on the next one, because a component nobody imports breaks
+  no other test.
 
 ---
 
@@ -50,7 +51,7 @@ needed:
 | 1g | Mic unavailable as a screen | **done** | `src/components/MicUnavailable.tsx` |
 | 1h | Offline held takes + capture error | **done** | `src/pages/ActivityTest.tsx` |
 | 1i | `listen` activity | **done** | `src/components/ListenOptions.tsx` |
-| 1j | Corrective · vowel chart | **⚠ built, not reachable** | `src/components/VowelChart.tsx` + `src/speech/capture/formants.ts` exist with 20 accuracy tests against Peterson & Barney. **Nothing imports either.** A learner cannot reach it. |
+| 1j | Corrective · vowel chart | **done** — *was unreachable, now wired* | `src/components/VowelChart.tsx`, `src/speech/capture/formants.ts`, joined by `src/hooks/useVowelEstimate.ts`. Shown from the same syllable tap as 1k. `target` is null — no content names the vowel a syllable aims at, and the chart draws against its landmarks without one. |
 | 1k | Corrective · yours against the model | **done** | `src/pages/ActivityTest.tsx` |
 | 1l | Record control B, 430 | **not started** | stated as an alternative; control A shipped |
 | 1m | `listen` · 430 | **partial** | fluid; not tested at 430 |
@@ -85,7 +86,7 @@ needed:
 | 1e | Back behaviour, all five rows | **done** | `src/App.tsx`, `src/components/BackLink.tsx` |
 | 1f | Splash, five sizes, maskable icon | **done** | `index.html` (5 links), `public/splash/`, `public/manifest.webmanifest` |
 | 1g | Post-splash handover + transfer code | **done** | `src/components/DeviceLink.tsx` |
-| 1h | Authoring · 1280 | **partial** | `src/pages/Authoring.tsx` is complete as a tool — load, edit, validate, publish, diff. **The board's two-column 1280 layout is not built**: no units/lessons column beside the edited activity, and "Sounds targeted" is a field rather than a first-class table column. |
+| 1h | Authoring · 1280 | **done** | `src/pages/Authoring.tsx`, `src/components/ActivityOverview.tsx`, `src/styles/authoring.css`. Two columns from 1100px — spine left, edited activity right, spine first in the DOM too. Status line carries language, published version and a **counted** unsaved-changes figure (from `diffContent`, the same differ the publish panel uses). "Sounds targeted" is a table column that distinguishes three states: a `listen` activity scoring none by design, an activity that scores sounds and has none, and the targets themselves. |
 | 1i | Leave-sitting confirmation | **done** | `src/components/LeaveSittingDialog.tsx` — focus on the safe option, no third destructive choice |
 | 1j | You tab, export/transfer/re-check/erase | **done** | `src/pages/Settings.tsx` |
 | 1k | Publish diff, typed confirm only on removal | **done** | `src/components/PublishDiff.tsx`, `src/content/diff.ts` |
@@ -168,9 +169,10 @@ Result **1d, numbers-led**. `ActivityTest` computes the pass from accuracy, so a
 phrase-led card would bury the number the verdict is made of. Journey **1d**
 (outcomes + receipts) for the same reason — the receipts are the evidence the
 outcome rests on.
-Corrective: **1k is built and reachable; 1j is built and is not.** The vowel
-chart and its formant estimator pass 20 tests against Peterson & Barney
-reference vowels and no screen imports either of them.
+Corrective: **both**, and they share one gesture. Tapping a syllable plays
+your take against the model (1k) and places that syllable's vowel on the chart
+(1j). 1j had been built and left unimported — the audit found it, and
+`reachable.test.ts` now fails the build if it happens again.
 
 **2 · Did any screen need a token that does not exist?**
 No new colour or type token. The only additions were structural classes in

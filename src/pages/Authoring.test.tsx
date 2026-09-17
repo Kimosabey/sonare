@@ -41,7 +41,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * in milliseconds.
  */
 vi.setConfig({ testTimeout: 20_000 });
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
 import { Authoring } from "./Authoring.js";
@@ -849,5 +849,109 @@ describe("reviewing before publishing", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: /^Publish v\d+$/ })).not.toBeInTheDocument(),
     );
+  });
+});
+
+/**
+ * Board 1h's operator density — the status line and the overview table.
+ *
+ * `ActivityOverview.test.tsx` owns what the table shows. These are about what
+ * only this screen knows: how much is uncommitted, and against what.
+ */
+describe("the authoring header", () => {
+  it("counts unsaved changes against what was loaded, not against zero", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+
+    // Freshly seeded: nothing has been edited yet.
+    expect(screen.getByText(/no unsaved changes/i)).toBeInTheDocument();
+
+    fireEvent.change(field("gloss"), { target: { value: "a different gloss" } });
+
+    expect(await screen.findByText(/1 unsaved change(?!s)/i)).toBeInTheDocument();
+  });
+
+  it("counts each edited field, so a rewrite does not read like a typo", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+
+    fireEvent.change(field("gloss"), { target: { value: "one" } });
+    fireEvent.change(field("focus"), { target: { value: "two" } });
+
+    expect(await screen.findByText(/2 unsaved changes/i)).toBeInTheDocument();
+  });
+
+  it("says what is published, so the diff's baseline is not a surprise", async () => {
+    replies = [
+      [`/versions/1`, { status: 200, body: publishedSet() }],
+      [`/versions`, { status: 200, body: { versions: [version()] } }],
+    ];
+
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Load/ }));
+
+    expect(await screen.findByText(/v1 published/i)).toBeInTheDocument();
+  });
+
+  it("says nothing is published for a language with no versions", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+
+    // Scoped to the status line: the "nothing published yet" copy above the
+    // version table says the same thing in a different sentence.
+    expect(document.querySelector(".authoring-status")?.textContent).toMatch(
+      /nothing published/i,
+    );
+  });
+
+  /**
+   * The preview points at the published language, not at the draft. Nothing in
+   * the editor has been published, so a preview carrying unsaved edits would
+   * be showing a learner's screen that no learner can reach.
+   */
+  it("offers a preview of the language as a learner meets it", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+
+    expect(screen.getByRole("link", { name: "Preview as learner" })).toHaveAttribute(
+      "href",
+      `/${FIRST.slug}`,
+    );
+  });
+});
+
+describe("the activity overview", () => {
+  it("lists every activity in the set", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+
+    const table = screen.getByRole("table");
+    // One row per activity, plus the header row.
+    expect(within(table).getAllByRole("row")).toHaveLength(FIRST.activities.length + 1);
+  });
+
+  /**
+   * Choosing a row opens that activity below. Without this the table is a
+   * read-only summary and an author still has to hunt through the disclosures
+   * for the row they just looked at.
+   */
+  it("opens the activity a row selects", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+
+    const details = document.querySelectorAll("details.authoring-activity");
+    const second = details[1] as HTMLDetailsElement | undefined;
+    expect(second?.open).toBe(false);
+
+    const table = screen.getByRole("table");
+    const rows = within(table).getAllByRole("row");
+    const secondRow = rows[2];
+    if (secondRow === undefined) throw new Error("need two activities");
+    fireEvent.click(within(secondRow).getByRole("button"));
+
+    await waitFor(() => {
+      const after = document.querySelectorAll("details.authoring-activity");
+      expect((after[1] as HTMLDetailsElement | undefined)?.open).toBe(true);
+    });
   });
 });
