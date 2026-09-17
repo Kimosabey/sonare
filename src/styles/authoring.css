@@ -121,3 +121,141 @@
   text-transform: uppercase;
   color: var(--signal);
 }
+
+/* ── the publish diff ───────────────────────────────────────────────────────
+ *
+ * Board 1k. Not a gate: nothing here is styled to look like a barrier, and the
+ * publish button is an ordinary button. The one deliberate weight is on a
+ * removal, which is the only irreversible case on the screen — it gets the
+ * fail tint, and it is the only entry that does.
+ *
+ * Colour is not the carrier. Every entry states its kind in a word before any
+ * tint is read, so the three kinds are distinguishable with no colour at all —
+ * the same constraint the report screen is held to.
+ */
+.publish-diff-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* The four mono labels share a face and a step; only their colour and
+   emphasis differ, so the shared half is declared once. */
+.publish-diff-versions,
+.diff-tag,
+.diff-where,
+.diff-kind {
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  color: var(--dim);
+}
+
+.publish-diff-versions,
+.diff-tag,
+.diff-kind {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.publish-diff-versions {
+  margin: 2px 0 0;
+}
+
+.diff-tag {
+  letter-spacing: 0.12em;
+}
+
+/* The activity kind, in the product's own accent — it is the one word on the
+   entry that says what the learner was being asked to do. */
+.diff-kind {
+  color: var(--signal);
+}
+
+.publish-diff-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diff-entry {
+  border: 1px solid var(--rule);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 12px 14px;
+  background: var(--surface);
+}
+
+.diff-entry > p {
+  margin: 4px 0 0;
+}
+
+.diff-added {
+  border-left-color: var(--pass-line);
+}
+
+.diff-changed {
+  border-left-color: var(--rule);
+}
+
+/* The only entry that carries weight, because it is the only irreversible one. */
+.diff-removed {
+  border-left-color: var(--fail);
+  background: var(--fail-soft);
+}
+
+.diff-target {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.diff-before,
+.diff-after {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+}
+
+.diff-before {
+  color: var(--dim);
+  text-decoration: line-through;
+}
+
+.diff-after {
+  color: var(--ink);
+}
+
+/* What this change does to a record that already exists. Never the only thing
+   that distinguishes an entry — it is prose, and it says the whole sentence. */
+.diff-consequence {
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+.publish-diff-reach,
+.publish-diff-forward {
+  margin-top: 18px;
+}
+
+.publish-diff-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 18px 0 12px;
+}
+
+/* At the tap floor like every other target — an author correcting content on a
+   phone is exactly the case this screen exists for. */
+.publish-diff-confirm input {
+  min-height: var(--tap);
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+  padding: 0 12px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+}

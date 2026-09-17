@@ -164,6 +164,51 @@ function field(name: string, row = 0): HTMLElement {
   return found;
 }
 
+
+/**
+ * Publishing is two steps since the diff screen landed: review, then publish.
+ * These tests are about what gets sent and what the server says back, so they
+ * walk both rather than reach past the review — `PublishDiff.test.tsx` is
+ * where the diff's own behaviour is pinned.
+ */
+async function publish(): Promise<void> {
+  fireEvent.click(screen.getByRole("button", { name: /Review changes for version/ }));
+  const button = await screen.findByRole("button", { name: /^Publish v\d+$/ });
+  fireEvent.click(button);
+}
+
+/** The review step only, for assertions about the diff being reachable. */
+async function review(): Promise<void> {
+  fireEvent.click(screen.getByRole("button", { name: /Review changes for version/ }));
+  await screen.findByRole("button", { name: /^Publish v\d+$/ });
+}
+
+
+/**
+ * Two activities, so removing one still leaves a publishable set. A removal
+ * that empties the language is refused before the diff is ever reached, which
+ * would test the wrong refusal.
+ */
+function twoActivitySet(over: Record<string, unknown> = {}) {
+  const base = publishedSet();
+  return {
+    ...base,
+    activities: [
+      base.activities[0],
+      {
+        id: 2,
+        title: "Farewell",
+        kind: "repeat",
+        prompt: "Say goodbye",
+        gloss: "goodbye",
+        target: "Au revoir",
+        focus: "the final r",
+      },
+    ],
+    ...over,
+  };
+}
+
 /** The POST body the component sent, parsed. */
 function publishedPayload() {
   const call = calls.find((c) => c.init?.method === "POST");
@@ -282,7 +327,7 @@ describe("what may be published", () => {
     open();
     fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
 
-    expect(screen.getByRole("button", { name: "Publish as version 4" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Review changes for version 4" })).toBeEnabled();
   });
 
   it("will not publish a draft with a problem in it", async () => {
@@ -292,7 +337,7 @@ describe("what may be published", () => {
 
     fireEvent.change(field("target"), { target: { value: "" } });
 
-    expect(screen.getByRole("button", { name: /Publish as version/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Review changes for version/ })).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent(/target cannot be empty/);
   });
 
@@ -329,7 +374,7 @@ describe("what may be published", () => {
     // replaced phrase needs replaced syllables, or none — see the test below.
     fireEvent.change(field("soundTargets"), { target: { value: "" } });
 
-    expect(screen.getByRole("button", { name: /Publish as version/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Review changes for version/ })).toBeEnabled();
   });
 
   it("refuses a phrase whose sound targets no longer occur in it", async () => {
@@ -344,7 +389,7 @@ describe("what may be published", () => {
 
     fireEvent.change(field("target"), { target: { value: "Bonsoir" } });
 
-    expect(screen.getByRole("button", { name: /Publish as version/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Review changes for version/ })).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent(/does not appear in the target/);
   });
 });
@@ -360,7 +405,7 @@ describe("publishing", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
     fireEvent.change(field("target"), { target: { value: "Bonsoir!" } });
     fireEvent.change(field("soundTargets"), { target: { value: "bon, soir" } });
-    fireEvent.click(screen.getByRole("button", { name: "Publish as version 1" }));
+    await publish();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/Published version 1/);
     expect(publishedPayload().activities[0]?.target).toBe("Bonsoir!");
@@ -371,13 +416,15 @@ describe("publishing", () => {
 
   it("says earlier versions are untouched, because they are", async () => {
     replies = [
+      // Before the list, because the list's key is a substring of this URL.
+      [`/versions/1`, { status: 200, body: publishedSet() }],
       [`/versions`, { status: 200, body: { versions: [version()] } }],
       [`/content/${FIRST.slug}`, { status: 201, body: { version: 2 } }],
     ];
 
     open();
     fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Publish as version 2" }));
+    await publish();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/Earlier versions are untouched/);
   });
@@ -392,6 +439,9 @@ describe("publishing", () => {
      */
     replies = [
       [`/versions/1`, { status: 200, body: publishedSet() }],
+      // The diff's baseline is the newest published version, not the one in
+      // the editor — the same distinction `baseVersion` makes.
+      [`/versions/2`, { status: 200, body: publishedSet({ version: 2 }) }],
       [
         `/${FIRST.slug}/versions`,
         { status: 200, body: { versions: [version({ version: 2 }), version({ version: 1 })] } },
@@ -406,7 +456,7 @@ describe("publishing", () => {
     fireEvent.click(older);
 
     await waitFor(() => expect(screen.getByText(/Editing version 1/)).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Publish as version 3" }));
+    await publish();
 
     await waitFor(() => expect(publishedPayload().baseVersion).toBe(2));
   });
@@ -427,7 +477,7 @@ describe("publishing", () => {
 
     open();
     fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Publish as version/ }));
+    await publish();
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/The server refused this set/);
@@ -436,6 +486,7 @@ describe("publishing", () => {
 
   it("tells an author to reload when somebody else published first", async () => {
     replies = [
+      [`/versions/1`, { status: 200, body: publishedSet() }],
       [`/versions`, { status: 200, body: { versions: [version()] } }],
       [
         `/content/${FIRST.slug}`,
@@ -448,7 +499,7 @@ describe("publishing", () => {
 
     open();
     fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Publish as version/ }));
+    await publish();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/Somebody else published/);
   });
@@ -461,7 +512,7 @@ describe("publishing", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
 
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("offline"))));
-    fireEvent.click(screen.getByRole("button", { name: /Publish as version/ }));
+    await publish();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/Nothing was published/);
   });
@@ -582,7 +633,7 @@ describe("authoring the course spine", () => {
 
     open();
     fireEvent.click(await screen.findByRole("button", { name: /Start from the course set/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Publish as version/ }));
+    await publish();
 
     await screen.findByRole("alert");
     expect(publishedPayload().units).toEqual(COURSE.units);
@@ -604,7 +655,7 @@ describe("authoring the course spine", () => {
     fireEvent.change(first, { target: { value: "" } });
 
     expect(screen.getByRole("status")).toHaveTextContent(/unit 1 lesson 1: 0 activities/);
-    expect(screen.getByRole("button", { name: /Publish as version/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Review changes for version/ })).toBeDisabled();
   });
 
   it("adds a unit whose lesson is numbered against every other lesson", async () => {
@@ -636,10 +687,167 @@ describe("authoring the course spine", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
 
     expect(screen.queryAllByLabelText("unit id")).toHaveLength(0);
-    expect(screen.getByRole("button", { name: /Publish as version/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Review changes for version/ })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /Publish as version/ }));
+    await publish();
     await screen.findByRole("alert");
     expect(publishedPayload().units).toBeUndefined();
+  });
+});
+
+/**
+ * The review step — what this screen does around the diff, rather than what
+ * the diff shows. `PublishDiff.test.tsx` owns the second.
+ *
+ * Everything here is about one question: is the panel describing the publish
+ * that is about to happen, or some other one? A diff against the wrong
+ * baseline, or a reach count fetched for the wrong activities, is worse than
+ * no panel — it is a confident answer to a question nobody asked.
+ */
+describe("reviewing before publishing", () => {
+  it("compares against the newest published version, not the one being edited", async () => {
+    replies = [
+      [`/versions/1`, { status: 200, body: publishedSet() }],
+      [`/versions/2`, { status: 200, body: publishedSet({ version: 2 }) }],
+      [
+        `/${FIRST.slug}/versions`,
+        { status: 200, body: { versions: [version({ version: 2 }), version({ version: 1 })] } },
+      ],
+    ];
+
+    open();
+    const loads = await screen.findAllByRole("button", { name: "Load" });
+    const older = loads[1];
+    if (older === undefined) throw new Error("need two versions");
+    fireEvent.click(older);
+    await waitFor(() => expect(screen.getByText(/Editing version 1/)).toBeInTheDocument());
+
+    await review();
+
+    // v2 → v3. Editing v1 does not make this a v1 → v2 publish.
+    expect(screen.getByText(/v2 → v3/)).toBeInTheDocument();
+    expect(calls.some((c) => c.url.includes("/versions/2"))).toBe(true);
+  });
+
+  /**
+   * Nothing published yet, so there is nothing to fetch and every activity is
+   * new. Asking for version 0 would 404, and the screen would report a failure
+   * for the most ordinary case there is — the first publish of a language.
+   */
+  it("does not fetch a baseline when nothing has been published", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+    await review();
+
+    expect(calls.some((c) => c.url.includes("/versions/0"))).toBe(false);
+    expect(screen.getByText(/v0 → v1/)).toBeInTheDocument();
+  });
+
+  /**
+   * The reach query costs a database round trip, and the ordinary publish
+   * removes nothing. Asking about every activity in the set would put that
+   * cost on every review to answer a question with no removal to attach to.
+   */
+  it("asks who is affected only when something is being removed", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+    await review();
+
+    expect(calls.some((c) => c.url.includes("/reach"))).toBe(false);
+  });
+
+  it("asks about exactly the activities being removed", async () => {
+    replies = [
+      [`/versions/1`, { status: 200, body: twoActivitySet() }],
+      [`/versions`, { status: 200, body: { versions: [version()] } }],
+      [`/reach`, { status: 200, body: { reach: { "2": 41 } } }],
+    ];
+
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Load/ }));
+    await waitFor(() => expect(screen.getByText(/Editing version 1/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove activity 2" }));
+    await review();
+
+    const reachCall = calls.find((c) => c.url.includes("/reach"));
+    expect(reachCall?.url).toContain("activities=2");
+    expect(await screen.findByText(/41 learners have attempts/)).toBeInTheDocument();
+  });
+
+  /**
+   * A count that could not be fetched must not read as a count of zero. The
+   * screen says it could not check — see `PublishDiff.test.tsx` for the
+   * wording; this pins that a failed request reaches it as "unknown" rather
+   * than as an empty answer.
+   */
+  it("says it could not check when the count cannot be fetched", async () => {
+    replies = [
+      [`/versions/1`, { status: 200, body: twoActivitySet() }],
+      [`/versions`, { status: 200, body: { versions: [version()] } }],
+      [`/reach`, { status: 503, body: {} }],
+    ];
+
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Load/ }));
+    await waitFor(() => expect(screen.getByText(/Editing version 1/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove activity 2" }));
+    await review();
+
+    expect(await screen.findByText(/could not check/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no learner has attempts/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * A baseline that did not load is not an empty baseline. Treating it as one
+   * would report every activity as newly added and nothing as removed — a
+   * panel saying this publish takes nothing away, at the moment it knows
+   * nothing at all.
+   */
+  it("shows no diff at all when the baseline cannot be read", async () => {
+    replies = [
+      [`/versions/1`, { status: 200, body: { nonsense: true } }],
+      [`/versions`, { status: 200, body: { versions: [version()] } }],
+    ];
+
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Review changes for version/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn’t load version 1/);
+    expect(screen.queryByRole("button", { name: /^Publish v\d+$/ })).not.toBeInTheDocument();
+  });
+
+  it("goes back to the editor without publishing", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+    await review();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to editing" }));
+
+    expect(await screen.findByText(/Editing the set built into the app/)).toBeInTheDocument();
+    expect(calls.some((c) => c.init?.method === "POST")).toBe(false);
+  });
+
+  /**
+   * Leaving the diff up after a publish would show a comparison against the
+   * version that was just superseded — with the typed confirmation still
+   * satisfied, one click from publishing the same removal again.
+   */
+  it("returns to the editor after publishing", async () => {
+    replies = [
+      [`/versions`, { status: 200, body: { versions: [] } }],
+      [`/content/${FIRST.slug}`, { status: 201, body: { version: 1 } }],
+    ];
+
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Start from the bundled set/ }));
+    await publish();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Published version 1/);
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /^Publish v\d+$/ })).not.toBeInTheDocument(),
+    );
   });
 });

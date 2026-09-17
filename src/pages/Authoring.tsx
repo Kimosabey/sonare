@@ -49,6 +49,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { LANGUAGES, getLanguage } from "../activities/languages/index.js";
+import type { LanguageActivitySet } from "../activities/types.js";
+import { diffContent } from "../content/diff.js";
+import { PublishDiff } from "../components/PublishDiff.js";
 import { getCourse } from "../activities/courses/index.js";
 import {
   DRAFT_KINDS,
@@ -172,6 +175,20 @@ export function Authoring() {
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null);
   const [busy, setBusy] = useState<"none" | "loading" | "publishing">("none");
   const [outcome, setOutcome] = useState<PublishOutcome | null>(null);
+  /**
+   * The published version this draft is being compared against, and who a
+   * removal would reach. Both are fetched when review is asked for rather than
+   * kept in step with the editor: a diff recomputed on every keystroke would
+   * put a database round trip behind typing, and the answer is only wanted
+   * once, at the moment somebody is about to publish.
+   *
+   * `reach` is `null` when the count could not be fetched, which the diff
+   * screen keeps distinct from an empty map. One says a removal is safe, the
+   * other says nothing at all.
+   */
+  const [reviewing, setReviewing] = useState(false);
+  const [baseline, setBaseline] = useState<LanguageActivitySet | null>(null);
+  const [reach, setReach] = useState<Map<number, number> | null>(null);
 
   const headers: HeadersInit = token ? { "x-diagnostics-token": token } : {};
 
@@ -213,6 +230,8 @@ export function Authoring() {
     setDraft(null);
     setLoadedFrom(null);
     setOutcome(null);
+    setReviewing(false);
+    setBaseline(null);
     void loadVersions(slug);
   }, [slug, loadVersions]);
 
@@ -266,6 +285,110 @@ export function Authoring() {
 
   const problems = draft === null ? [] : draftProblems(draft);
 
+/**
+ * The draft as it would be published, in the shape the differ reads.
+ *
+ * `kind` is a bare string on both sides of this boundary — the draft's because
+ * it is being typed, the published set's because it crossed a network — and
+ * neither is narrowed here on purpose. This screen renders unvalidated content
+ * deliberately: a set that fails validation is exactly the one somebody needs
+ * to open and repair, and refusing to diff it would leave no way to see what
+ * is wrong with it.
+ */
+  function setFromDraft(): LanguageActivitySet {
+    const payload = draftToPayload(draft as ContentDraft, latest);
+    return {
+      code: payload.code,
+      slug,
+      label: payload.label,
+      activities: payload.activities as LanguageActivitySet["activities"],
+      ...(payload.units === undefined
+        ? {}
+        : { units: payload.units as LanguageActivitySet["units"] }),
+    };
+  }
+
+  /**
+   * Loads what this publish would be measured against, and who a removal
+   * reaches, then shows the diff.
+   *
+   * The baseline is the **latest published version**, not the one loaded into
+   * the editor. Those differ whenever an older version is being published
+   * forward as a rollback, and the diff that matters to a learner is the one
+   * between what they are being served now and what they are about to be
+   * served — not between two versions in an author's history.
+   */
+  const reviewChanges = useCallback(async (): Promise<void> => {
+    if (draft === null) return;
+    setBusy("loading");
+    setOutcome(null);
+
+    try {
+      let base: LanguageActivitySet;
+      if (latest === 0) {
+        // Nothing published for this language, so every activity is new. An
+        // empty set says that correctly; skipping the fetch avoids a 404 that
+        // would read as a failure.
+        base = { code: draft.code, slug, label: draft.label, activities: [] };
+      } else {
+        const response = await fetch(`/api/v1/content/${slug}/versions/${latest}`, { headers });
+        if (!response.ok) throw new Error("request failed");
+        const body = (await response.json()) as PublishedSet;
+        // Read defensively, like every other response on this screen: it
+        // crossed a network. A body without activities is not an empty
+        // language — diffing against one would report every activity as newly
+        // added, and a removal panel that lists nothing reads as "this publish
+        // removes nothing".
+        if (!Array.isArray(body.activities)) throw new Error("malformed set");
+        base = {
+          code: body.code,
+          slug,
+          label: body.label,
+          activities: body.activities as LanguageActivitySet["activities"],
+          ...(body.units === undefined
+            ? {}
+            : { units: body.units as LanguageActivitySet["units"] }),
+        };
+      }
+
+      const removed = diffContent(base, setFromDraft())
+        .filter((change) => change.kind === "removed")
+        .map((change) => change.activityId);
+
+      let counts: Map<number, number> | null = new Map();
+      if (removed.length > 0) {
+        try {
+          const response = await fetch(
+            `/api/v1/content/${slug}/reach?activities=${removed.join(",")}`,
+            { headers },
+          );
+          if (!response.ok) throw new Error("request failed");
+          const body = (await response.json()) as { reach?: Record<string, number> };
+          counts = new Map(
+            Object.entries(body.reach ?? {}).map(([id, learners]) => [Number(id), learners]),
+          );
+        } catch {
+          // Null, not an empty map. The screen says "could not check" rather
+          // than "nobody is affected", which is the reading that would make a
+          // removal look safe at the moment nothing is known about it.
+          counts = null;
+        }
+      }
+
+      setBaseline(base);
+      setReach(counts);
+      setReviewing(true);
+    } catch {
+      setOutcome({
+        kind: "failed",
+        message: `Couldn’t load version ${latest} to compare against. Nothing was published.`,
+      });
+    } finally {
+      setBusy("none");
+    }
+    // `headers` is derived from `token`; `setFromDraft` from `draft`/`slug`/`latest`.
+  }, [draft, slug, latest, token]);
+
   const publishDraft = useCallback(async (): Promise<void> => {
     if (draft === null || problems.length > 0) return;
 
@@ -284,6 +407,13 @@ export function Authoring() {
           kind: "published",
           message: `Published version ${String(body.version ?? latest + 1)}. Earlier versions are untouched.`,
         });
+        // Back to the editor. Leaving the diff up would show a comparison
+        // against the version that was just superseded, with a typed
+        // confirmation still satisfied — one more click away from publishing
+        // the same removal again as the next version.
+        setReviewing(false);
+        setBaseline(null);
+        setReach(null);
         await loadVersions(slug);
         return;
       }
@@ -543,7 +673,36 @@ export function Authoring() {
         </p>
       </section>
 
-      {draft !== null && (
+      {draft !== null && reviewing && baseline !== null && (
+        <section>
+          <PublishDiff
+            label={draft.label.trim() === "" ? slug : draft.label.trim()}
+            code={draft.code.trim()}
+            fromVersion={latest}
+            toVersion={latest + 1}
+            changes={diffContent(baseline, setFromDraft())}
+            reach={reach}
+            busy={busy === "publishing"}
+            onPublish={() => void publishDraft()}
+            onBack={() => setReviewing(false)}
+          />
+
+          {outcome !== null && (
+            <div className="authoring-outcome" role="alert">
+              <p className="what">{outcome.message}</p>
+              {outcome.problems !== undefined && outcome.problems.length > 0 && (
+                <ul>
+                  {outcome.problems.map((problem) => (
+                    <li key={problem}>{problem}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {draft !== null && !reviewing && (
         <section>
           <h2>Editing {loadedFrom === null ? "a set" : loadedFrom}</h2>
 
@@ -801,12 +960,13 @@ export function Authoring() {
           <p className="row">
             <button
               type="button"
-              onClick={() => void publishDraft()}
+              onClick={() => void reviewChanges()}
               /* Two independent reasons, so a request in flight cannot be sent
-                 twice and a set with known problems cannot be sent at all. */
+                 twice and a set with known problems cannot be reviewed towards
+                 a publish that would be refused anyway. */
               disabled={problems.length > 0 || busy !== "none"}
             >
-              {busy === "publishing" ? "Publishing…" : `Publish as version ${latest + 1}`}
+              {busy === "loading" ? "Loading…" : `Review changes for version ${latest + 1}`}
             </button>
           </p>
 
