@@ -82,6 +82,14 @@ export interface PupilPractice {
    * so no figure crosses into this module and none can leak out of it.
    */
   standing: Readonly<Record<string, SoundStanding>>;
+  /**
+   * How many takes this pupil has made on each sound, keyed by grapheme.
+   *
+   * A count of attempts, not a judgement of them — the same kind of fact as
+   * "the days you practised", which the promise already shares. It is summed
+   * across the class and the per-pupil figures never leave this function.
+   */
+  takes?: Readonly<Record<string, number>>;
   /** ISO days (`YYYY-MM-DD`) this pupil practised. */
   days: readonly string[];
 }
@@ -105,6 +113,13 @@ export interface SoundDifficulty {
    * getting-there is exactly the 22 of 28 the overview prints.
    */
   working: number;
+  /**
+   * Takes the class has made on this sound, summed. A volume, not a verdict:
+   * the board puts it beside the difficulty count so a teacher can tell "hard
+   * and heavily practised" from "hard and barely attempted", which are
+   * different lessons.
+   */
+  takes: number;
   /**
    * Joined pupils with no standing on this sound at all.
    *
@@ -192,6 +207,10 @@ export function summariseClass(pupils: readonly PupilPractice[]): ClassSummary {
       const count = (standing: SoundStanding): number =>
         byStanding.get(standing)?.get(grapheme)?.size ?? 0;
 
+      // Summed across every record, because two devices are two sets of real
+      // takes rather than a duplicate — unlike a pupil, who is one pupil.
+      const takes = pupils.reduce((total, pupil) => total + (pupil.takes?.[grapheme] ?? 0), 0);
+
       const justStarted = count("just-started");
       const gettingThere = count("getting-there");
       const holding = count("holding");
@@ -201,6 +220,7 @@ export function summariseClass(pupils: readonly PupilPractice[]): ClassSummary {
         justStarted,
         gettingThere,
         holding,
+        takes,
         working: justStarted + gettingThere,
         notYet: Math.max(0, joinedCount - justStarted - gettingThere - holding),
       };

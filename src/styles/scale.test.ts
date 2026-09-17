@@ -182,7 +182,10 @@ describe("font sizes come from the scale", () => {
      * and +4 for board 1h's authoring density (src/styles/authoring.css):
      * `.authoring-status` (the language/published/unsaved line),
      * `.activity-overview th`, `.activity-overview-kind` and
-     * `.activity-overview-sounds`.
+     * `.activity-overview-sounds`, and +6 for the teacher's class view
+     * (src/styles/teacher.css): `.class-sounds th`, `.class-sounds tbody th`,
+     * `.class-attendance-count`, `.class-attendance-day`,
+     * `.sound-bucket-count` and `.sound-bucket-label`.
      *
      * Exact equality on purpose, even though it means every new rule that sets
      * a font-size has to come past this line. That is the notification: a
@@ -191,7 +194,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(88);
+    expect(onScale.length).toBe(94);
   });
 });
 

@@ -1,0 +1,159 @@
+/* ── the teacher's class view ──────────────────────────────────────────────
+ *
+ * Teacher board 1d and 1e. Desktop 1280 is the primary width here, which is
+ * the one place in this product where that is true — everything else is a
+ * phone first.
+ *
+ * Nothing in this sheet styles a control inside the distribution, because
+ * there is no control inside the distribution. A bar that looked tappable
+ * would be an invitation to a drill-through that is deliberately absent, so
+ * the bars carry no hover, no pointer cursor and no focus treatment.
+ */
+
+.class-sounds {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.class-sounds th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 500;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.class-sounds td,
+.class-sounds tbody th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  font-weight: 400;
+}
+
+.class-sounds tbody th {
+  font-size: var(--text-lg);
+}
+
+/* Quiet, but a real target — the row's only control. */
+.class-sound-open {
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 8px 12px;
+}
+
+.class-attendance-count {
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.class-attendance-strip {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.class-attendance-strip li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  /* var(--tap) rather than a smaller literal. These day cells are not
+     interactive, so the floor is not strictly owed — but NFR-03 reads declared
+     sizes rather than roles, and a rule that has to be argued with is a rule
+     that gets an exception list. Seven days at the floor is 308px, which costs
+     this strip nothing. */
+  min-width: var(--tap);
+}
+
+.class-attendance-day {
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.class-attendance-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.class-worth {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--signal);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-top: 18px;
+}
+
+/* ── the distribution ──────────────────────────────────────────────────── */
+
+.sound-buckets {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sound-buckets li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  grid-template-areas:
+    "count bar"
+    "label label";
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.sound-bucket-count {
+  grid-area: count;
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Scaled rather than widened, like every other fill in the product. */
+.sound-bucket-bar {
+  grid-area: bar;
+  display: block;
+  height: 14px;
+  width: 100%;
+  border-radius: 7px;
+  background: var(--signal-soft);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform var(--dur-standard) var(--ease);
+}
+
+.sound-bucket-label {
+  grid-area: label;
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.sound-heard-in {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.sound-heard-in li {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  background: var(--surface);
+}
