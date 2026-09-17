@@ -35,10 +35,10 @@ function show(over: Partial<Parameters<typeof JoinClass>[0]> = {}) {
 
 describe("the consequences are listed before the choice", () => {
   it("shows every fact the class will see", () => {
-    show();
+    show({ learnerName: null });
 
     for (const fact of SHARED_WITH_CLASS) {
-      expect(screen.getByText(fact.because)).toBeInTheDocument();
+      expect(screen.getByText(fact.label)).toBeInTheDocument();
     }
   });
 
@@ -47,12 +47,25 @@ describe("the consequences are listed before the choice", () => {
    * is shared and summarises what is not is a consent screen that has not
    * obtained consent to anything in particular.
    */
-  it("shows every fact the class will never see, with the reason", () => {
+  it("shows every fact the class will never see", () => {
     show();
 
     for (const fact of NEVER_SHARED_WITH_CLASS) {
       expect(screen.getByText(fact.label)).toBeInTheDocument();
-      expect(screen.getByText(fact.because)).toBeInTheDocument();
+    }
+  });
+
+  /**
+   * Labels alone, and this is the assertion that keeps it that way. Putting a
+   * `because` under each of six facts measured 171 words on a 360px screen —
+   * about three scrolls before the buttons a pupil is here to press. The
+   * board's own pupil screen carries the labels and nothing else.
+   */
+  it("does not stack a justification under every fact", () => {
+    show();
+
+    for (const fact of [...SHARED_WITH_CLASS, ...NEVER_SHARED_WITH_CLASS]) {
+      expect(screen.queryByText(fact.because)).toBeNull();
     }
   });
 

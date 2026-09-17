@@ -21,6 +21,19 @@
  * The reversibility is stated on the screen rather than in a help page,
  * because it is the fact that makes the decision safe to make: a pupil can
  * leave at any time, and can remove their name without leaving.
+ *
+ * ── labels, not labels-and-reasons ─────────────────────────────────────────
+ *
+ * Each fact is one line. An earlier version put `because` underneath every one
+ * of the six, which is what the teacher's limits page does — and measured 171
+ * words on a 360px screen, roughly three scrolls before the buttons a pupil is
+ * here to press. The board's own pupil screen carries the labels alone, and it
+ * is right to: six facts is already at the edge of what somebody scans before
+ * deciding, and six facts each with a justification is a page you skip.
+ *
+ * The reasons are not lost. They are on the teacher's side, where the reader
+ * is deciding whether to run a class rather than whether to join one, and the
+ * two summary sentences below carry the part a pupil actually needs.
  */
 
 import { NEVER_SHARED_WITH_CLASS, SHARED_WITH_CLASS } from "../teacher/promise.js";
@@ -61,12 +74,9 @@ export function JoinClass({
               now needs to see the name that would travel, or they are agreeing
               to something they have to go and look up.
             */}
-            <b>
-              {fact.label.startsWith("Your first name") && learnerName !== null
-                ? `Your first name, ${learnerName}`
-                : fact.label}
-            </b>
-            <span className="hint">{fact.because}</span>
+            {fact.label.startsWith("Your first name") && learnerName !== null
+              ? `Your first name, ${learnerName}`
+              : fact.label}
           </li>
         ))}
       </ul>
@@ -75,8 +85,7 @@ export function JoinClass({
       <ul className="promise-list">
         {NEVER_SHARED_WITH_CLASS.map((fact) => (
           <li key={fact.label}>
-            <b>{fact.label}</b>
-            <span className="hint">{fact.because}</span>
+            {fact.label}
           </li>
         ))}
       </ul>

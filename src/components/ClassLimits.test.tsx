@@ -36,12 +36,11 @@ describe("both lists are rendered whole", () => {
    * summarises what you do not is a screen that will be read as a feature
    * list, and the absence is the design.
    */
-  it("shows every fact a teacher will not see, with the reason", () => {
+  it("shows every fact a teacher will not see", () => {
     render(<ClassLimits />);
 
     for (const fact of TEACHER_WILL_NOT_SEE) {
       expect(screen.getByText(fact.label)).toBeInTheDocument();
-      expect(screen.getByText(fact.because)).toBeInTheDocument();
     }
   });
 

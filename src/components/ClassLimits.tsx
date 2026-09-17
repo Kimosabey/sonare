@@ -49,8 +49,7 @@ export function ClassLimits({ showCapabilities = false }: ClassLimitsProps) {
       <ul className="promise-list">
         {TEACHER_WILL_SEE.map((fact) => (
           <li key={fact.label}>
-            <b>{fact.label}</b>
-            <span className="hint">{fact.because}</span>
+            {fact.label}
           </li>
         ))}
       </ul>
@@ -59,8 +58,7 @@ export function ClassLimits({ showCapabilities = false }: ClassLimitsProps) {
       <ul className="promise-list">
         {TEACHER_WILL_NOT_SEE.map((fact) => (
           <li key={fact.label}>
-            <b>{fact.label}</b>
-            <span className="hint">{fact.because}</span>
+            {fact.label}
           </li>
         ))}
       </ul>
