@@ -21,6 +21,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ClassLimits } from "../components/ClassLimits.js";
 import { ClassOverview } from "../components/ClassOverview.js";
+import { ClassGlance } from "../components/ClassGlance.js";
 import { SoundDetail } from "../components/SoundDetail.js";
 import { PupilList } from "../components/PupilList.js";
 import { PupilDetail } from "../components/PupilDetail.js";
@@ -284,8 +285,24 @@ export function Teacher() {
         )}
       </section>
 
+      {/*
+        Board 1i beside board 1d. Both render and a media query picks one —
+        `display: none` also takes the other out of the accessibility tree, so
+        a screen reader meets one rather than both. A JavaScript breakpoint
+        would have to guess before first paint and would get a rotation wrong.
+      */}
       {data !== null && opened === undefined && (
-        <section>
+        <section className="class-glance-wrap">
+          <ClassGlance
+            className={data.className}
+            code={data.slug}
+            summary={data.summary}
+          />
+        </section>
+      )}
+
+      {data !== null && opened === undefined && (
+        <section className="class-desk">
           <ClassOverview
             className={data.className}
             code={data.slug}

@@ -384,3 +384,55 @@
   gap: 8px;
   margin-top: var(--space-4);
 }
+
+/* ── the phone glance, and the desk view ───────────────────────────────────
+ *
+ * Board 1i. Both are in the DOM and a media query decides which renders —
+ * the same reasoning navigation.css states: a JavaScript breakpoint has to
+ * guess before first paint and gets it wrong on a rotation. `display: none`
+ * takes the other out of the accessibility tree too, so a screen reader meets
+ * one of them rather than both.
+ *
+ * 620px is the product's own "this is no longer a phone column" threshold.
+ */
+.class-desk {
+  display: none;
+}
+
+@media (min-width: 620px) {
+  .class-glance {
+    display: none;
+  }
+
+  .class-desk {
+    display: block;
+  }
+}
+
+.glance-day {
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 0;
+}
+
+/* The one line a teacher acts on, so it takes the largest step on the screen
+   and scales with the viewport — read at arm's length, in a corridor. */
+.glance-spend {
+  font-size: clamp(var(--text-lg), 6vw, var(--text-xl));
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+
+.glance-focus,
+.glance-attendance {
+  margin-top: var(--space-5);
+}
+
+.glance-count {
+  font-size: clamp(var(--text-lg), 9vw, var(--text-xl));
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0 0;
+}

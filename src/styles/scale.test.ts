@@ -190,6 +190,8 @@ describe("font sizes come from the scale", () => {
      * is a day count, and sizing it apart would make it look like a score, and
      * +1 for `.join-code` (board 1b) — the one string on any of these screens
      * that gets read aloud to a room, so it is set at the page-heading step,
+     * and +1 for `.glance-day` (board 1i), the weekday line on the phone
+     * glance,
      * and +1 for `.sitting-kind` (board 1f), the activity kind beside each row
      * of a suggested sitting.
      *
@@ -200,7 +202,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(95);
+    expect(onScale.length).toBe(96);
   });
 });
 
@@ -241,5 +243,76 @@ describe("the two load-bearing steps keep their constraints", () => {
     const skBar = report.slice(report.indexOf(".sk-bar {"));
     const height = Number(/height:\s*(\d+)px;/.exec(skBar.slice(0, skBar.indexOf("}")))?.[1]);
     expect(height).toBe(Math.round((lg as number) * 1.1));
+  });
+});
+
+/**
+ * Clamped font sizes — the gap between the two checks above.
+ *
+ * The census counts a value that *starts with* `var(--text`, and the literal
+ * scan flags one matching `^\d+px$`. A `clamp(26px, 6.5vw, 38px)` is neither,
+ * so for as long as both checks have existed a clamped size has been invisible
+ * to them: not counted as on-scale, not reported as a literal.
+ *
+ * Two shipped that way, and none of their four values is on the scale. They
+ * are listed rather than rewritten, because both are deliberately-tuned sizes
+ * on the most prominent text in the product and quietly resizing them to the
+ * nearest token is not a refactor — it is a design change. Listing them is
+ * what makes them visible; the next one has to come past this line.
+ */
+const ALLOWED_CLAMPS: Record<string, string> = {
+  "activity.css:.phrase":
+    "The learner's phrase — the largest text in the product and the thing the whole screen is for. 26-38px straddles --text-lg (23) and --text-xl (30) and was tuned against a real phrase on a real phone.",
+  "activity.css:.listen-option":
+    "A listen activity's options are read as a set, so they are sized between the body and heading steps rather than at either.",
+};
+
+describe("clamped sizes are visible to this file", () => {
+  /** Every `font-size: clamp(...)`, with the selector it sits in. */
+  function clamps(): { key: string; value: string }[] {
+    const found: { key: string; value: string }[] = [];
+
+    for (const [path, source] of Object.entries(sheets)) {
+      const sheet = path.replace(/^\.\//, "");
+      const lines = source.split("\n");
+      let selector = "";
+      for (const line of lines) {
+        const opens = /^([^@\s][^{]*)\{\s*$/.exec(line.trim());
+        if (opens !== null) selector = (opens[1] ?? "").trim();
+        const size = /font-size:\s*(clamp\([^;]*\))/.exec(line);
+        if (size !== null) found.push({ key: `${sheet}:${selector}`, value: size[1] ?? "" });
+      }
+    }
+
+    return found;
+  }
+
+  test("finds the clamps, so the rules below are not vouching for nothing", () => {
+    expect(clamps().length).toBeGreaterThan(0);
+  });
+
+  /**
+   * A clamp built from tokens moves with the scale. One built from literals
+   * does not, and nothing else in this file would ever say so.
+   */
+  test("every clamped size is built from the scale, or listed with a reason", () => {
+    const offences = clamps()
+      .filter((c) => !c.value.includes("var(--text"))
+      .filter((c) => ALLOWED_CLAMPS[c.key] === undefined)
+      .map((c) => `${c.key} -> ${c.value}`);
+
+    expect(offences, offences.join("\n")).toEqual([]);
+  });
+
+  /**
+   * And the list cannot grow stale. An entry for a selector that no longer
+   * clamps is an exception protecting nothing, which is how an exception list
+   * becomes a place to put anything.
+   */
+  test("every listed exception still has a clamp", () => {
+    const present = new Set(clamps().map((c) => c.key));
+    for (const key of Object.keys(ALLOWED_CLAMPS)) {
+      expect(present.has(key), `${key} no longer clamps; remove its exception`).toBe(true);
+    }
   });
 });
