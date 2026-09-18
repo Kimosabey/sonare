@@ -80,6 +80,43 @@ gates green, and two of 18 September's defects were only visible there.
 **Recommended: a pre-release step owned by a person.** Three minutes. Something
 has to make it happen and nothing does.
 
+### D10 · Price — **decided: free for now**
+
+Recorded 18 September 2026. Sonare is free.
+
+That is the right posture for D9: the schools losing Duolingo for Schools on
+31 July 2027 had a free incumbent, and arriving with a price against a
+departing free product is the harder sale.
+
+It also removes work rather than adding it — no billing, no payment accounts,
+no price negotiation — which makes D1's recommendation (a token link, no
+accounts) cleaner still.
+
+**But free has one consequence that is not yet handled.** Scoring is metered:
+$1.00 per audio hour, and every take costs money whether it scores or not.
+Realistic use is small — $1.69 to $5.70 per learner per school year — but the
+ceiling is the question, and there is currently no ceiling.
+
+`MAX_DAILY_SCORING_CALLS` exists, defaults to 2000, and is **read, reported and
+alerted on but never enforced**. `server/spend.ts` computes the fraction used,
+`server/infra/alerts.ts` fires on it, and the alert's own text says *"calls
+keep succeeding until the cap, then they stop"*. They do not stop. Nothing in
+`server/routes/pronunciation.ts` checks it.
+
+What does exist is rate limiting: 30 requests per minute per address, 20 per
+minute per identified learner. Those bound the *rate*, not the day. A single
+token used flat out is bounded at roughly $0.028 a minute.
+
+**Recommended: enforce the cap before announcing free anywhere.** The code
+already computes everything needed, and the alert already promises the
+behaviour — this is making reality match a documented intent rather than
+inventing policy.
+
+The number needs deciding, though, and it is not obviously 2000: at a typical
+ten takes per sitting that is about 200 learners a day, so a cap set to protect
+a budget could lock out a school mid-lesson. That trade — a surprise bill
+versus a class that stops working — is yours.
+
 ### D9 · The Duolingo for Schools window
 
 **Duolingo for Schools is being withdrawn.** New accounts are already closed

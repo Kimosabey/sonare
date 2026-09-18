@@ -369,10 +369,22 @@ nobody has done. But the *structure* follows from how the product is built:
   available here, which is a constraint worth knowing before somebody plans
   around it.
 
+### 10. What we charge — free, for now
+
+Decided 18 September 2026: **Sonare is free.**
+
+Against a market anchored at $70–$160 a year that is a sharp position, and it
+is the right one for the Duolingo for Schools sunset — those schools had a free
+incumbent, and a price is the harder sale against a departing free product.
+
+The cost figures above are what makes it affordable rather than reckless:
+single-digit dollars per learner per year, and the model voice a fixed cost
+rather than a per-learner one.
+
 ### Still not covered
 
-**Willingness to pay.** No school has been asked what it would pay, and no
-figure is invented here. The costs above are ours; the price is not derivable
+**Willingness to pay**, for when free ends. No school has been asked, and no
+figure is invented here. The costs above are ours; a price is not derivable
 from them.
 
 ## What this does not know
