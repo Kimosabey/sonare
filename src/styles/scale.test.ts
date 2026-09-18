@@ -187,7 +187,9 @@ describe("font sizes come from the scale", () => {
      * `.class-attendance-count`, `.class-attendance-day`,
      * `.sound-bucket-count` and `.sound-bucket-label`, and +0 for the pupil
      * list (board 1g), whose rows take the body size — the only figure on them
-     * is a day count, and sizing it apart would make it look like a score.
+     * is a day count, and sizing it apart would make it look like a score, and
+     * +1 for `.join-code` (board 1b) — the one string on any of these screens
+     * that gets read aloud to a room, so it is set at the page-heading step.
      *
      * Exact equality on purpose, even though it means every new rule that sets
      * a font-size has to come past this line. That is the notification: a
@@ -196,7 +198,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(93);
+    expect(onScale.length).toBe(94);
   });
 });
 

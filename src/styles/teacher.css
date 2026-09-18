@@ -226,3 +226,73 @@
   padding: 12px 14px;
   margin-top: 18px;
 }
+
+/* ── creating a class ──────────────────────────────────────────────────────
+ *
+ * Board 1b. The code is the one thing on this screen somebody reads aloud to a
+ * room, so it gets the treatment a code needs: monospace, wide tracking, and
+ * large enough to be read off a projector at the back.
+ */
+.join-code {
+  font-family: var(--mono);
+  font-size: var(--text-xl);
+  letter-spacing: 0.22em;
+  color: var(--signal);
+  margin: 8px 0 0;
+}
+
+.create-class-code-note {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.visibility-choices {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The whole row is the target, not just the dot — these are the two choices
+   the screen exists to make, and a 13px radio is not a target. */
+.visibility-choices label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "radio title"
+    ".     note";
+  align-items: center;
+  gap: 2px var(--space-3);
+  min-height: var(--tap);
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+/*
+ * Left at the platform's own size, and tinted rather than resized.
+ *
+ * A 20px radio was the first attempt and NFR-03 refused it — correctly. The
+ * rule reads declared sizes, not roles, and the honest response is not to
+ * rename the property until it stops looking like a target: the whole label is
+ * the target here, at var(--tap), and the radio is the indicator inside it.
+ *
+ * `accent-color` gets the visibility the resize was for without declaring a
+ * sub-floor size at all, and a native radio is the shape every platform's
+ * users already recognise.
+ */
+.visibility-choices input {
+  grid-area: radio;
+  accent-color: var(--signal);
+}
+
+.visibility-choices b {
+  grid-area: title;
+}
+
+.visibility-choices .hint {
+  grid-area: note;
+}

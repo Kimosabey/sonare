@@ -24,6 +24,7 @@ import { ClassOverview } from "../components/ClassOverview.js";
 import { SoundDetail } from "../components/SoundDetail.js";
 import { PupilList } from "../components/PupilList.js";
 import { PupilDetail } from "../components/PupilDetail.js";
+import { CreateClass, type NameVisibility } from "../components/CreateClass.js";
 import type { PupilRow } from "../teacher/roster.js";
 import type { ClassSummary } from "../teacher/classSummary.js";
 
@@ -87,6 +88,50 @@ export function Teacher() {
   const [openSound, setOpenSound] = useState<string | null>(null);
   /** Which pupil is opened, by label. Null is the list. */
   const [openPupil, setOpenPupil] = useState<string | null>(null);
+  /** The code a freshly created class returned. Shown once, never stored. */
+  const [newCode, setNewCode] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const createClass = useCallback(
+    async (input: {
+      name: string;
+      teacherName: string;
+      slug: string;
+      visibility: NameVisibility;
+    }): Promise<void> => {
+      setCreating(true);
+      setCreateError(null);
+      try {
+        const response = await fetch("/api/v1/classes", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(token === null ? {} : { "x-diagnostics-token": token }),
+          },
+          body: JSON.stringify(input),
+        });
+        if (response.status === 401) {
+          setCreateError("This server requires a token. Add ?token=… to the URL once.");
+          return;
+        }
+        if (!response.ok) throw new Error("request failed");
+
+        const body = (await response.json()) as { classId?: string; code?: string };
+        if (typeof body.code !== "string" || typeof body.classId !== "string") {
+          throw new Error("malformed");
+        }
+        setNewCode(body.code);
+        // Remembered so the summary below loads the class just created.
+        setClassId(body.classId);
+      } catch {
+        setCreateError("Couldn’t create the class. Nothing was saved.");
+      } finally {
+        setCreating(false);
+      }
+    },
+    [token],
+  );
 
   const load = useCallback(
     async (id: string): Promise<void> => {
@@ -135,6 +180,22 @@ export function Teacher() {
       <section>
         <h1>Sonare for a class</h1>
         <ClassLimits showCapabilities />
+      </section>
+
+      {/*
+        Creating comes before opening one, because a teacher arriving here for
+        the first time has no class id to type — and the board's first run is
+        the limits followed by a class, not a form asking for an id they have
+        never seen.
+      */}
+      <section>
+        <CreateClass
+          busy={creating}
+          code={newCode}
+          error={createError}
+          onCreate={(input) => void createClass(input)}
+          {...(newCode !== null ? { onOpen: () => setNewCode(null) } : {})}
+        />
       </section>
 
       <section>
