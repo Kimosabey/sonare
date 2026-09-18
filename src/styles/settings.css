@@ -178,3 +178,26 @@ button.danger:focus-visible {
   margin: var(--space-3) 0 0;
   font-size: var(--text-base);
 }
+
+/* ── what is planned but not here ──────────────────────────────────────────
+ *
+ * Deliberately quiet: no accent bar, no badge, no card lift. It is the last
+ * thing on the You tab and reads as a note rather than an offer — a roadmap
+ * styled like a feature is an advertisement.
+ */
+.planned-list {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.planned-list > li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--rule);
+}

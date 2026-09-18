@@ -42,6 +42,7 @@ import { knownLearners } from "../lib/learnerId.js";
 import { DeviceLink } from "../components/DeviceLink.js";
 import { ClassPromise } from "../components/ClassPromise.js";
 import { JoinClassFlow } from "../components/JoinClassFlow.js";
+import { Planned } from "../components/Planned.js";
 import { clearProgress, readProgress } from "../hooks/useProgressPersistence.js";
 import { clearLearnerId, readLearnerId } from "../lib/learnerId.js";
 import { clearOnboarded } from "../stores/onboardingStore.js";
@@ -540,6 +541,15 @@ export function Settings() {
             </p>
           </div>
         )}
+      </section>
+
+      {/*
+        Last, below everything a learner came here for. A roadmap above
+        somebody's own data is an advertisement on a page they opened to check
+        something about themselves.
+      */}
+      <section>
+        <Planned />
       </section>
 
       <section>
