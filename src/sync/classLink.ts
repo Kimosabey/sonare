@@ -191,6 +191,20 @@ export async function myClasses(
 
     const usable: MyClass[] = [];
     for (const raw of body.classes as unknown[]) {
+      /**
+       * Null and undefined before anything reads a property off them.
+       *
+       * Without this the cast is a lie that throws: `typeof null.classId` is a
+       * TypeError, it escapes the loop, and the outer catch turns it into an
+       * empty list — so **one** unreadable row hides every class the pupil is
+       * actually in. The panel then disappears, and with it the only route to
+       * "remove my name" and "leave the class", which are the two things the
+       * join screen promises they can always do.
+       *
+       * The per-row `continue` below was meant to be the leniency. It only
+       * ever worked for rows that were objects.
+       */
+      if (typeof raw !== "object" || raw === null) continue;
       const c = raw as Partial<MyClass>;
       if (
         typeof c.classId !== "string" ||
