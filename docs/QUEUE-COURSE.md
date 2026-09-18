@@ -921,3 +921,47 @@ and a reader that stops matching fails. What is deliberately excluded is
 written down with its reason, because an exclusion implied by absence is
 indistinguishable from an oversight — which is precisely what the teacher board
 was.
+
+### 2026-09-18 — the microphone a listening question was opening (33505ac)
+
+The most serious thing found today, and it was found by asking a question
+nobody had asked: what does the *screen* do with a silent activity?
+
+`ActivityTest` called `recorder.warm()` on every activity change and at the
+start of every session, without asking what kind of activity it was.
+`warm()` calls `start({ prewarm: true })`, whose whole purpose is to pay the
+**getUserMedia** cost early. So on a `listen` or a `locate` — where there is no
+record button, nothing to record, and no try to spend — the screen opened the
+microphone anyway.
+
+On iOS that is the single permission prompt a learner ever gets, spent on an
+activity that asks them to tap one of four answers, on a screen that gives them
+no reason to expect it. `honesty.test.ts` states this rule in as many words and
+proves `affordancesFor` honours it. The screen never asked `affordancesFor`:
+`affords` is computed 270 lines below the two `warm()` calls.
+
+**Every part was tested and the assembly was not.** `locate.ts` composes the
+options, `LocateOptions.test.tsx` renders them, `honesty.test.ts` proves the
+affordances, `courses.test.ts` proves the shipped content composes a real
+question. `ActivityTest.test.tsx` contained no `listen` and no `locate` at all.
+
+The recorder is mocked as a **spy rather than a stub**, and that is the whole
+design of the file. A stub proves the screen renders; only a spy proves it
+never asked. Warming is invisible on purpose — it exists so the first Record
+tap does not pay a cold start — so no check that looks at what is on screen
+could ever have seen this.
+
+Two of six mutants survived the first run, both real holes in the test:
+
+- The test only ever rendered activity **one**, so the effect that runs on
+  *moving between* activities never fired, and removing its guard changed
+  nothing. In the shipped content the silent activity is nineteenth.
+- Nothing asserted that a **spoken** kind still warms, so the fix could have
+  disabled warming outright and regressed NFR-01 — the learner's first tap
+  paying the full cold `getUserMedia` and AudioWorklet cost — in silence.
+
+Also found on the way in: `LocateOptions`' list carried no accessible name
+while its sibling `ListenOptions` does, so a screen reader announced "list,
+four items" with the question on screen and absent from the accessibility tree.
+It is now labelled by the question element itself rather than a copy of its
+text, so the two cannot drift into asking different things.
