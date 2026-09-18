@@ -12,9 +12,18 @@
  * their mind has told nobody anything.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { JoinClass } from "./JoinClass.js";
-import { joinClass, previewClass, type ClassPreview } from "../sync/classLink.js";
+import { MyClass } from "./MyClass.js";
+import {
+  joinClass,
+  leaveClass,
+  myClasses,
+  previewClass,
+  removeMyName,
+  type ClassPreview,
+  type MyClass as Membership,
+} from "../sync/classLink.js";
 
 export interface JoinClassFlowProps {
   /** Which learner on this device is joining. */
@@ -29,6 +38,25 @@ export function JoinClassFlow({ learnerName, onJoined }: JoinClassFlowProps) {
   const [joined, setJoined] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * Classes this device is already in, read on mount.
+   *
+   * Without this the You tab forgot a membership the moment the page reloaded:
+   * the join flow showed "you are in X" from local state and nothing asked the
+   * server afterwards, so board 1h's mirror — the screen a pupil checks the
+   * promise on — was reachable exactly once, immediately after joining.
+   */
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    void myClasses(learnerName).then((classes) => {
+      if (live) setMemberships(classes);
+    });
+    return () => {
+      live = false;
+    };
+  }, [learnerName, joined]);
 
   async function look(): Promise<void> {
     setBusy(true);
@@ -54,6 +82,57 @@ export function JoinClassFlow({ learnerName, onJoined }: JoinClassFlowProps) {
     setPreview(null);
     setJoined(preview?.name ?? "your class");
     onJoined?.(result.classId);
+  }
+
+  async function removeName(membership: Membership): Promise<void> {
+    setBusy(true);
+    const ok = await removeMyName(membership.classId, learnerName);
+    setBusy(false);
+    if (!ok) {
+      setMessage("Couldn’t remove your name. It has not changed.");
+      return;
+    }
+    setMemberships((current) =>
+      current.map((c) => (c.classId === membership.classId ? { ...c, sharedName: null } : c)),
+    );
+  }
+
+  async function leave(membership: Membership): Promise<void> {
+    setBusy(true);
+    const ok = await leaveClass(membership.classId, learnerName);
+    setBusy(false);
+    if (!ok) {
+      setMessage("Couldn’t leave the class. Nothing has changed.");
+      return;
+    }
+    setMemberships((current) => current.filter((c) => c.classId !== membership.classId));
+    setJoined(null);
+  }
+
+  // A membership renders the mirror, whether it was joined a minute ago or a
+  // term ago. `joined` only decides whether the code field is worth showing.
+  if (memberships.length > 0) {
+    return (
+      <div className="join-flow">
+        {memberships.map((membership) => (
+          <MyClass
+            key={membership.classId}
+            className={membership.className}
+            teacherName={membership.teacherName}
+            joinedAt={membership.joinedAt}
+            sharedName={membership.sharedName}
+            busy={busy}
+            onRemoveName={() => void removeName(membership)}
+            onLeave={() => void leave(membership)}
+          />
+        ))}
+        {message !== null && (
+          <p className="what" role="alert">
+            {message}
+          </p>
+        )}
+      </div>
+    );
   }
 
   if (joined !== null) {

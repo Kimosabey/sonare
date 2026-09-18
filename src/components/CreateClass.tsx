@@ -34,6 +34,12 @@ export interface CreateClassProps {
   error?: string | null;
   onCreate: (input: { name: string; teacherName: string; slug: string; visibility: NameVisibility }) => void;
   onOpen?: () => void;
+  /**
+   * Replaces the code. Board 1b promises "regenerate any time", and a code
+   * written on a whiteboard outlives the term it was written for — so the
+   * promise needs a control behind it rather than a sentence.
+   */
+  onRegenerate?: () => void;
 }
 
 export function CreateClass({
@@ -42,6 +48,7 @@ export function CreateClass({
   error = null,
   onCreate,
   onOpen,
+  onRegenerate,
 }: CreateClassProps) {
   const [name, setName] = useState("");
   const [teacherName, setTeacherName] = useState("");
@@ -63,11 +70,21 @@ export function CreateClass({
           decides. Nothing about them reaches you before that.
         </p>
 
-        {onOpen !== undefined && (
-          <p className="row">
+        <p className="row">
+          {onOpen !== undefined && (
             <button type="button" onClick={onOpen}>
               Open the class
             </button>
+          )}
+          {onRegenerate !== undefined && (
+            <button type="button" className="ghost" onClick={onRegenerate} disabled={busy}>
+              Regenerate the code
+            </button>
+          )}
+        </p>
+        {onRegenerate !== undefined && (
+          <p className="hint">
+            Regenerating stops the old code working. Nobody already in the class is affected.
           </p>
         )}
       </section>

@@ -172,6 +172,24 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/**
+ * The call to a given endpoint, rather than whichever fetch happened first.
+ *
+ * The You tab asks the server which classes this learner is in as soon as it
+ * mounts, so `calls[0]` is no longer whatever the test under way is about.
+ * Indexing into the call list was always a bet that nothing else on the page
+ * would ever fetch; finding the call by URL is the assertion these tests
+ * actually meant.
+ */
+function callTo(
+  stub: { mock: { calls: unknown[][] } },
+  endpoint: string,
+): [string, RequestInit] {
+  const call = stub.mock.calls.find((args) => String(args[0]).includes(endpoint));
+  if (call === undefined) throw new Error(`nothing fetched ${endpoint}`);
+  return call as unknown as [string, RequestInit];
+}
+
 describe("exporting", () => {
   it("asks the server with the learner's token and saves what came back", async () => {
     const doFetch = vi.fn(() => Promise.resolve(ok(exportBody())));
@@ -181,7 +199,7 @@ describe("exporting", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export my data" }));
 
     await waitFor(() => expect(clicked).toHaveLength(1));
-    const [url, init] = doFetch.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = callTo(doFetch, "/learners/me/export");
     expect(url).toBe("/api/v1/learners/me/export");
     // The bare id authorises nothing — only the signed token does.
     expect((init.headers as Record<string, string>)["authorization"]).toBe(`Bearer ${TOKEN}`);
@@ -322,7 +340,11 @@ describe("deleting everything", () => {
     expect(button).toBeDisabled();
 
     fireEvent.click(button);
-    expect(doFetch).not.toHaveBeenCalled();
+    // Scoped to the deletion: the class-membership read on mount is not it.
+    const deletions = (doFetch.mock.calls as unknown[][]).filter(
+      (args) => (args[1] as RequestInit | undefined)?.method === "DELETE",
+    );
+    expect(deletions).toHaveLength(0);
   });
 
   it("accepts the word whatever case it is typed in", async () => {
@@ -345,7 +367,7 @@ describe("deleting everything", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete everything" }));
 
     await screen.findByRole("status");
-    const [url, init] = doFetch.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = callTo(doFetch, "/learners/me");
     expect(url).toBe("/api/v1/learners/me");
     expect(init.method).toBe("DELETE");
     expect((init.headers as Record<string, string>)["authorization"]).toBe(`Bearer ${TOKEN}`);

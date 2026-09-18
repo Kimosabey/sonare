@@ -370,3 +370,17 @@
 .suggested-sitting > p {
   margin: 6px 0 0;
 }
+
+/* ── the pupil's own class panel ───────────────────────────────────────────
+ *
+ * Board 1h's right half, on the You tab. The two exits are quiet buttons
+ * rather than a destructive-looking pair: neither loses anything a learner
+ * has practised, and styling them as danger would make a reversible choice
+ * read as a permanent one.
+ */
+.my-class-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: var(--space-4);
+}

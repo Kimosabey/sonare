@@ -172,6 +172,32 @@ export function Teacher() {
     [classId, token],
   );
 
+  const regenerate = useCallback(async (): Promise<void> => {
+    if (classId === "") return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const response = await fetch(
+        `/api/v1/classes/${encodeURIComponent(classId)}/code`,
+        {
+          method: "POST",
+          headers: token === null ? {} : { "x-diagnostics-token": token },
+        },
+      );
+      if (!response.ok) throw new Error("request failed");
+
+      const body = (await response.json()) as { code?: string };
+      if (typeof body.code !== "string") throw new Error("malformed");
+      setNewCode(body.code);
+    } catch {
+      // The old code is still the live one, so say nothing changed rather
+      // than leaving a teacher unsure which code is on the board.
+      setCreateError("Couldn’t regenerate. The old code still works.");
+    } finally {
+      setCreating(false);
+    }
+  }, [classId, token]);
+
   const load = useCallback(
     async (id: string): Promise<void> => {
       if (id === "") return;
@@ -234,6 +260,7 @@ export function Teacher() {
           error={createError}
           onCreate={(input) => void createClass(input)}
           {...(newCode !== null ? { onOpen: () => setNewCode(null) } : {})}
+          {...(newCode !== null ? { onRegenerate: () => void regenerate() } : {})}
         />
       </section>
 

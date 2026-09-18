@@ -33,6 +33,7 @@ import {
   readClass,
   readSuggestion,
   regenerateCode,
+  setSharedName,
   suggestSitting,
 } from "../store/classes.js";
 import { readSkills } from "../store/skills.js";
@@ -353,6 +354,85 @@ classesRouter.get(
       .catch((err: unknown) => {
         logger.error({ err }, "[classes] reading suggestions failed");
         fail(res, 503, "could not read suggestions", "Could not reach the server.");
+      });
+  },
+);
+
+/**
+ * The classes this learner is in, as their own device sees them — board 1h's
+ * pupil-facing mirror.
+ *
+ * Deliberately returns what the *pupil* needs rather than what the class
+ * holds: the class's name, who the teacher is, when they joined and the name
+ * they are sharing. No other pupil appears, and neither does anything about
+ * the group — a learner asking about their own membership is not asking about
+ * their classmates.
+ */
+classesRouter.get(
+  "/classes/mine",
+  diagnosticsLimiter,
+  requireLearner,
+  (_req: Request, res: Response) => {
+    const learnerId = learnerIdFrom(res);
+    if (learnerId === null) {
+      fail(res, 401, "no learner", "Sign in on this device first.");
+      return;
+    }
+
+    membershipsFor(learnerId)
+      .then(async (memberships) => {
+        const classes = [];
+        for (const membership of memberships) {
+          const klass = await readClass(membership.classId);
+          if (klass === null) continue;
+          classes.push({
+            classId: membership.classId,
+            className: klass.name,
+            teacherName: klass.teacherName,
+            slug: klass.slug,
+            joinedAt: membership.joinedAt.toISOString().slice(0, 10),
+            sharedName: membership.sharedName,
+          });
+        }
+        res.json({ classes });
+      })
+      .catch((err: unknown) => {
+        logger.error({ err }, "[classes] reading memberships failed");
+        fail(res, 503, "could not read your classes", "Could not reach the server.");
+      });
+  },
+);
+
+/**
+ * Removing the name a pupil shares, without leaving the class.
+ *
+ * Only ever *removes*. There is no way through this route to set a name the
+ * pupil did not choose on the join screen — the body is not read for one,
+ * because the one thing this must not become is a place a name can be put
+ * back after somebody took it off.
+ */
+classesRouter.delete(
+  "/classes/:classId/name",
+  diagnosticsLimiter,
+  requireLearner,
+  (req: Request, res: Response) => {
+    const learnerId = learnerIdFrom(res);
+    if (learnerId === null) {
+      fail(res, 401, "no learner", "Sign in on this device first.");
+      return;
+    }
+
+    setSharedName(String(req.params.classId), learnerId, null)
+      .then((changed) => {
+        if (!changed) {
+          fail(res, 404, "not a member", "You are not in that class.");
+          return;
+        }
+        res.json({ sharedName: null });
+      })
+      .catch((err: unknown) => {
+        logger.error({ err }, "[classes] removing a shared name failed");
+        fail(res, 503, "could not remove your name", "Could not reach the server.");
       });
   },
 );

@@ -19,6 +19,7 @@ const store = {
   suggestSitting: vi.fn(),
   readSuggestion: vi.fn(),
   membershipsFor: vi.fn(),
+  setSharedName: vi.fn(),
   regenerateCode: vi.fn(),
   previewByCode: vi.fn(),
   joinClass: vi.fn(),
@@ -102,6 +103,9 @@ beforeEach(() => {
   });
   store.membersOf.mockResolvedValue([]);
   store.suggestSitting.mockResolvedValue(undefined);
+  store.setSharedName.mockResolvedValue(true);
+  store.regenerateCode.mockResolvedValue("NEWCO-DE123");
+  store.leaveClass.mockResolvedValue(true);
   store.readSuggestion.mockResolvedValue({
     _id: "c1",
     lessonId: 2,
@@ -444,5 +448,98 @@ describe("what a learner's own device may ask", () => {
 
     expect(text).toContain("this-week");
     expect(text).not.toMatch(/dueAt|deadline|expiresAt|suggestedAt/);
+  });
+});
+
+describe("what a pupil may change about their own membership", () => {
+  it("lists the classes they are in, with no other pupil in sight", async () => {
+    const body = (await (
+      await fetch(`${base}/api/v1/classes/mine`, { headers: pupil })
+    ).json()) as { classes: Record<string, unknown>[] };
+
+    expect(Object.keys(body.classes[0] ?? {}).sort()).toEqual([
+      "classId",
+      "className",
+      "joinedAt",
+      "sharedName",
+      "slug",
+      "teacherName",
+    ]);
+  });
+
+  it("needs their own credential to list them", async () => {
+    expect((await fetch(`${base}/api/v1/classes/mine`)).status).toBe(401);
+    expect(store.membershipsFor).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Removing a name keeps the membership. Board 1h offers it beside leaving
+   * because they are different things: a pupil out of a name list may still
+   * want the lesson suggestions.
+   */
+  it("removes a shared name without ending the membership", async () => {
+    const response = await fetch(`${base}/api/v1/classes/c1/name`, {
+      method: "DELETE",
+      headers: pupil,
+    });
+
+    expect(response.status).toBe(200);
+    expect(store.setSharedName).toHaveBeenCalledWith("c1", "learner-1", null);
+    expect(store.leaveClass).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The route only ever removes. There is no body read for a name, because
+   * the one thing this must not become is somewhere a name can be put back
+   * after a pupil took it off.
+   */
+  it("cannot be used to set a name, only to clear one", async () => {
+    await fetch(`${base}/api/v1/classes/c1/name`, {
+      method: "DELETE",
+      headers: pupil,
+      body: JSON.stringify({ sharedName: "Maya" }),
+    });
+
+    expect(store.setSharedName).toHaveBeenCalledWith("c1", "learner-1", null);
+  });
+
+  it("refuses to change a membership that is not theirs", async () => {
+    store.setSharedName.mockResolvedValue(false);
+
+    const response = await fetch(`${base}/api/v1/classes/c1/name`, {
+      method: "DELETE",
+      headers: pupil,
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("needs their own credential to remove a name", async () => {
+    const response = await fetch(`${base}/api/v1/classes/c1/name`, { method: "DELETE" });
+
+    expect(response.status).toBe(401);
+    expect(store.setSharedName).not.toHaveBeenCalled();
+  });
+});
+
+describe("regenerating a join code", () => {
+  it("returns a new code to the teacher", async () => {
+    const response = await fetch(`${base}/api/v1/classes/c1/code`, {
+      method: "POST",
+      headers: auth,
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ code: "NEWCO-DE123" });
+  });
+
+  it("is closed to a pupil", async () => {
+    const response = await fetch(`${base}/api/v1/classes/c1/code`, {
+      method: "POST",
+      headers: pupil,
+    });
+
+    expect(response.status).toBe(401);
+    expect(store.regenerateCode).not.toHaveBeenCalled();
   });
 });

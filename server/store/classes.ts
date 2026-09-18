@@ -283,3 +283,26 @@ export async function membershipsFor(learnerId: string): Promise<MembershipDocum
   const db = await getDb();
   return db.collection<MembershipDocument>("classMembers").find({ learnerId }).toArray();
 }
+
+/**
+ * Changing the name a pupil shares, without leaving.
+ *
+ * Board 1h offers "Remove my name" beside "Leave the class" as two different
+ * things, and they have to be: a pupil who wants out of a name list but still
+ * wants the lesson suggestions should not have to leave and rejoin. Rejoining
+ * would also need the code again, which they may no longer have.
+ *
+ * Returns false when there is no membership to change, so a caller cannot
+ * report success for a class the learner is not in.
+ */
+export async function setSharedName(
+  classId: string,
+  learnerId: string,
+  sharedName: string | null,
+): Promise<boolean> {
+  const db = await getDb();
+  const result = await db
+    .collection<MembershipDocument>("classMembers")
+    .updateOne({ _id: `${classId}:${learnerId}` }, { $set: { sharedName } });
+  return result.matchedCount > 0;
+}

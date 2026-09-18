@@ -153,3 +153,113 @@ export async function joinClass(
     return { ok: false, message: OFFLINE };
   }
 }
+
+export interface MyClass {
+  classId: string;
+  className: string;
+  teacherName: string;
+  slug: string;
+  /** ISO day. */
+  joinedAt: string;
+  sharedName: string | null;
+}
+
+/**
+ * The classes this device's learner is in.
+ *
+ * An empty list is the ordinary answer — most learners are in none — so a
+ * failure here returns one too rather than an error the You tab would have to
+ * render. The panel simply does not appear, which is the same thing a learner
+ * in no class sees.
+ */
+export async function myClasses(
+  learnerName: string | null,
+  options: ClassOptions = {},
+): Promise<MyClass[]> {
+  const token = readToken(learnerName);
+  if (token === null) return [];
+
+  const doFetch = options.fetchImpl ?? fetch;
+  try {
+    const response = await doFetch("/api/v1/classes/mine", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return [];
+
+    const body = (await response.json()) as { classes?: unknown };
+    if (!Array.isArray(body.classes)) return [];
+
+    const usable: MyClass[] = [];
+    for (const raw of body.classes as unknown[]) {
+      const c = raw as Partial<MyClass>;
+      if (
+        typeof c.classId !== "string" ||
+        typeof c.className !== "string" ||
+        typeof c.teacherName !== "string" ||
+        typeof c.slug !== "string" ||
+        typeof c.joinedAt !== "string"
+      ) {
+        continue;
+      }
+      usable.push({
+        classId: c.classId,
+        className: c.className,
+        teacherName: c.teacherName,
+        slug: c.slug,
+        joinedAt: c.joinedAt,
+        sharedName: typeof c.sharedName === "string" ? c.sharedName : null,
+      });
+    }
+    return usable;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Removes the name a pupil shares, keeping the membership.
+ *
+ * Returns whether it worked, because this one must not be optimistic: a pupil
+ * told their name is gone when it is not has been told the opposite of the
+ * truth about a thing they asked for.
+ */
+export async function removeMyName(
+  classId: string,
+  learnerName: string | null,
+  options: ClassOptions = {},
+): Promise<boolean> {
+  const token = readToken(learnerName);
+  if (token === null) return false;
+
+  const doFetch = options.fetchImpl ?? fetch;
+  try {
+    const response = await doFetch(`/api/v1/classes/${encodeURIComponent(classId)}/name`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Leaves a class. Nothing the learner has practised is touched. */
+export async function leaveClass(
+  classId: string,
+  learnerName: string | null,
+  options: ClassOptions = {},
+): Promise<boolean> {
+  const token = readToken(learnerName);
+  if (token === null) return false;
+
+  const doFetch = options.fetchImpl ?? fetch;
+  try {
+    const response = await doFetch(
+      `/api/v1/classes/${encodeURIComponent(classId)}/membership`,
+      { method: "DELETE", headers: { authorization: `Bearer ${token}` } },
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+}

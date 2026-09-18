@@ -212,6 +212,31 @@ describe("once the class exists", () => {
     expect(screen.getByText(/Nothing about them reaches you before that/)).toBeInTheDocument();
   });
 
+  /**
+   * Board 1b prints "regenerate any time" beside the code, and a promise in
+   * copy with no control behind it is the gap this closes. A code on a
+   * whiteboard outlives the term it was written for.
+   */
+  it("offers regenerating the code, and says what that costs", () => {
+    const onRegenerate = vi.fn();
+    show({ code: "R4M8T-QWXYZ", onRegenerate });
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate the code" }));
+    expect(onRegenerate).toHaveBeenCalled();
+    expect(screen.getByText(/stops the old code working/i)).toBeInTheDocument();
+  });
+
+  /**
+   * The reassurance matters as much as the warning: a teacher who thinks
+   * regenerating might eject their class will never do it, and will keep a
+   * stale code on the board instead.
+   */
+  it("says nobody already in the class is affected", () => {
+    show({ code: "R4M8T-QWXYZ", onRegenerate: vi.fn() });
+
+    expect(screen.getByText(/Nobody already in the class is affected/i)).toBeInTheDocument();
+  });
+
   it("stops asking for the details once they are used", () => {
     show({ code: "R4M8T-QWXYZ" });
 
