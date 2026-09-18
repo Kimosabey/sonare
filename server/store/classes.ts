@@ -227,3 +227,59 @@ export async function ensureClassIndexes(db: Db): Promise<void> {
   await db.collection<ClassDocument>("classes").createIndex({ codeDigest: 1 });
   await db.collection<MembershipDocument>("classMembers").createIndex({ classId: 1 });
 }
+
+/**
+ * The sitting a teacher has suggested to a class — board 1f.
+ *
+ * One per class, replaced rather than accumulated. A teacher who suggests a
+ * second lesson has changed their mind, not added a queue: a list of pending
+ * suggestions is a homework backlog, and a backlog is the deadline this screen
+ * exists without.
+ *
+ * `window` is stored and shown, and **nothing enforces it**. It is the phrase
+ * a teacher used, so a pupil sees "this week" rather than a date — and a
+ * stored date is the thing a later feature would be tempted to compare against
+ * `now`.
+ */
+export interface SuggestionDocument {
+  /** The class id. One suggestion per class, so the class is the key. */
+  _id: string;
+  lessonId: number;
+  /** The teacher's own words — never a timestamp to compare against. */
+  window: string;
+  suggestedAt: Date;
+}
+
+export async function suggestSitting(
+  classId: string,
+  lessonId: number,
+  window: string,
+  now: Date = new Date(),
+): Promise<void> {
+  const db = await getDb();
+  await db
+    .collection<SuggestionDocument>("classSuggestions")
+    .updateOne(
+      { _id: classId },
+      { $set: { lessonId, window, suggestedAt: now } },
+      { upsert: true },
+    );
+}
+
+export async function readSuggestion(classId: string): Promise<SuggestionDocument | null> {
+  const db = await getDb();
+  return db.collection<SuggestionDocument>("classSuggestions").findOne({ _id: classId });
+}
+
+/**
+ * Every class this learner is in, so their own device can ask what was
+ * suggested without being told which class ids exist.
+ *
+ * Returns the memberships rather than the classes: the caller decides what of
+ * a class a learner may see, and a learner may see the name of one they are
+ * in and nothing about one they are not.
+ */
+export async function membershipsFor(learnerId: string): Promise<MembershipDocument[]> {
+  const db = await getDb();
+  return db.collection<MembershipDocument>("classMembers").find({ learnerId }).toArray();
+}

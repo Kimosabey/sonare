@@ -56,6 +56,8 @@ import { composeSession } from "../learning/composeSession.js";
 import { resolveLanguage } from "../content/resolve.js";
 import { readProgress } from "../hooks/useProgressPersistence.js";
 import { TodaysSitting } from "../components/TodaysSitting.js";
+import { SuggestedSitting } from "../components/SuggestedSitting.js";
+import { useSuggestedSittings } from "../hooks/useSuggestedSittings.js";
 import { hasOnboarded } from "../stores/onboardingStore.js";
 import { readStreak, daysInLast, practisedToday } from "../stores/streakStore.js";
 import { readSkills, weakestSkills, type SkillTrend } from "../stores/skillStore.js";
@@ -189,6 +191,24 @@ function ReturnNote({ away, held, code }: { away: Away; held: SkillTrend[]; code
   );
 }
 
+/**
+ * A suggested lesson's own title, from the content this device resolves.
+ *
+ * Null when it cannot be found, which is an ordinary case rather than an
+ * error: the teacher may have suggested a lesson from a content version this
+ * device has not fetched yet. The prompt reads as "a sitting" then, which is
+ * true and still actionable.
+ */
+function lessonTitleFor(slug: string, lessonId: number): string | null {
+  const language = resolveLanguage(slug);
+  for (const unit of language?.units ?? []) {
+    for (const lesson of unit.lessons) {
+      if (lesson.id === lessonId) return lesson.title;
+    }
+  }
+  return null;
+}
+
 export function Today() {
   const [learnerName] = useLearnerName();
 
@@ -201,6 +221,11 @@ export function Today() {
   const resume = nextUp(learnerName);
   const languages = allProgress(learnerName);
   const streak = readStreak(learnerName);
+  /**
+   * Class suggestions. Fetched and failing quietly — a learner offline, in no
+   * class, or whose server is down sees the Today they would have seen anyway.
+   */
+  const suggestions = useSuggestedSittings(learnerName);
   const doneToday = practisedToday(streak);
   const week = daysInLast(streak, 7);
 
@@ -343,6 +368,23 @@ export function Today() {
         session starts, from the same inputs, so the two cannot disagree.
       */}
       {sitting !== null && <TodaysSitting session={sitting} />}
+
+      {/*
+        A class suggestion, *after* the sitting Today already composed — board
+        1f calls it "a suggestion on their Today screen, not a lock", and
+        putting it above would make it the thing to do rather than a thing
+        offered. Most learners are in no class and see nothing here.
+      */}
+      {suggestions.map((suggestion) => (
+        <SuggestedSitting
+          key={suggestion.classId}
+          className={suggestion.className}
+          teacherName={suggestion.teacherName}
+          slug={suggestion.slug}
+          lessonTitle={lessonTitleFor(suggestion.slug, suggestion.lessonId)}
+          window={suggestion.window}
+        />
+      ))}
 
       <dl className="today-stats enter-2">
         <div>

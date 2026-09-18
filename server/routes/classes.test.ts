@@ -16,6 +16,9 @@ import type { Server } from "node:http";
 
 const store = {
   createClass: vi.fn(),
+  suggestSitting: vi.fn(),
+  readSuggestion: vi.fn(),
+  membershipsFor: vi.fn(),
   regenerateCode: vi.fn(),
   previewByCode: vi.fn(),
   joinClass: vi.fn(),
@@ -98,6 +101,16 @@ beforeEach(() => {
     expectedCount: 31,
   });
   store.membersOf.mockResolvedValue([]);
+  store.suggestSitting.mockResolvedValue(undefined);
+  store.readSuggestion.mockResolvedValue({
+    _id: "c1",
+    lessonId: 2,
+    window: "this-week",
+    suggestedAt: new Date(),
+  });
+  store.membershipsFor.mockResolvedValue([
+    { classId: "c1", learnerId: "learner-1", sharedName: "Maya", joinedAt: new Date() },
+  ]);
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -315,5 +328,121 @@ describe("the class summary", () => {
 
     const response = await fetch(`${base}/api/v1/classes/nope/summary`, { headers: auth });
     expect(response.status).toBe(404);
+  });
+});
+
+describe("suggesting a sitting", () => {
+  it("stores the lesson and the teacher's own phrase for when", async () => {
+    const response = await post(
+      "/classes/c1/suggestion",
+      { lessonId: 2, window: "no-particular-time" },
+      auth,
+    );
+
+    expect(response.status).toBe(201);
+    expect(store.suggestSitting).toHaveBeenCalledWith("c1", 2, "no-particular-time");
+  });
+
+  it("is closed without the operator token", async () => {
+    const response = await post("/classes/c1/suggestion", { lessonId: 2, window: "this-week" }, {
+      "content-type": "application/json",
+    });
+
+    expect(response.status).toBe(401);
+    expect(store.suggestSitting).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Refused rather than defaulted. A window that silently became "this week"
+   * would put a deadline on a screen whose whole promise is that it carries
+   * none — and the teacher would never know they had set one.
+   */
+  it("refuses a window it was not offered, rather than picking one", async () => {
+    for (const window of ["tomorrow", "", "2026-09-20", undefined]) {
+      const response = await post("/classes/c1/suggestion", { lessonId: 2, window }, auth);
+      expect(response.status).toBe(400);
+    }
+    expect(store.suggestSitting).not.toHaveBeenCalled();
+  });
+
+  it("refuses a lesson id that is not one", async () => {
+    for (const lessonId of ["2", 0, -1, 1.5, undefined]) {
+      const response = await post("/classes/c1/suggestion", { lessonId, window: "this-week" }, auth);
+      expect(response.status).toBe(400);
+    }
+    expect(store.suggestSitting).not.toHaveBeenCalled();
+  });
+
+  it("says so when the class does not exist", async () => {
+    store.readClass.mockResolvedValue(null);
+
+    const response = await post("/classes/nope/suggestion", { lessonId: 2, window: "this-week" }, auth);
+
+    expect(response.status).toBe(404);
+    expect(store.suggestSitting).not.toHaveBeenCalled();
+  });
+});
+
+describe("what a learner's own device may ask", () => {
+  it("answers only about classes that learner joined", async () => {
+    const response = await fetch(`${base}/api/v1/classes/mine/suggestions`, { headers: pupil });
+
+    expect(response.status).toBe(200);
+    expect(store.membershipsFor).toHaveBeenCalledWith("learner-1");
+  });
+
+  it("names the class and the teacher, so the prompt is not from nowhere", async () => {
+    const body = (await (
+      await fetch(`${base}/api/v1/classes/mine/suggestions`, { headers: pupil })
+    ).json()) as { suggestions: { className: string; teacherName: string; lessonId: number }[] };
+
+    expect(body.suggestions[0]?.className).toBe("Year 9 French");
+    expect(body.suggestions[0]?.teacherName).toBe("Mr Okonjo");
+    expect(body.suggestions[0]?.lessonId).toBe(2);
+  });
+
+  it("needs the learner's own credential", async () => {
+    const response = await fetch(`${base}/api/v1/classes/mine/suggestions`);
+
+    expect(response.status).toBe(401);
+    expect(store.membershipsFor).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Most learners are in no class, and that is the ordinary answer rather than
+   * a failure to report.
+   */
+  it("answers an empty list for a learner in no class", async () => {
+    store.membershipsFor.mockResolvedValue([]);
+
+    const body = (await (
+      await fetch(`${base}/api/v1/classes/mine/suggestions`, { headers: pupil })
+    ).json()) as { suggestions: unknown[] };
+
+    expect(body.suggestions).toEqual([]);
+  });
+
+  it("skips a class that has suggested nothing", async () => {
+    store.readSuggestion.mockResolvedValue(null);
+
+    const body = (await (
+      await fetch(`${base}/api/v1/classes/mine/suggestions`, { headers: pupil })
+    ).json()) as { suggestions: unknown[] };
+
+    expect(body.suggestions).toEqual([]);
+  });
+
+  /**
+   * A suggestion carries the teacher's phrase, never a date. A stored
+   * timestamp is the thing a later feature would compare against `now`, and
+   * that comparison is the deadline board 1f refuses.
+   */
+  it("carries no date a later feature could compare against now", async () => {
+    const text = await (
+      await fetch(`${base}/api/v1/classes/mine/suggestions`, { headers: pupil })
+    ).text();
+
+    expect(text).toContain("this-week");
+    expect(text).not.toMatch(/dueAt|deadline|expiresAt|suggestedAt/);
   });
 });

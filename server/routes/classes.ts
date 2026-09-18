@@ -28,9 +28,12 @@ import {
   joinClass,
   leaveClass,
   membersOf,
+  membershipsFor,
   previewByCode,
   readClass,
+  readSuggestion,
   regenerateCode,
+  suggestSitting,
 } from "../store/classes.js";
 import { readSkills } from "../store/skills.js";
 import { readProgress } from "../store/progress.js";
@@ -254,6 +257,102 @@ classesRouter.get(
       .catch((err: unknown) => {
         logger.error({ err, classId }, "[classes] summary failed");
         fail(res, 503, "could not build the summary", "Could not reach the database.");
+      });
+  },
+);
+
+/**
+ * A teacher suggesting a sitting to their class.
+ *
+ * Replaces whatever was suggested before rather than queueing behind it — see
+ * the store. Nothing about this is scheduled or enforced; the route stores a
+ * lesson id and the teacher's own phrase for when.
+ */
+classesRouter.post(
+  "/classes/:classId/suggestion",
+  diagnosticsLimiter,
+  requireDiagnosticsToken,
+  (req: Request, res: Response) => {
+    const classId = String(req.params.classId);
+    const body = req.body as { lessonId?: unknown; window?: unknown };
+
+    const lessonId = typeof body.lessonId === "number" ? body.lessonId : Number.NaN;
+    if (!Number.isInteger(lessonId) || lessonId < 1) {
+      fail(res, 400, "lessonId must be a whole number of 1 or more", "Could not set that sitting.");
+      return;
+    }
+
+    // The window is stored as the teacher's words. Refused rather than
+    // defaulted if it is not one of them, because a suggestion that silently
+    // became "this week" would put a deadline on a screen that promises none.
+    const windows = ["this-week", "before-next-lesson", "no-particular-time"];
+    const window = typeof body.window === "string" ? body.window : "";
+    if (!windows.includes(window)) {
+      fail(res, 400, "window must be one of the three offered", "Could not set that sitting.");
+      return;
+    }
+
+    readClass(classId)
+      .then(async (klass) => {
+        if (klass === null) {
+          fail(res, 404, "no such class", "That class does not exist.");
+          return;
+        }
+        await suggestSitting(classId, lessonId, window);
+        res.status(201).json({ lessonId, window });
+      })
+      .catch((err: unknown) => {
+        logger.error({ err, classId }, "[classes] suggest failed");
+        fail(res, 503, "could not store the suggestion", "Could not reach the database.");
+      });
+  },
+);
+
+/**
+ * What a learner's own classes have suggested — read by their device.
+ *
+ * Authenticated as the learner and scoped to their memberships, so it can only
+ * ever answer about a class they chose to join. It returns the class name
+ * alongside the lesson so their Today screen can say who suggested it; a
+ * lesson id with no name would be a prompt from nowhere.
+ *
+ * An empty list is the ordinary answer. Most learners are in no class, and
+ * that is not a failure to report.
+ */
+classesRouter.get(
+  "/classes/mine/suggestions",
+  diagnosticsLimiter,
+  requireLearner,
+  (_req: Request, res: Response) => {
+    const learnerId = learnerIdFrom(res);
+    if (learnerId === null) {
+      fail(res, 401, "no learner", "Sign in on this device first.");
+      return;
+    }
+
+    membershipsFor(learnerId)
+      .then(async (memberships) => {
+        const suggestions = [];
+        for (const membership of memberships) {
+          const [klass, suggestion] = await Promise.all([
+            readClass(membership.classId),
+            readSuggestion(membership.classId),
+          ]);
+          if (klass === null || suggestion === null) continue;
+          suggestions.push({
+            classId: membership.classId,
+            className: klass.name,
+            teacherName: klass.teacherName,
+            slug: klass.slug,
+            lessonId: suggestion.lessonId,
+            window: suggestion.window,
+          });
+        }
+        res.json({ suggestions });
+      })
+      .catch((err: unknown) => {
+        logger.error({ err }, "[classes] reading suggestions failed");
+        fail(res, 503, "could not read suggestions", "Could not reach the server.");
       });
   },
 );

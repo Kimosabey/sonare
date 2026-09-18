@@ -93,6 +93,8 @@ export function Teacher() {
   /** Which lesson is open for suggesting, by id. Null is none. */
   const [openLesson, setOpenLesson] = useState<number | null>(null);
   const [suggested, setSuggested] = useState<number | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   /** The code a freshly created class returned. Shown once, never stored. */
   const [newCode, setNewCode] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -136,6 +138,38 @@ export function Teacher() {
       }
     },
     [token],
+  );
+
+  const suggest = useCallback(
+    async (input: { lessonId: number; window: SuggestionWindow }): Promise<void> => {
+      if (classId === "") return;
+      setSuggesting(true);
+      setSuggestError(null);
+      try {
+        const response = await fetch(
+          `/api/v1/classes/${encodeURIComponent(classId)}/suggestion`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              ...(token === null ? {} : { "x-diagnostics-token": token }),
+            },
+            body: JSON.stringify(input),
+          },
+        );
+        if (!response.ok) throw new Error("request failed");
+
+        setSuggested(input.lessonId);
+        setOpenLesson(null);
+      } catch {
+        // Said plainly, because the alternative is a screen claiming a
+        // suggestion reached a class it never left this device for.
+        setSuggestError("Couldn’t suggest that sitting. Nothing was sent.");
+      } finally {
+        setSuggesting(false);
+      }
+    },
+    [classId, token],
   );
 
   const load = useCallback(
@@ -285,6 +319,11 @@ export function Teacher() {
                   Suggested. It is on their Today screen now.
                 </p>
               )}
+              {suggestError !== null && (
+                <p className="what" role="alert">
+                  {suggestError}
+                </p>
+              )}
             </section>
           );
         }
@@ -305,10 +344,8 @@ export function Teacher() {
               activities={activities}
               code={data.slug}
               joinedCount={data.summary.reportable ? data.summary.joinedCount : 0}
-              onSuggest={({ lessonId }: { lessonId: number; window: SuggestionWindow }) => {
-                setSuggested(lessonId);
-                setOpenLesson(null);
-              }}
+              busy={suggesting}
+              onSuggest={(input) => void suggest(input)}
             />
           </section>
         );

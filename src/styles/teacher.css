@@ -352,3 +352,21 @@
 .sitting-windows input {
   accent-color: var(--signal);
 }
+
+/* ── the pupil's end of a suggestion ───────────────────────────────────────
+ *
+ * On Today, below the sitting the screen already composed. Marked as an offer
+ * rather than a task: a soft panel, no accent bar, no badge — the visual
+ * weight of a thing you may take up, not a thing outstanding.
+ */
+.suggested-sitting {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: var(--space-5);
+  background: var(--tint-lilac);
+}
+
+.suggested-sitting > p {
+  margin: 6px 0 0;
+}
