@@ -155,6 +155,15 @@ for (const size of WIDTHS) {
             const box = control.getBoundingClientRect();
             if (box.width === 0 || box.height === 0) continue;
             if (getComputedStyle(control).visibility === "hidden") continue;
+            /*
+             * Content inside a **closed** `<details>` still reports a box in
+             * Chromium, and is not reachable by tab, pointer or screen reader.
+             * Measuring it means judging a control nobody can meet — which
+             * either flags a phantom or clears one. The three capture switches
+             * behind "Microphone settings" are the case here.
+             */
+            const disclosure = control.closest("details");
+            if (disclosure !== null && !disclosure.open && control.tagName !== "SUMMARY") continue;
             inspected += 1;
             // 43 rather than 44: a browser can lay out a 44px box at 43.98 on
             // a fractional device ratio, and that is not the failure this rule
