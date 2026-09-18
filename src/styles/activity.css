@@ -763,7 +763,7 @@
  * change where things sit and never what they say.
  *
  * The thresholds match the navigation's: 620px is where the tab bar becomes a
- * rail and the content stops being a single phone column, 1100px is where the
+ * rail and the content stops being a single phone column, 1024px is where the
  * rail gains its labels. Two sets of breakpoints would drift, and a screen
  * would reflow at a width the navigation had not.
  */
@@ -783,11 +783,11 @@
 }
 
 /*
- * The device picker is a real control from 1100px up — board 1p. Below that it
+ * The device picker is a real control from 1024px up — board 1p. Below that it
  * still renders when there is a choice to make; it just does not take a row of
  * its own next to the thing it configures.
  */
-@media (min-width: 1100px) {
+@media (min-width: 1024px) {
   .check-devices select {
     min-width: 22ch;
   }
@@ -811,7 +811,7 @@
  * attendance and coverage take the right column instead of sitting below a
  * scroll, which is where a learner never reaches them.
  */
-@media (min-width: 1100px) {
+@media (min-width: 1024px) {
   .progress-wide {
     display: grid;
     grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);

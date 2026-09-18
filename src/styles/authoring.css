@@ -262,7 +262,7 @@
 
 /* ── operator density at 1280 ───────────────────────────────────────────────
  *
- * Board 1h. One column until 1100px, because an authoring form on a phone is
+ * Board 1h. One column until 1024px, because an authoring form on a phone is
  * a form and splitting it would make both halves too narrow to read — the
  * same breakpoint the rest of the product uses for "this is no longer a phone
  * column".
@@ -276,7 +276,7 @@
   gap: var(--space-6);
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 1024px) {
   .authoring-cols {
     grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
     align-items: start;

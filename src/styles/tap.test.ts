@@ -143,3 +143,59 @@ describe("nothing uses a literal where a token exists", () => {
     expect(offences, offences.join("\n")).toEqual([]);
   });
 });
+
+/**
+ * The two widths the layout switches at, and the reason there are only two.
+ *
+ * The Motion board's responsive table names 620 and 1024. The screens and the
+ * navigation deliberately share them: two sets would drift, and content would
+ * reflow at a width the navigation had not — which is a layout that is wrong
+ * on exactly one device and looks fine on every other.
+ *
+ * 1024 rather than the 1100 this used to be. That is the board's number and it
+ * is a real device width: an iPad in landscape is exactly 1024, and at 1100 it
+ * got the rail while the board draws it a sidebar.
+ */
+describe("the layout switches at two widths and no others", () => {
+  /** Every `@media (min-width: …)` in the stylesheet, with its sheet. */
+  function breakpoints(): { sheet: string; px: number }[] {
+    const found: { sheet: string; px: number }[] = [];
+    for (const [path, source] of Object.entries(sheets)) {
+      // Comments stripped first. A sheet explaining why a breakpoint was
+      // *removed* names it, and this read that as a breakpoint — which is the
+      // same trap `focus.test.ts` documents about matching a media prelude.
+      const css = source.replace(/\/\*[\s\S]*?\*\//g, "");
+      for (const match of css.matchAll(/@media\s*\(min-width:\s*(\d+)px\)/g)) {
+        found.push({ sheet: path.replace(/^\.\//, ""), px: Number(match[1]) });
+      }
+    }
+    return found;
+  }
+
+  test("finds the media queries, so the rule below is not vouching for nothing", () => {
+    expect(breakpoints().length).toBeGreaterThan(4);
+  });
+
+  /**
+   * Written as "these two and nothing else" rather than "620 exists". A third
+   * threshold is how one screen starts reflowing on its own, and it would be
+   * invisible at every width but its own.
+   */
+  test("uses only the board's two thresholds", () => {
+    const unexpected = breakpoints()
+      .filter((b) => b.px !== 620 && b.px !== 1024)
+      .map((b) => `${b.sheet} → ${b.px}px`);
+
+    expect(unexpected, unexpected.join("\n")).toEqual([]);
+  });
+
+  /**
+   * And both are actually used. A rule naming two numbers passes just as
+   * happily against a stylesheet that dropped one of them.
+   */
+  test("both thresholds are in use", () => {
+    const widths = new Set(breakpoints().map((b) => b.px));
+    expect(widths.has(620), "nothing switches at 620").toBe(true);
+    expect(widths.has(1024), "nothing switches at 1024").toBe(true);
+  });
+});

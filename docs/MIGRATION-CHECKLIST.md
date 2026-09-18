@@ -143,7 +143,7 @@ so none of it needed a decision.
 | Nothing depends on `:hover` | **done** | 6 `:hover` rules, all decoration; every interactive element gets a focus ring from `base.css:533` |
 | `clamp()` padding and type per spec table | **done** | Page padding is the board's own `clamp(20px, 2.6vw, 40px)`, inside the `max()` that keeps the notch handled — it was a flat 20px, so a 1280px desk sat in a phone's gutter. Type: board 1i's sizes are token-built clamps; `.phrase` uses the spec's own 26/38 bounds with a steeper middle term, and both older clamps are now listed with reasons in `scale.test.ts`, which could see no clamp at all before. |
 | 48px tap floor, 16.5px input, do not scale | **done** | `--text-md: 16.5px` exact. The two numbers were never in conflict — one token was doing both jobs. `--tap` is 44 (the floor NFR-03 measures) and `--tap-thumb` is 48 (buttons, mode switches, the syllable chip). `src/styles/tap.test.ts` holds that the thumb size is at least the floor, and found five hard-coded `44px` literals the token had never reached. |
-| Layout switch at 620 / 1024 | **partial** | 620 exact. The desktop switch is **1100, not 1024** — a deliberate choice documented at `activity.css:766`. Two extra breakpoints exist at 460 and 380. |
+| Layout switch at 620 / 1024 | **done** | Both exact. Was 1100 — the reasoning for it argued for *one* set of thresholds, not for that number, so every sheet moved to the board's 1024 together. An iPad in landscape is exactly 1024 and used to get the rail where the board draws a sidebar. `tap.test.ts` refuses a third threshold; the card grid that had its own at 460 wraps by basis now, which is what the table asks for. |
 
 ## 7 · Splash — `assets/splash/`
 

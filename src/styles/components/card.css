@@ -6,24 +6,34 @@
  * screens, so it had drifted into a sheet named for a third one purely
  * because the language picker was built alongside the activity.
  *
- * Moved unchanged, including the 460px breakpoint, which has to travel with
- * `.lang-grid`: the media rule and the base rule both set
- * grid-template-columns at the same specificity, so they are only correct in
- * this order. Splitting them across two sheets is the kind of break that
- * looks fine until someone reorders an import.
+ * Moved unchanged. The 460px breakpoint that used to travel with `.lang-grid`
+ * is gone — it and the base rule both set grid-template-columns at equal
+ * specificity and were only correct in that order, which is the kind of
+ * fragility that looks fine until somebody reorders an import. The grid wraps
+ * by basis now, which needs no second rule.
  */
 
+/*
+ * Wrapped by basis rather than by a breakpoint, which is what the Motion
+ * board's responsive table asks for: "one column on a phone, two from about
+ * 700px, **no media query**".
+ *
+ * This was a `@media (min-width: 460px)` flipping one column to two. A content
+ * grid does not need to know the viewport — it needs to know how narrow a card
+ * may get, which is what `minmax` says. The media rule also had to sit
+ * immediately after the base rule to win on equal specificity, a fragility the
+ * sheet's own header warned about; `auto-fit` removes the pair entirely.
+ *
+ * 280px is the board's own basis. Two cards plus the gap need 572px, so the
+ * second column arrives a little above 600 rather than at 460 — closer to the
+ * "about 700px" the table describes, and at a width where two cards are
+ * actually readable rather than merely fitting.
+ */
 .lang-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
   margin-top: 18px;
-}
-
-@media (min-width: 460px) {
-  .lang-grid {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 .lang-card {

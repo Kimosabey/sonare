@@ -107,8 +107,19 @@
   }
 }
 
-/* The sidebar, from 1100px: labels beside the glyphs rather than under them. */
-@media (min-width: 1100px) {
+/*
+ * The sidebar, from 1024px: labels beside the marks rather than under them.
+ *
+ * 1024 rather than the 1100 this used to be, because that is the number on the
+ * Motion board's responsive table and because it is a real device width — an
+ * iPad in landscape is exactly 1024, and at 1100 it got the rail while the
+ * board draws it a sidebar.
+ *
+ * Every other threshold moved with it. The screens deliberately share the
+ * navigation's breakpoints: two sets would drift, and content would reflow at
+ * a width the navigation had not.
+ */
+@media (min-width: 1024px) {
   .tabs {
     width: 200px;
   }
@@ -163,7 +174,7 @@
   }
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 1024px) {
   .wrap.has-tabs {
     padding-left: calc(200px + var(--space-4));
   }
