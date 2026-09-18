@@ -98,6 +98,67 @@ export const L1_DIFFICULTY: Readonly<Record<LanguagePair, readonly SoundDifficul
       advice: "Push the lips right forward and keep the tongue back.",
     },
   ],
+  /**
+   * English → German.
+   *
+   * Authored 18 September 2026 and **not yet checked by a German speaker** —
+   * the same standing caveat this whole table carries. Completeness is machine
+   * checked (every grapheme below is a syllable the German content actually
+   * drills, and no syllable appears under two difficulties); correctness is
+   * not, and a previous pass at this file shipped three plausible-looking
+   * errors that only the completeness check caught.
+   */
+  "en→de-DE": [
+    {
+      graphemes: ["ich", "dich", "mich", "rech", "nächs"],
+      ipa: "/ç/",
+      substitution: "an English “sh”, or a hard k",
+      advice:
+        "Put your tongue where it goes for the y in “yes”, then breathe out through that gap without using your voice.",
+    },
+    {
+      graphemes: ["für", "früh", "grü", "mün"],
+      ipa: "/yː/",
+      substitution: "the oo in “food”",
+      advice:
+        "Say “ee” and hold it, then round your lips as if to whistle. Do not let your tongue move while the lips change.",
+    },
+    {
+      graphemes: ["schö"],
+      ipa: "/øː/",
+      substitution: "the er in “her”",
+      advice:
+        "Say the ay in “day”, then round your lips and keep them rounded to the end of the sound.",
+    },
+    {
+      graphemes: ["zah", "zeich", "zig", "zug", "zwei"],
+      ipa: "/ts/",
+      substitution: "the z in “zoo”",
+      advice:
+        "Begin with a t and let it release straight into an s. It is one sound, not a t followed by a separate s.",
+    },
+    {
+      graphemes: ["woh", "weit"],
+      ipa: "/v/",
+      substitution: "the w in “water”",
+      advice:
+        "Rest your top teeth on your bottom lip and start the sound there, the way you would begin “van”.",
+    },
+    {
+      graphemes: ["von", "vie", "viel", "vier"],
+      ipa: "/f/",
+      substitution: "the v in “van”, because of the spelling",
+      advice:
+        "Take the voice out of it. Same lips and teeth as “van”, but only breath — it should sound like “fan”.",
+    },
+    {
+      graphemes: ["sehr", "gern", "fährt", "hier", "mor"],
+      ipa: "/ʁ/",
+      substitution: "the curled-back American r",
+      advice:
+        "Keep your tongue tip down behind your bottom teeth and make the sound at the back of your throat, like the start of a soft gargle.",
+    },
+  ],
   "en→es-ES": [
     {
       graphemes: ["rro", "rre", "rros"],

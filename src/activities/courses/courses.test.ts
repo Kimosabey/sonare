@@ -52,8 +52,7 @@ describe("which languages have a course", () => {
      * syllable graphemes at all, so every sound target would be a mapping that
      * can never match what the scorer returns.
      */
-    expect(COURSES.map((c) => c.slug)).toEqual(["fr", "es"]);
-    expect(getCourse("de")).toBeUndefined();
+    expect(COURSES.map((c) => c.slug)).toEqual(["fr", "es", "de"]);
     expect(getCourse("hi")).toBeUndefined();
     expect(getCourse(undefined)).toBeUndefined();
   });

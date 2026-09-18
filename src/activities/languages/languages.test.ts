@@ -23,7 +23,7 @@ describe("the language set as a whole", () => {
    * for French and Spanish only.
    */
   it("offers exactly the languages the MVP promises", () => {
-    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es"]);
+    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es", "de"]);
   });
 
   it("has no duplicate slugs — getLanguage() returns the first match", () => {

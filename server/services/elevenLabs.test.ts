@@ -176,17 +176,19 @@ describe("the voice", () => {
 
   it("reaches the placeholder only for a language with no voice chosen", () => {
     /**
-     * `hi-IN` is the live instance of this, not a hypothetical: no Hindi voice
-     * was supplied, and nothing else in the table substitutes — Aisiri is
-     * Kannada, and a Kannada voice reading Devanagari is a different
-     * language rather than an accent.
+     * `hi-IN` used to stand here as the live instance, because no Hindi voice
+     * had been supplied. One has now been chosen, so the example moves to a
+     * locale the table genuinely does not cover — otherwise this asserts
+     * nothing.
      *
      * The assertion pairs the id with `hasChosenVoice` being false, because
-     * the id alone resolving is exactly what would let an English voice
-     * become the accent Hindi is taught in.
+     * the id alone resolving is exactly what would let an English voice become
+     * the accent a language is taught in. That risk is not hypothetical: every
+     * Kannada voice in the supplier's library is labelled `language=hi`, so a
+     * table filled in from those labels would teach Hindi in a Kannada voice.
      */
-    expect(voiceIdFor("hi-IN")).toBe(PLACEHOLDER_VOICE_ID);
-    expect(hasChosenVoice("hi-IN")).toBe(false);
+    expect(voiceIdFor("ja-JP")).toBe(PLACEHOLDER_VOICE_ID);
+    expect(hasChosenVoice("ja-JP")).toBe(false);
   });
 
   it("takes a per-locale mapping from the environment", () => {
@@ -234,21 +236,25 @@ describe("the chosen-voice guard", () => {
      * The sibling of the declared-language guard: that one stops the wrong
      * model, this one stops the wrong *voice*.
      *
-     * Caught by a dry run printing `hi-IN -> 21m00Tcm4TlvDq8ikWAM`. Hindi has
+     * Caught by a dry run printing `hi-IN -> 21m00Tcm4TlvDq8ikWAM`. Hindi had
      * no voice in OWNER_VOICE_IDS, so it fell through to the English
      * placeholder — and `eleven_v3` reads Devanagari in an English accent
      * cheerfully, at 200, with valid character timings. Worse than no served
      * audio, because the platform synthesiser at least reaches for the right
      * language, and because a learner imitates the accent they are given.
      *
-     * The stub answers with a good body, so removing the guard makes this
-     * test receive usable-looking audio rather than fail loudly.
+     * Hindi has a voice now, so the case moves to a locale that genuinely has
+     * none. The origin stays written down because it is the whole argument for
+     * the guard: the failure was silent, well-formed and plausible.
+     *
+     * The stub answers with a good body, so removing the guard makes this test
+     * receive usable-looking audio rather than fail loudly.
      */
-    const { impl, calls } = stubFetch(alignedBody("नमस्ते"));
+    const { impl, calls } = stubFetch(alignedBody("こんにちは"));
 
     const result = await synthesise({
-      text: "नमस्ते",
-      language: "hi-IN",
+      text: "こんにちは",
+      language: "ja-JP",
       fetchImpl: impl,
     });
 

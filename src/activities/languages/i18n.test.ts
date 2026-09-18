@@ -146,8 +146,8 @@ const ACTIVITY: Activity = {
 
 describe("every offered language is shipped and addressable", () => {
   it("offers exactly fr and es, each with a locale and a slug", () => {
-    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es"]);
-    expect(LANGUAGES.map((l) => l.code)).toEqual(["fr-FR", "es-ES"]);
+    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es", "de"]);
+    expect(LANGUAGES.map((l) => l.code)).toEqual(["fr-FR", "es-ES", "de-DE"]);
     for (const language of LANGUAGES) {
       expect(getLanguage(language.slug)).toBe(language);
     }

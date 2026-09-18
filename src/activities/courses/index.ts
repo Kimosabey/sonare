@@ -37,7 +37,7 @@ import type { LanguageActivitySet } from "../types.js";
  * in this array would mean the coverage tests vouching for content no learner
  * can open.
  */
-export const COURSES: LanguageActivitySet[] = [FRENCH_COURSE, SPANISH_COURSE];
+export const COURSES: LanguageActivitySet[] = [FRENCH_COURSE, SPANISH_COURSE, GERMAN_COURSE];
 
 /**
  * Re-exported so it is kept rather than merely imported.

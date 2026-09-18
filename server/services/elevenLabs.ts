@@ -144,12 +144,35 @@ export const PLACEHOLDER_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
  * this is a judgement about the language, made by someone who speaks it.
  * `ELEVENLABS_VOICE_IDS` still overrides any of them without a code edit.
  *
- * **`hi-IN` is deliberately absent.** No Hindi voice was supplied, and no
- * other entry here is a substitute — Aisiri is Kannada, and a Kannada voice
- * reading Devanagari is a different language, not an accent. So Hindi falls
- * back to the platform synthesiser, exactly as it does today. That is the
- * honest outcome and it is also the gap worth closing first, because Hindi is
- * the language where the platform is most often missing a voice altogether.
+ * **`hi-IN` — Janvi, chosen 18 Sep 2026 from the account's own library**, and
+ * chosen under a caveat worth writing down.
+ *
+ * ElevenLabs' `language` label cannot be trusted for this. Every Kannada voice
+ * in the library is tagged `language=hi`: Aisiri ("delivers Kannada customer
+ * support"), Ishvak ("Friendly Kannada Speaker"), Kumaran ("Effortless Kannada
+ * Narrator") and Srinatha ("Kannada Factual Documentary") all carry it. So
+ * filtering on the label yields a Kannada voice reading Devanagari, which is a
+ * different language and not an accent. Anyone searching for a Hindi voice
+ * here should read the descriptions, not the labels.
+ *
+ * Three genuine candidates existed and none was ideal. Bunty is
+ * `characters_animation` — "roast-style rants", "comic timing" — and a learner
+ * imitates the model, so the register is wrong. Rahul is the only one whose
+ * description says "Hindi" outright, but carries `accent=rajasthani`: a
+ * regional accent a learner would copy and then be scored against standard
+ * Hindi for, which compounds in both directions. Janvi is `accent=standard`
+ * and described as clear, patient and paced, which is what a reference phrase
+ * needs.
+ *
+ * **Still unverified by a Hindi speaker**, and that is the check that matters:
+ * her description never mentions Hindi, and the labels have already been shown
+ * unreliable. `node scripts/voice-check.mjs` puts every generated clip beside
+ * the phrase it is meant to be saying — that page is where this choice gets
+ * confirmed or replaced, before any Hindi content ships.
+ *
+ * None of which is Hindi's larger problem: the scorer names 0 of 108 syllable
+ * graphemes for hi-IN, so a Hindi learner gets a score with no sound attached.
+ * The voice is the smaller of the two gaps.
  *
  * An alternative French male voice, Sebastien (`BUJMBsQ3Oq4cEeWSb48y`), was
  * also supplied; set `ELEVENLABS_VOICE_IDS=fr-FR:BUJMBsQ3Oq4cEeWSb48y` to use
@@ -161,6 +184,7 @@ export const OWNER_VOICE_IDS: Readonly<Record<string, string>> = {
   "de-DE": "rKiu7lQ4c5P3az3745s3", // Benjamin
   "en-US": "jB2lPb5DhAX6l1TLkKXy", // Sophia — the fixture runner's locale
   "kn-IN": "2SDH0owxS12R2YMgMNoG", // Aisiri, friendly Kannada
+  "hi-IN": "JNaMjd7t4u3EhgkVknn3", // Janvi — standard accent, unverified by a speaker
 };
 
 /** ISO 639-1 base of a BCP-47 locale: "hi-IN" -> "hi". */

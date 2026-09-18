@@ -157,8 +157,14 @@ describe("looking one up", () => {
     expect(adviceForGrapheme(L1, french.code, "not-a-syllable")).toBeNull();
   });
 
+  /**
+   * Hindi rather than German, which used to stand here and now has a table of
+   * its own. The example has to be a locale that genuinely has none, or this
+   * asserts nothing — and hi-IN will stay that way for as long as the scorer
+   * names no syllables in it to attach advice to.
+   */
   it("says nothing for a language with no table", () => {
-    expect(difficultiesFor(L1, "de-DE")).toEqual([]);
-    expect(adviceForGrapheme(L1, "de-DE", "chen")).toBeNull();
+    expect(difficultiesFor(L1, "hi-IN")).toEqual([]);
+    expect(adviceForGrapheme(L1, "hi-IN", "chen")).toBeNull();
   });
 });
