@@ -292,11 +292,88 @@ view answers "who is struggling with what sound" without a teacher listening to
 thirty recordings — which is a strong workload story that is nowhere in the
 positioning.
 
+### 7. Pricing — what the field charges
+
+Retrieved 18 September 2026. Consumer prices are public; **school pricing is
+generally not**, which is itself the finding.
+
+| Product | Consumer | School |
+|---|---|---|
+| **ELSA Speak** | ~$159.99/yr, or ~$11.99/mo | Enterprise tier exists, pricing not published |
+| **Rosetta Stone** | $19.99/mo, $159/yr | Custom, by contract — nothing public |
+| **Pimsleur** | ~$19.95/mo one language; ~$475 lifetime | — |
+| **Busuu** | $14/mo, or $7–9/mo annually; Premium ~$70/yr | — |
+| **Duolingo for Schools** | Free | **Free — and sunsetting 31 July 2027** |
+| **Speechling** | No reliable figure found | — |
+
+Three things follow.
+
+**Duolingo for Schools is being withdrawn.** New accounts are already closed
+and the product sunsets on **31 July 2027**. Every school currently using it
+will be looking for something else, on a published date. That is the most
+actionable fact in this entire document, and it happens to line up with the
+0.3.0 classroom release.
+
+**Consumer language apps anchor at $70–$160 a year.** That is the number a head
+of department will have in mind whatever we quote, and it is per learner.
+
+**Nobody publishes school pricing.** Rosetta Stone's is by contract, ELSA's
+enterprise tier is "contact us". A market where nothing is listed is a market
+where price is negotiated, which cuts both ways but means there is no public
+floor to be undercut by.
+
+### 8. What it costs us to run — and this part is measured
+
+`server/spend.ts` carries a rate verified against Azure's own Retail Prices API
+on 2 September 2026: speech-to-text Standard is **$1.00 per audio hour** in 33
+of 36 regions, and **pronunciation assessment is not a separate meter** — it
+bills as baseline speech-to-text. Billing is per second, rounded up per
+request.
+
+From that, the marginal cost of a learner over a 190-day school year:
+
+| Usage | Per sitting | Per learner per year |
+|---|---|---|
+| Light — 4 activities, 2 takes, 4s each | $0.0089 | **$1.69** |
+| Typical — 5 activities, 2 takes, 5s each | $0.0139 | **$2.64** |
+| Heavy — 6 activities, 3 takes, 6s each | $0.0300 | **$5.70** |
+
+Assumes a sitting every school day, which is generous. Indeterminate takes bill
+the same as scored ones, and at a measured 9.4% they are inside these figures.
+Enabling prosody assessment would add a separate $0.30/hr meter — the code does
+not set it.
+
+The model voice is a **fixed** cost, not a per-learner one: phrases are
+generated once, cached, and served as static files to everybody. The whole
+current corpus is 20 phrases across two languages.
+
+So the shape is: **single-digit dollars per learner per year in variable cost,
+against a market anchored at $70–$160.** That is a comfortable margin, and it
+means per-seat pricing is viable rather than something to be afraid of.
+
+### 9. What shape should the price be?
+
+Not a recommendation on the number — that needs willingness-to-pay research
+nobody has done. But the *structure* follows from how the product is built:
+
+- **Per class, flat** fits the product literally. Classes, join codes and a
+  minimum reportable size already exist. A teacher buys a class; pupils join
+  with a code.
+- **Free for a single teacher, paid beyond that** is the shape that catches the
+  Duolingo sunset, where the incumbent alternative was free.
+- **Site licence** is what procurement prefers, but it needs a sales motion
+  that does not exist yet.
+- **Freemium with a paid upgrade for streak repair, extra hearts or a
+  leaderboard tier is structurally closed off** — `scripts/verify.mjs` T16
+  fails the build on all of it. The usual consumer monetisation ladder is not
+  available here, which is a constraint worth knowing before somebody plans
+  around it.
+
 ### Still not covered
 
-**Pricing and business model.** Freemium, per-seat, site licence — no research
-has been done and none is invented here. It is the largest remaining hole in
-this document.
+**Willingness to pay.** No school has been asked what it would pay, and no
+figure is invented here. The costs above are ours; the price is not derivable
+from them.
 
 ## What this does not know
 

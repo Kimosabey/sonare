@@ -80,6 +80,21 @@ gates green, and two of 18 September's defects were only visible there.
 **Recommended: a pre-release step owned by a person.** Three minutes. Something
 has to make it happen and nothing does.
 
+### D9 · The Duolingo for Schools window
+
+**Duolingo for Schools is being withdrawn.** New accounts are already closed
+and it sunsets on **31 July 2027**. Every school on it will need a replacement,
+on a published date, and their incumbent was free.
+
+This is the only dated opportunity in the whole analysis, and 0.3.0 is the
+classroom release. Whether to aim at it changes what gets built first: a
+free-for-one-teacher tier and a fast join flow matter far more against a
+departing free incumbent than a site-licence sales motion does.
+
+**Recommended: aim at it.** It costs little — the class and join-code
+machinery already exists — and the alternative is arriving after schools have
+already chosen something else.
+
 ### D8 · Which market — the new one
 
 **This is the largest strategic question and it was missing from the first
@@ -208,5 +223,8 @@ Items 5 to 10 are 0.3.x or 0.4.0 depending on the decisions above.
 - **VoiceOver and TalkBack**, one activity each. Unautomatable.
 - **The accent fairness study** (T19) — whether the scorer is harder on some
   first languages than others. Needs scope and a reviewer.
-- **Pricing and business model.** No research done, none invented. The largest
-  remaining hole in the positioning.
+- **Willingness to pay.** Competitor prices and our own unit costs are now in
+  `docs/COMPETITIVE-POSITION.md` — single-digit dollars per learner per year in
+  variable cost, against a market anchored at $70–$160. What a school would
+  actually pay is the part nobody has asked, and it is not derivable from
+  either number.
