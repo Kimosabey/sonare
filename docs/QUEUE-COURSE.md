@@ -862,3 +862,62 @@ written by somebody who knows its sounds. `PLANNED` already promises exactly
 that ("Hearing a difference before you have to say it"), so it is recorded as
 awaiting content rather than quietly absent — which is the honest state, and
 now a checked one.
+
+### 2026-09-18 — what the hand-written lists were leaving out
+
+Four test files each kept a list of "every screen". Every one of them was
+written by hand, and three of them were wrong.
+
+**The jsdom route suite** (d20f769) called itself every address a learner can
+reach and did not have `/#/teacher`, so the one place that assembles the whole
+application had never mounted the teacher screens: no render, no
+`console.error` check, no heading check. Mounting it failed immediately —
+`/#/teacher` rendered **two `<h1>`s**, the shell's "Today" and the board's own
+"Sonare for a class". A screen-reader user navigating by heading met the wrong
+label first.
+
+The comment above the shell's heading rule describes that exact defect
+happening once before, and ended by saying the route-level test made it
+impossible to reintroduce silently. It was reintroduced silently, because that
+test could only check routes somebody had remembered to list. The list is now
+read out of the `<Routes>` block.
+
+**The width suite** (10bdc71) measured 7 of the 12 declared routes. Missing
+were `/#/welcome` and `/#/check` — the first screen a learner sees, and the one
+they are sent to when a take comes back unusable. Neither had been measured for
+tap floor or sideways scroll at any width.
+
+**That found a live defect on the target platform** (c703b0b). WebKit's native
+`menulist` appearance does not merely style a `<select>` — it **discards the
+author's box**. Measured at 430px: `min-height` computed to 18px and `padding`
+to 0, against the 44px and 10px declared six lines above in the same
+stylesheet, giving a **28px** control. `appearance: none` on the same element
+restored it to 45px.
+
+Chromium honoured the declarations all along, which is why it shipped: the rule
+looked correct, the desktop engine agreed, and Safari — the engine an installed
+iOS PWA actually runs on — rendered a target a third under the floor on every
+screen with a dropdown. NFR-03 reads declared values and found a compliant
+44px. jsdom has no layout and saw nothing.
+
+**The axe audit** (77470c9) said "every address a learner reaches", which is
+true of the sentence and false of the product: a teacher is a user, and the
+board is the most form-dense screen here. It passes clean on all three engines
+— the useful kind of finding.
+
+### The process gap this exposes
+
+`npm run test:browser` is **not one of the five gates**, and that is deliberate
+— 4,225 jsdom tests run in thirty seconds and making each wait on a browser
+launch is the surest way to stop anyone running them. But the select defect was
+live and WebKit-only, so every gate was green while the target platform
+rendered an undersized control. The gates cannot catch that class of defect by
+construction. Somebody has to run the browser suite before a release, and
+nothing currently makes that happen.
+
+Each of the four lists is now checked against the router, in both directions: a
+route added and not listed fails, a listed route that no longer exists fails,
+and a reader that stops matching fails. What is deliberately excluded is
+written down with its reason, because an exclusion implied by absence is
+indistinguishable from an oversight — which is precisely what the teacher board
+was.
