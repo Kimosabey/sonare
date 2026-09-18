@@ -15,7 +15,22 @@
  *
  * The bundled sets in `src/activities/languages/`, resolved through the same
  * `LANGUAGES` list the app renders — so this cannot generate audio for a
- * phrase no screen shows, and cannot miss one that is shown.
+ * phrase no screen shows.
+ *
+ * It **can** miss one that is shown, and does: a published course is served at
+ * its own version, and the cache key is a hash over content version, language,
+ * phrase id and text (see server/modelVoice/cache.ts). So every course phrase
+ * is uncached, and extending this script to read `COURSES` would not fix it —
+ * it would generate clips at version 0 for content served at version 2, which
+ * nothing would ever look up. Regeneration belongs at publish time, for the
+ * reason given below.
+ *
+ * Nothing breaks in the meantime. `useModelSpeech` reports `available` as
+ * `platformVoice || served.size > 0`, so an uncached phrase speaks through the
+ * device's own voice — lower quality, and not the reference accent, but
+ * present. Only a locale the device has no voice for at all leaves an activity
+ * with no audio, and the screen refuses those rather than asking a question it
+ * cannot play.
  *
  * Content version 0, which is the bundle's epoch. Published content has real
  * versions (`{slug}:{version}` in server/store/content.ts) and a publish is

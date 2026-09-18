@@ -1351,11 +1351,18 @@ export function ActivityTest() {
         they tap is recorded as their answer. Measured, not imagined: that is
         exactly what rendered with the voice turned off.
 
-        It is not a rare path. `npm run generate-model-voice` reads `LANGUAGES`
-        — the bundled ten per language — so a published course phrase has no
-        cached audio, and a device with no installed voice for the language has
-        nothing to fall back to. Hindi on a phone with no hi-IN voice is the
-        ordinary case the affordances already mention.
+        It takes **both** sources failing, and that is worth stating exactly
+        because the first alone is common and harmless. `useModelSpeech` sets
+        `available` to `platformVoice || served.size > 0`, so a phrase with no
+        generated clip still speaks through the device's own voice — and there
+        are plenty of those: `npm run generate-model-voice` fills the cache
+        from `LANGUAGES`, the bundled ten per language, so every published
+        course phrase is uncached and every one of them falls back cleanly.
+
+        The refusal is for the other case: no clip *and* no platform voice for
+        the locale. Hindi on a phone with no hi-IN voice installed is the one
+        the affordances already name, and it is a device fact rather than
+        anything this product can fix.
 
         Symmetric with `MicUnavailable` above: an activity that cannot be
         attempted says so and costs nothing, rather than taking an answer it
