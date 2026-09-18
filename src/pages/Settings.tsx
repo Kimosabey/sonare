@@ -43,6 +43,7 @@ import { DeviceLink } from "../components/DeviceLink.js";
 import { ClassPromise } from "../components/ClassPromise.js";
 import { JoinClassFlow } from "../components/JoinClassFlow.js";
 import { Planned } from "../components/Planned.js";
+import { KeepOnDevice } from "../components/KeepOnDevice.js";
 import { clearProgress, readProgress } from "../hooks/useProgressPersistence.js";
 import { clearLearnerId, readLearnerId } from "../lib/learnerId.js";
 import { clearOnboarded } from "../stores/onboardingStore.js";
@@ -548,6 +549,14 @@ export function Settings() {
         somebody's own data is an advertisement on a page they opened to check
         something about themselves.
       */}
+      {/*
+        Before Planned, not after: what a learner can do with the app today
+        belongs above what it will do later.
+      */}
+      <section>
+        <KeepOnDevice />
+      </section>
+
       <section>
         <Planned />
       </section>
