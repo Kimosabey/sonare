@@ -253,11 +253,23 @@ function phraseFontSizePx(viewportPx: number): number {
   return Math.max(min, Math.min(max, (viewportPx * vw) / 100));
 }
 
-/** The page's horizontal gutters, from the `body` rule in base.css. */
+/**
+ * The page's horizontal gutters at **phone width**, from `body` in base.css.
+ *
+ * The declaration is `max(clamp(20px, 2.6vw, 40px), env(safe-area-inset-left))`
+ * since the gutter started following the viewport. This file is about the
+ * narrowest screen a phrase has to fit on, so the number it wants is the
+ * clamp's *minimum* — the gutter at 360px, where 2.6vw is 9.4px and the floor
+ * wins. Reading the maximum would give every phrase 40px of slack it does not
+ * have exactly where it matters.
+ */
 function gutterPx(): number {
   const css = read("src/styles/base.css");
-  const match = /padding-left:\s*max\(\s*(\d+)px/.exec(css);
-  if (!match?.[1]) throw new Error("base.css declares no padding-left: max(Npx, ...)");
+  // The clamp's minimum, whether or not it is wrapped in a `max()`.
+  const clamped = /padding-left:\s*max\(\s*clamp\(\s*(\d+)px/.exec(css);
+  const flat = /padding-left:\s*max\(\s*(\d+)px/.exec(css);
+  const match = clamped ?? flat;
+  if (!match?.[1]) throw new Error("base.css declares no padding-left the gutter can be read from");
   return Number(match[1]);
 }
 

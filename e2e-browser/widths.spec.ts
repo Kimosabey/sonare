@@ -255,3 +255,32 @@ test.describe("each breakpoint composes something different", () => {
     expect(wide).toBeLessThanOrEqual(38);
   });
 });
+
+/**
+ * The page gutter, which the Motion board specifies as a clamp and which was a
+ * flat 20px.
+ *
+ * Measured rather than read, because a clamp that does not actually clamp is a
+ * literal with extra steps — and the browser is the only thing that resolves
+ * `vw` against a real viewport.
+ */
+test.describe("the page gutter follows the viewport", () => {
+  test("grows from a phone to a desk, within the board's bounds", async ({ page }) => {
+    const gutterAt = async (width: number): Promise<number> => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+      await settle(page);
+      return page.evaluate(() =>
+        Number.parseFloat(getComputedStyle(document.body).paddingLeft),
+      );
+    };
+
+    const phone = await gutterAt(360);
+    const desk = await gutterAt(1280);
+
+    // The board's own bounds: clamp(20px, 2.6vw, 40px).
+    expect(phone).toBeCloseTo(20, 0);
+    expect(desk).toBeCloseTo(33.3, 0);
+    expect(desk).toBeGreaterThan(phone);
+  });
+});

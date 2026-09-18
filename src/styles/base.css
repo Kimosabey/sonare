@@ -25,8 +25,18 @@ body {
      only, so applying the left inset to both (which the `0 X 80px` shorthand
      did) pads the wrong edge. Bottom clears the home indicator. */
   padding-top: 0;
-  padding-left: max(20px, env(safe-area-inset-left));
-  padding-right: max(20px, env(safe-area-inset-right));
+  /*
+   * `clamp(20px, 2.6vw, 40px)` is the Motion board's own page-padding value,
+   * and it was a flat 20px until now — the edge gap that suits a 360px phone
+   * held a 1280px desk in a narrow gutter.
+   *
+   * Still inside `max()` with the safe-area inset, which is what keeps the
+   * notch handled: in landscape the inset applies to one side only, so the two
+   * edges stay resolved separately rather than through a shorthand that pads
+   * the wrong one.
+   */
+  padding-left: max(clamp(20px, 2.6vw, 40px), env(safe-area-inset-left));
+  padding-right: max(clamp(20px, 2.6vw, 40px), env(safe-area-inset-right));
   padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 

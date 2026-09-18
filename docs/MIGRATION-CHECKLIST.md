@@ -141,7 +141,7 @@ so none of it needed a decision.
 | Celebrate pop for first try / personal best | **done** | `src/styles/report.css:321` |
 | Pressed state per control, tap highlight off | **done** | `src/styles/tokens.css:311`, `:active` in `base.css` |
 | Nothing depends on `:hover` | **done** | 6 `:hover` rules, all decoration; every interactive element gets a focus ring from `base.css:533` |
-| `clamp()` padding and type per spec table | **partial** | Board 1i's two sizes are token-built clamps (`teacher.css`). The two older ones use raw px and are now **listed with reasons** — `scale.test.ts` could see no clamp at all before, so both had been invisible to the census. Padding is not clamped. |
+| `clamp()` padding and type per spec table | **done** | Page padding is the board's own `clamp(20px, 2.6vw, 40px)`, inside the `max()` that keeps the notch handled — it was a flat 20px, so a 1280px desk sat in a phone's gutter. Type: board 1i's sizes are token-built clamps; `.phrase` uses the spec's own 26/38 bounds with a steeper middle term, and both older clamps are now listed with reasons in `scale.test.ts`, which could see no clamp at all before. |
 | 48px tap floor, 16.5px input, do not scale | **done** | `--text-md: 16.5px` exact. The two numbers were never in conflict — one token was doing both jobs. `--tap` is 44 (the floor NFR-03 measures) and `--tap-thumb` is 48 (buttons, mode switches, the syllable chip). `src/styles/tap.test.ts` holds that the thumb size is at least the floor, and found five hard-coded `44px` literals the token had never reached. |
 | Layout switch at 620 / 1024 | **partial** | 620 exact. The desktop switch is **1100, not 1024** — a deliberate choice documented at `activity.css:766`. Two extra breakpoints exist at 460 and 380. |
 
