@@ -25,6 +25,7 @@
  * from the unit suite regardless of how good the assertions are.
  */
 
+import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
@@ -68,9 +69,15 @@ async function settle(page: import("@playwright/test").Page): Promise<void> {
 }
 
 /**
- * Every address a learner reaches. The internal tooling is deliberately left
- * out — it is reached by typing a URL and is not part of the product a learner
- * is promised anything about.
+ * Every screen this product asks somebody to use.
+ *
+ * The teacher board is one of them. It was left out while this list said
+ * "every address a learner reaches", which is true of the sentence and false
+ * of the product: a teacher is a user, the board is a designed surface rather
+ * than a debug readout, and the constraints it would be checked against — tap
+ * targets, labels, headings, nothing pointer-only — are constraints it is
+ * already meant to meet. It is also the most form-dense screen here, which is
+ * where a machine check is worth the most. Nothing had ever run axe on it.
  */
 const SCREENS: [name: string, path: string][] = [
   ["Today", "/"],
@@ -81,7 +88,68 @@ const SCREENS: [name: string, path: string][] = [
   ["the You tab", "/#/settings"],
   ["onboarding", "/#/welcome"],
   ["the microphone check", "/#/check"],
+  ["the teacher board", "/#/teacher"],
 ];
+
+/**
+ * Screens left out, with the reason — because a hand-written list of
+ * everything omits, and this one did.
+ *
+ * These three are genuinely internal: reached only by typing the address,
+ * used by whoever is operating the product rather than by anybody it makes a
+ * promise to. That is a real distinction, but it stops being a decision and
+ * becomes an oversight the moment it is implied by absence instead of written
+ * down — which is exactly how the teacher board sat unchecked.
+ */
+const NOT_AUDITED: Record<string, string> = {
+  "/authoring": "internal content tooling, typed-address only",
+  "/diagnostics": "a debug readout, typed-address only",
+  "/fixture": "a test-fixture runner, typed-address only",
+};
+
+/** Read from the router rather than remembered — see the note above. */
+function declaredRoutes(): string[] {
+  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  return [...source.matchAll(/<Route\s+path="([^"]+)"/g)]
+    .map((match) => (match[1] ?? "").replace(":slug", "fr"))
+    .sort();
+}
+
+test.describe("the screens this file audits", () => {
+  test("accounts for every route the app declares", () => {
+    const audited = new Set(
+      SCREENS.map(([, path]) => (path === "/" ? "/" : path.replace(/^\/#/, ""))),
+    );
+
+    for (const path of declaredRoutes()) {
+      expect(
+        audited.has(path) || path in NOT_AUDITED,
+        `${path} is neither audited nor listed as out of scope`,
+      ).toBe(true);
+    }
+  });
+
+  test("audits nothing the router does not declare", () => {
+    const declared = new Set(declaredRoutes());
+
+    for (const [name, path] of SCREENS) {
+      const route = path === "/" ? "/" : path.replace(/^\/#/, "");
+      expect(declared.has(route), `${name} audits a dead address`).toBe(true);
+    }
+    for (const path of Object.keys(NOT_AUDITED)) {
+      expect(declared.has(path), `${path} is excluded but no longer exists`).toBe(true);
+    }
+  });
+
+  /** Non-vacuity: both checks above pass happily against an empty router. */
+  test("actually reads the router", () => {
+    const paths = declaredRoutes();
+
+    expect(paths.length).toBeGreaterThan(5);
+    expect(paths).toContain("/");
+    expect(paths).toContain("/fr");
+  });
+});
 
 test.describe("no violation a machine can see", () => {
   for (const [name, path] of SCREENS) {
