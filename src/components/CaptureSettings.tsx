@@ -158,11 +158,30 @@ interface SwitchProps {
 }
 
 function Switch({ id, label, description, checked, disabled, onChange }: SwitchProps) {
-  // <label for> already forwards activation to a <button> (button is a
-  // labelable element per the HTML spec), so the label/description text is
-  // already a real tap target — no handler needed there. The visual track
-  // stays small by design; the effective tap target is the whole row via
-  // the label, which comfortably clears 44px through its own padding/text.
+  /*
+   * `<label for>` and the accessible name are two different things, and this
+   * component used to assume they were one.
+   *
+   * A `<button>` is a labelable element, so the label does forward activation:
+   * tapping the text flips the switch, and the whole row is a real target.
+   * But the accessible *name* of a button comes from its **contents**, not
+   * from an associated label — HTML-AAM does not consult `<label for>` for a
+   * button the way it does for an input. This button's contents are one empty
+   * `<span>`.
+   *
+   * So all three switches on the session screen announced as "switch", with no
+   * name at all. It was invisible to every check: axe's WCAG sweep does not
+   * flag it, jsdom reports no accessible name to compare, and on screen the
+   * label is right there next to the control. A UX audit that listed every
+   * control by position found three with no text.
+   *
+   * `aria-labelledby` names it and `aria-describedby` carries the sentence
+   * underneath, which is the split those two attributes exist for: a screen
+   * reader reads the name every time and the description once.
+   */
+  const labelId = `${id}-label`;
+  const descriptionId = `${id}-description`;
+
   return (
     <div className="switch">
       <button
@@ -170,6 +189,8 @@ function Switch({ id, label, description, checked, disabled, onChange }: SwitchP
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-labelledby={labelId}
+        aria-describedby={descriptionId}
         disabled={disabled}
         className="switch-track"
         onClick={() => onChange(!checked)}
@@ -177,8 +198,12 @@ function Switch({ id, label, description, checked, disabled, onChange }: SwitchP
         <span className="switch-thumb" />
       </button>
       <label htmlFor={id} className="switch-text">
-        <span className="switch-label">{label}</span>
-        <span className="switch-desc">{description}</span>
+        <span className="switch-label" id={labelId}>
+          {label}
+        </span>
+        <span className="switch-desc" id={descriptionId}>
+          {description}
+        </span>
       </label>
     </div>
   );

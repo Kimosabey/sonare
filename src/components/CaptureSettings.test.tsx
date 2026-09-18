@@ -308,3 +308,47 @@ describe("while a take is in flight", () => {
     expect(screen.getByText(/Ends after 1\.2s of silence/)).toBeInTheDocument();
   });
 });
+
+/**
+ * The name each switch announces, which is not the same question as whether a
+ * label is associated with it.
+ *
+ * A `<button>` is labelable, so `<label for>` forwards activation — tapping
+ * the text flips the switch. But a button's accessible *name* comes from its
+ * contents, and these buttons contain one empty span. All three announced as
+ * "switch" with no name, and nothing noticed: axe's WCAG sweep does not flag
+ * it, and on screen the label sits right beside the control.
+ */
+describe("every switch says what it is", () => {
+  it("names all three, by role", () => {
+    open();
+
+    const switches = screen.getAllByRole("switch");
+    expect(switches.length).toBeGreaterThanOrEqual(3);
+
+    for (const control of switches) {
+      const name = control.getAttribute("aria-labelledby");
+      expect(name, "a switch with no accessible name").not.toBeNull();
+      const label = name === null ? null : document.getElementById(name);
+      expect(label?.textContent?.trim(), "the name resolves to nothing").toBeTruthy();
+    }
+  });
+
+  /**
+   * And the sentence underneath is a description rather than part of the name.
+   * Folded into the name, a screen reader repeats the whole explanation every
+   * time focus lands on the control.
+   */
+  it("carries the explanation as a description, not as the name", () => {
+    open();
+
+    for (const control of screen.getAllByRole("switch")) {
+      const describedBy = control.getAttribute("aria-describedby");
+      expect(describedBy, "a switch with no description").not.toBeNull();
+      const description = describedBy === null ? null : document.getElementById(describedBy);
+      expect(description?.textContent?.trim()).toBeTruthy();
+      // Two different elements: one is the name, one is the explanation.
+      expect(describedBy).not.toBe(control.getAttribute("aria-labelledby"));
+    }
+  });
+});
