@@ -806,7 +806,7 @@ TalkBack by hand, which nobody can automate. And the two that are not queue
 items: the **Spanish content wants a native reader**, and the **Teacher board**
 sits behind the teacher-accounts decision.
 
-### 2026-09-18 — `locate` reaches a learner, and the rule that let it (160b1c3)
+### 2026-09-18 — `locate` reaches a learner, and the rule that let it (dec9b60)
 
 `locate` was finished in every sense except the one that counts. Options
 derived, screen rendered, tests passing, publish gate taught about it — and
