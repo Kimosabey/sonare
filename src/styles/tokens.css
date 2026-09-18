@@ -285,7 +285,26 @@
    * a syllable to hear yourself say it. scripts/verify.mjs now fails the build
    * on any target declared under it.
    */
+  /*
+   * Two floors, because the design constraints name two.
+   *
+   * `--tap` is 44px: the practical minimum below which a thumb on a moving bus
+   * misses, and what NFR-03 measures every declared target against.
+   *
+   * `--tap-thumb` is 48px, for controls a thumb is *driving* rather than
+   * merely reaching — the buttons a learner presses to record, to advance, to
+   * commit. Every button on every design board is 48px, and the constraint
+   * list asks for 48 "where thumb-driven". Those were in tension only because
+   * one token was carrying both jobs: a floor for everything and a size for
+   * buttons are different numbers, and 44 was answering as both.
+   *
+   * The relationship is asserted rather than assumed — `src/styles/tap.test.ts`
+   * holds that the thumb size is at least the floor, so lowering either one
+   * below the other fails rather than silently shrinking the buttons a
+   * learner uses most.
+   */
   --tap: 44px;
+  --tap-thumb: 48px;
 
   /**
    * Breakpoints, for reference only — a media query cannot read a custom

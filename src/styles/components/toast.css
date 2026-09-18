@@ -152,8 +152,9 @@
   font-size: 24px;
   line-height: 1;
   /* 44px hit target — this sits under a thumb on a phone. */
-  min-width: 44px;
-  min-height: 44px;
+  /* The token, not the number it equals today — see src/styles/tap.test.ts. */
+  min-width: var(--tap);
+  min-height: var(--tap);
   padding: 0;
   cursor: pointer;
   border-radius: 6px;

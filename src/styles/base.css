@@ -304,7 +304,8 @@ a.enter-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--tap);
+  /* Follows button, because this anchor exists to restate it. */
+  min-height: var(--tap-thumb);
   font-family: var(--sans);
   font-size: var(--text-base);
   font-weight: 700;
@@ -454,7 +455,9 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--tap);
+  /* The thumb size, not the floor — see the note on --tap-thumb. A button is
+     the control a learner drives, and every board draws it at 48. */
+  min-height: var(--tap-thumb);
   font-family: var(--sans);
   font-size: var(--text-base);
   font-weight: 700;
@@ -477,21 +480,24 @@ button:disabled {
 }
 
 button.ghost,
-a.ghost {
-  background: transparent;
-  color: var(--signal);
-}
-
 /*
  * The quieter variant on an anchor. Same reasoning as `a.enter-cta` above: the
  * class only says "quieter", and everything that makes it a control comes from
  * the element rule an anchor never matches.
+ *
+ * One block. This was two — a colour-only rule and then the restatement — and
+ * two blocks for one selector is two places to look when the second silently
+ * wins. Nothing depended on the split; the tap-floor test found it while
+ * looking for the first one.
  */
 a.ghost {
+  background: transparent;
+  color: var(--signal);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--tap);
+  /* Follows button, because this anchor exists to restate it. */
+  min-height: var(--tap-thumb);
   padding: 11px 20px;
   border-radius: 10px;
   border: 1.5px solid transparent;

@@ -322,7 +322,8 @@ a.authoring-preview {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--tap);
+  /* Follows button, because this anchor exists to restate it. */
+  min-height: var(--tap-thumb);
   padding: 11px 20px;
   border-radius: var(--radius-md);
   border: 1px solid var(--rule);

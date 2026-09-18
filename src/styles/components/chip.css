@@ -53,7 +53,8 @@
   border: 1px solid var(--rule);
   border-radius: 10px;
   padding: 11px 12px;
-  min-height: 44px;
+  /* The token, not the number it equals today — see src/styles/tap.test.ts. */
+  min-height: var(--tap);
   cursor: pointer;
   background: var(--surface);
   color: var(--ink);
@@ -135,7 +136,8 @@
    from the shared rule in base.css — duplicating it here would be one more
    place for the two to drift apart. */
 button.sy {
-  min-height: 44px;
+  /* The token, not the number it equals today — see src/styles/tap.test.ts. */
+  min-height: var(--tap-thumb);
   cursor: pointer;
 }
 

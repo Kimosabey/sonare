@@ -166,7 +166,8 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 9px 14px;
-  min-height: 44px;
+  /* The token, not the number it equals today — see src/styles/tap.test.ts. */
+  min-height: var(--tap-thumb);
   font-weight: 600;
 }
 

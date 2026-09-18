@@ -31,7 +31,10 @@
   flex-direction: column;
   gap: 4px;
   padding: 18px 20px;
-  min-height: 44px;
+  /* The token, not the number it happened to equal. A literal here is a
+     target that stops moving when the floor does, and reads as compliant to
+     anybody grepping for `var(--tap)`. */
+  min-height: var(--tap);
   border: 1.5px solid var(--rule);
   border-radius: 14px;
   background: var(--surface);
