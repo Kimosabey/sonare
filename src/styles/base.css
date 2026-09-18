@@ -417,6 +417,48 @@ select {
 }
 
 /*
+ * A `<select>` has to be told to be a box, on the engine that matters most.
+ *
+ * WebKit's native `menulist` appearance does not merely style the control —
+ * it **discards the author's box**. Measured on the authoring language picker
+ * at 430px: `min-height` computed to 18px and `padding` to 0, against the 44px
+ * and 10px declared six lines above, giving a 28px control. Setting
+ * `appearance: none` on the same element restored it to 45px immediately.
+ * Chromium honoured the declarations all along, which is why this shipped: the
+ * rule looked correct, the desktop engine agreed, and Safari — the engine an
+ * installed iOS PWA actually runs on — quietly rendered a target a third under
+ * the floor. NFR-03 reads declared values and found a compliant 44px; jsdom has
+ * no layout and saw nothing. It took a real engine at a real width.
+ *
+ * Turning the appearance off also removes the dropdown arrow, and an arrowless
+ * select is a text field that mysteriously opens a menu. So the caret is drawn
+ * back: two gradient wedges meeting at a point, rather than an SVG data URI,
+ * because a data URI would have to bake `--dim`'s hex into a second place that
+ * no longer changes when the token does.
+ *
+ * `.breadcrumb-lang` is unaffected and stays as it was — it sets its own
+ * transparent background and carries a caret element of its own.
+ */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  /* Room for the caret drawn below, so a long option cannot run underneath
+     it. 12px of gutter, 6px of caret, 12px of the padding the field already
+     had. */
+  padding-right: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--dim) 50%),
+    linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+  background-position:
+    right 15px center,
+    right 12px center;
+  background-size:
+    4px 4px,
+    4px 4px;
+  background-repeat: no-repeat;
+}
+
+/*
  * The third form control, now beside the other two.
  *
  * It was the last rule in content.css, four sheets later in the cascade, for
