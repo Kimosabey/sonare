@@ -97,6 +97,25 @@ function canNeedMicrophone(kind: ActivityKind): boolean {
   return affordancesFor(kind, { takes: 0, revealed: false }).needsMicrophone;
 }
 
+/**
+ * Whether the model voice *is* this activity's question, rather than an aid.
+ *
+ * `affordancesFor` already draws the line and says so: `canListen` is whether
+ * the activity permits hearing the phrase, deliberately separate from whether
+ * a voice exists on this device. For a `repeat` the model is help — with no
+ * voice a learner can still read the phrase and record it. For a `listen` or a
+ * `locate` there is nothing else: the phrase is never shown, and the question
+ * is which sound was in a thing they were meant to hear.
+ *
+ * Derived from the affordances rather than listed, so a kind cannot be added
+ * on one side of this and forgotten on the other — `canListen` with no
+ * microphone is precisely "the audio is the whole task".
+ */
+function theQuestionIsAudio(kind: ActivityKind): boolean {
+  const affords = affordancesFor(kind, { takes: 0, revealed: false });
+  return affords.canListen && !affords.needsMicrophone;
+}
+
 export function ActivityTest() {
   const { slug } = useParams<{ slug: string }>();
   const activeLanguage = resolveLanguage(slug);
@@ -1322,7 +1341,34 @@ export function ActivityTest() {
         "Next activity": there is nothing to record, nothing to skip for want
         of a quiet place, and no try to spend.
       */}
-      {activity.kind === "listen" && phase !== "result" && (
+      {/*
+        A question made of audio, on a device that cannot play it.
+
+        Without this the screen renders "Listen, then choose", then "Which
+        sound was in that?", then four syllables and **no Listen button** —
+        because the button is gated on `model.available`. The learner is asked
+        which sound was in a phrase they were never able to hear, and whatever
+        they tap is recorded as their answer. Measured, not imagined: that is
+        exactly what rendered with the voice turned off.
+
+        It is not a rare path. `npm run generate-model-voice` reads `LANGUAGES`
+        — the bundled ten per language — so a published course phrase has no
+        cached audio, and a device with no installed voice for the language has
+        nothing to fall back to. Hindi on a phone with no hi-IN voice is the
+        ordinary case the affordances already mention.
+
+        Symmetric with `MicUnavailable` above: an activity that cannot be
+        attempted says so and costs nothing, rather than taking an answer it
+        has no right to.
+      */}
+      {theQuestionIsAudio(activity.kind) && phase !== "result" && !model.available && (
+        <p className="what">
+          This question is a phrase to listen to, and this device has no voice for{" "}
+          {activeLanguage.label}. Nothing has been counted against you.
+        </p>
+      )}
+
+      {activity.kind === "listen" && phase !== "result" && model.available && (
         <ListenOptions
           options={listenOptions(activity)}
           code={activeLanguage.code}
@@ -1344,7 +1390,7 @@ export function ActivityTest() {
         The publish gate refuses both, but this reads served content, so it
         says so rather than rendering a blank task.
       */}
-      {activity.kind === "locate" && phase !== "result" && (() => {
+      {activity.kind === "locate" && phase !== "result" && model.available && (() => {
         const options = locateOptions(activity, activeLanguage);
         if (options === null) {
           return (

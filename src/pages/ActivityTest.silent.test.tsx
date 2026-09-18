@@ -99,6 +99,16 @@ vi.mock("../content/resolve.js", () => ({
 const micCalls: string[] = [];
 let endSession = vi.fn();
 let scored: ((result: unknown, capture: unknown) => void) | null = null;
+/**
+ * Whether this device has a voice for the language.
+ *
+ * True by default and false in one block below. On a real device it is false
+ * more often than it looks: `npm run generate-model-voice` fills the cache
+ * from `LANGUAGES` — the bundled ten phrases per language — so a published
+ * course phrase has none, and a phone with no installed voice for the locale
+ * has nothing to fall back to.
+ */
+let voiceAvailable = true;
 
 vi.mock("../speech/react/useRecorder.js", () => ({
   useRecorder: (options: { onScored: (r: unknown, c: unknown) => void }) => {
@@ -153,7 +163,7 @@ vi.mock("../hooks/useModelSpeech.js", async () => {
       speak: vi.fn(),
       cancel: vi.fn(),
       speaking: false,
-      available: true,
+      available: voiceAvailable,
       wordIndex: null,
     }),
   };
@@ -199,6 +209,7 @@ beforeEach(() => {
   micCalls.length = 0;
   endSession = vi.fn();
   scored = null;
+  voiceAvailable = true;
   installStorage();
   // The result phase animates its numbers. Reduced motion is the right default
   // in jsdom, which has no frame clock — it jumps them straight to their
@@ -386,5 +397,54 @@ describe("arriving at a silent activity from a spoken one", () => {
     await open();
 
     expect(micCalls).toContain("warm");
+  });
+});
+
+
+describe("when the device has no voice for the language", () => {
+  beforeEach(() => {
+    voiceAvailable = false;
+  });
+
+  /**
+   * The question these kinds ask *is* the audio — the phrase is never shown,
+   * and "which sound was in that?" is unanswerable when there was no "that".
+   *
+   * Before this, the screen rendered the instruction, the question and four
+   * syllables with no Listen button, because the button is gated on the voice
+   * being available. A learner tapped a guess and it was recorded as their
+   * answer. This is the same honesty R8 applies to an unusable recording: an
+   * activity that cannot be attempted says so and costs nothing.
+   */
+  it.each(["locate", "listen"] as const)("asks a %s nothing it cannot play", async (kind) => {
+    active = setWith(kind);
+    await open();
+
+    await waitFor(() => {
+      expect(screen.getByText(/no voice for/i)).toBeInTheDocument();
+    });
+
+    expect(options()).toBeNull();
+    expect(screen.getByText(/Nothing has been counted against you/i)).toBeInTheDocument();
+    expect(micCalls).toEqual([]);
+  });
+
+  /**
+   * And it stays out of the way of the kinds the voice is only an aid to. A
+   * `repeat` with no model voice is still a phrase on screen to read and
+   * record — refusing it would take the activity away over a missing
+   * convenience.
+   */
+  it("still offers a spoken activity, where the voice is only help", async () => {
+    active = setWithSilentSecond("locate");
+    await open();
+
+    expect(screen.queryByText(/no voice for/i)).toBeNull();
+    // "Start speaking", not "Record" — the control says what it does.
+    expect(screen.getByRole("button", { name: /Start speaking/i })).toBeInTheDocument();
+    // The phrase itself, which is what makes the voice optional here — it
+    // appears more than once (prompt and quoted target), so count rather than
+    // pick.
+    expect(screen.queryAllByText(/Merci beaucoup/).length).toBeGreaterThan(0);
   });
 });
