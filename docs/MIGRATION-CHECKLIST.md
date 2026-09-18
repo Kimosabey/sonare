@@ -93,21 +93,34 @@ needed:
 
 ## 5 · Teacher — `Sonare Teacher.dc.html`
 
-Eight of ten not started. All of them need teacher accounts and auth, which is
-a real surface and the largest single piece of remaining work.
+All ten built. The board answered its own identity question — "a join code
+rather than a roster upload … never a list a teacher types in about children" —
+so none of it needed a decision.
 
 | | Item | Mark | Where |
 |---|---|---|---|
-| 1a | The contract, will / will not see | **partial** | `src/teacher/promise.ts` holds both lists and `forbiddenPathsIn()` enforces them; `src/components/ClassPromise.tsx` renders them. The **pupil-facing** half exists; the teacher-facing screen does not. |
-| 1b | Create class + join code | **not started** | |
-| 1c | Pupil join decision | **not started** | |
-| 1d | Class overview | **not started** | |
-| 1e | Sound detail, three buckets, no bar clickable | **not started** | |
-| 1f | Set a sitting, suggestion not gate | **not started** | |
-| 1g | Pupil list + one pupil, no figure | **not started** | |
-| 1h | Limits page + pupil-facing mirror | **partial** | the mirror is built (`ClassPromise.tsx`); the teacher's limits page is not |
-| 1i | Teacher on a phone | **not started** | |
-| — | Teacher view **not** reachable from learner tabs | **done** | `src/components/Navigation.tsx` has four destinations and no teacher route exists |
+| 1a | The contract, will / will not see | **done** | `src/components/ClassLimits.tsx`, `src/teacher/promise.ts` |
+| 1b | Create class + join code | **done** | `src/components/CreateClass.tsx`, `server/store/classes.ts` |
+| 1c | Pupil join decision · 360 | **done** | `src/components/JoinClass.tsx`, `JoinClassFlow.tsx`, `src/sync/classLink.ts` |
+| 1d | Class overview · 1280 | **done** | `src/components/ClassOverview.tsx`, `server/domain/classSummary.ts` |
+| 1e | Sound detail · 1280 | **done** | `src/components/SoundDetail.tsx` |
+| 1f | Set a sitting | **done** | `src/components/SetSitting.tsx`, `SuggestedSitting.tsx` — persisted, and it reaches the pupil's Today |
+| 1g | Pupil list + one pupil | **done** | `src/components/PupilList.tsx`, `PupilDetail.tsx`, `server/domain/classRoster.ts` |
+| 1h | Limits page + pupil mirror | **done** | `ClassLimits.tsx` (teacher), `MyClass.tsx` + `ClassPromise.tsx` (pupil) |
+| 1i | Teacher on a phone | **done** | `src/components/ClassGlance.tsx` |
+| — | Not reachable from the learner's tabs | **done** | `/teacher` is typed-URL only, token-gated, linked from nowhere |
+
+**Three things the boards disagreed about, resolved rather than copied:**
+
+- **1g shows a teacher which sounds each pupil is working on; 1c never told the
+  pupil.** The board's rule is that neither side is told a different story, so
+  the promise now says it, in both voices.
+- **A count "cannot be turned back into anybody's number"** is true of the
+  28-pupil class the board draws and false of a small one. Counts are withheld
+  below five joined pupils.
+- **1e's three buckets and 1d's "22 of 28"** only reconcile if "still working"
+  is the first two buckets together. The board's own arithmetic settled the
+  data model.
 
 ## 6 · Motion & responsive — `Sonare Motion.dc.html`
 
@@ -124,7 +137,7 @@ a real surface and the largest single piece of remaining work.
 | Pressed state per control, tap highlight off | **done** | `src/styles/tokens.css:311`, `:active` in `base.css` |
 | Nothing depends on `:hover` | **done** | 6 `:hover` rules, all decoration; every interactive element gets a focus ring from `base.css:533` |
 | `clamp()` padding and type per spec table | **not started** | 2 uses total (`activity.css:47,338`), none in `tokens.css` |
-| 48px tap floor, 16.5px input, do not scale | **partial** — *needs your call* | `--text-md: 16.5px` exact. But `--tap: 44px`, because **NFR-03 and `scripts/verify.mjs` specify 44 with 48 where thumb-driven**. The handoff says 48 flat. I did not change it: the repo's own rule is authoritative and I am not permitted to weaken `verify.mjs`. See question 6. |
+| 48px tap floor, 16.5px input, do not scale | **done** | `--text-md: 16.5px` exact. The two numbers were never in conflict — one token was doing both jobs. `--tap` is 44 (the floor NFR-03 measures) and `--tap-thumb` is 48 (buttons, mode switches, the syllable chip). `src/styles/tap.test.ts` holds that the thumb size is at least the floor, and found five hard-coded `44px` literals the token had never reached. |
 | Layout switch at 620 / 1024 | **partial** | 620 exact. The desktop switch is **1100, not 1024** — a deliberate choice documented at `activity.css:766`. Two extra breakpoints exist at 460 and 380. |
 
 ## 7 · Splash — `assets/splash/`

@@ -379,6 +379,19 @@ label,
 input,
 select {
   width: 100%;
+  /*
+   * The floor, declared rather than left to padding.
+   *
+   * There was no `min-height` here at all — only a font size and 10px of
+   * padding — so the height was whatever each engine's intrinsic control box
+   * came to. On mobile WebKit that is **28px** for a `<select>`, which the
+   * browser suite measured on the create-class form. NFR-03 could not flag it
+   * because there was no declared size to read, and jsdom could not see it
+   * because jsdom has no layout: it took a real engine at a real width.
+   *
+   * `--tap` rather than `--tap-thumb`: a form field is reached, not driven.
+   */
+  min-height: var(--tap);
   font-family: var(--sans);
   /* iOS Safari zooms the viewport on focus for anything UNDER 16px, so this
      one has a hard floor rather than a preference. --text-md is 16.5px, which
