@@ -194,3 +194,88 @@ describe("every animation is composited", () => {
     }
   });
 });
+
+/**
+ * The loops that run forever, and why there are four rather than three.
+ *
+ * The motion spec says "only three loops: level meter, mic-open pulse,
+ * playing-syllable ring". A literal count of `animation: … infinite` across the
+ * stylesheet returns five, and both extras are sanctioned rather than drift:
+ *
+ * - **The skeleton sweep** is named by the spec on its own line — "a
+ *   pseudo-element transform, never styled as progress" — so it is a fourth
+ *   permitted loop, not a fourth unexplained one.
+ * - **The diagnostics poll pulse** is on an internal operator screen, linked
+ *   from nowhere and token-gated. It says a poll is live, which is the whole
+ *   job of that screen, and no learner ever meets it. Same reasoning as the
+ *   perf budget, which holds the internal screens to their own ceiling.
+ *
+ * Written as an allowlist rather than a count, because a count passes when one
+ * loop is swapped for another — and the question is never "how many" but
+ * "which".
+ */
+describe("only the sanctioned animations loop", () => {
+  /** Sheets a learner can actually reach. */
+  const INTERNAL_SHEETS = ["./diagnostics.css", "./authoring.css", "./teacher.css"];
+
+  const PERMITTED = {
+    "meter-hot-pulse": "the level meter, while the microphone is open",
+    "rec-pulse": "the mic-open pulse on the record control",
+    "sy-sound": "the ring on a syllable being played back",
+    "sk-sweep": "the scoring skeleton — named separately by the spec",
+  } as const;
+
+  /** Every `animation: … infinite`, with the name it runs and its sheet. */
+  function loops(): { sheet: string; name: string }[] {
+    const found: { sheet: string; name: string }[] = [];
+    for (const [path, source] of Object.entries(sheets)) {
+      const css = source.replace(/\/\*[\s\S]*?\*\//g, "");
+      for (const line of css.split("\n")) {
+        if (!/animation:.*\binfinite\b/.test(line)) continue;
+        const name = /animation:\s*([A-Za-z][\w-]*)/.exec(line)?.[1] ?? "(unnamed)";
+        found.push({ sheet: path, name });
+      }
+    }
+    return found;
+  }
+
+  test("finds the loops, so the rules below are not vouching for nothing", () => {
+    expect(loops().length).toBeGreaterThan(2);
+  });
+
+  test("every loop a learner can reach is one of the four permitted", () => {
+    const unexpected = loops()
+      .filter((loop) => !INTERNAL_SHEETS.includes(loop.sheet))
+      .filter((loop) => !(loop.name in PERMITTED))
+      .map((loop) => `${loop.sheet} → ${loop.name}`);
+
+    expect(unexpected, unexpected.join("\n")).toEqual([]);
+  });
+
+  /**
+   * And each permitted one is actually there. An allowlist protecting nothing
+   * is how a list becomes a place to put anything — the same rule the clamp
+   * exceptions in `scale.test.ts` are held to.
+   */
+  test("every permitted loop is still in use", () => {
+    const running = new Set(loops().map((loop) => loop.name));
+    for (const name of Object.keys(PERMITTED)) {
+      expect(running.has(name), `${name} is permitted but no longer runs`).toBe(true);
+    }
+  });
+
+  /**
+   * The three the spec names are learner-facing. If one moved to an internal
+   * sheet the rule above would still pass, and the learner would have lost a
+   * loop the spec requires.
+   */
+  test("the three named loops are on sheets a learner reaches", () => {
+    for (const name of ["meter-hot-pulse", "rec-pulse", "sy-sound"]) {
+      const sheets_ = loops().filter((loop) => loop.name === name);
+      expect(sheets_.length, `${name} does not run anywhere`).toBeGreaterThan(0);
+      for (const loop of sheets_) {
+        expect(INTERNAL_SHEETS, `${name} runs only on an internal screen`).not.toContain(loop.sheet);
+      }
+    }
+  });
+});

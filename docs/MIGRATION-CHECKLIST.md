@@ -134,7 +134,7 @@ so none of it needed a decision.
 | One curve, three durations | **done** | `src/styles/tokens.css:210-213` — `--ease` + 150/350/500, 34 uses |
 | Screen arrival 12px + fade, no exit | **done** | `src/styles/base.css` — `rise-in`, `screen-in` |
 | Stagger 50ms between siblings | **done** | `src/styles/base.css` — `.enter-1..n` |
-| Only three loops | **partial** | The three named ones are right: level meter (`meter-hot-pulse`), mic-open (`rec-pulse`), syllable ring (`sy-sound`). Two more exist: the skeleton sweep (which the spec names separately as legitimate) and a poll pulse on `/diagnostics`, an internal screen. |
+| Only three loops | **done** | The three named ones run on learner sheets: `meter-hot-pulse`, `rec-pulse`, `sy-sound`. Two others are sanctioned rather than drift — the skeleton sweep, which the spec names on its own line, and a poll pulse on `/diagnostics`, an internal screen no learner reaches. `compositing.test.ts` holds it as an **allowlist**, because a count passes when one loop is swapped for another and the question is never how many but which. |
 | Every animation transform or opacity | **done** — *was broken, now enforced* | Three fills transitioned `width`, worst of them the silence countdown running ~10Hz with the mic open. Now `scaleX`; `src/styles/compositing.test.ts` fails any transition or keyframe touching a layout property. |
 | Word highlight box-shadow, not padding | **done** | `src/styles/components/chip.css` |
 | Skeleton sweep is a pseudo-element transform | **done** | `src/styles/report.css:104` |
