@@ -26,16 +26,34 @@ voices at the moment"), which makes it a known limitation rather than a bug.
 It is still the single largest gap between what this product does and who it
 is for.
 
-*Shape of the work:* LPC is the wrong tool above ~140 Hz because the harmonics
-are too far apart to interpolate a spectral envelope from. The usual answers
-are cepstral smoothing, or closed-phase LPC synchronised to the glottal cycle,
-or simply a much higher LPC order with heavy pre-emphasis. All three are
-testable against the same Peterson & Barney fixtures already in the repo — the
-accuracy suite would need female and child reference vowels added to it, which
-Peterson & Barney also published.
+*Measured, since this was written.* The female and child references are now in
+`formants.accuracy.test.ts`, and the cost of the refusal is on record:
 
-*How to know it worked:* the existing sweep, rerun against female and child
-references, with the same 60 Hz tolerance.
+| voice  | f0        | mean F1 error | mean F2 error |
+|--------|-----------|---------------|---------------|
+| male   | 100-120Hz | 11-17 Hz      | 10-12 Hz      |
+| male   | 140 Hz    | 203 Hz        | 273 Hz        |
+| female | 160-220Hz | 327-368 Hz    | 436-445 Hz    |
+| child  | 250-300Hz | 394-429 Hz    | 548-1087 Hz   |
+
+Against a 60 Hz tolerance. The failure shape is unambiguous: `ɛ` comes back
+with F2 at 554 Hz where it should be 1840 — the fourth harmonic of a 140 Hz
+voice. The fit tracks pitch, not resonance. **The gate is correct**, and the
+question is only whether a different method clears it.
+
+*One of the three has been tried.* Cepstral liftering was prototyped against
+these same references and did not: 200-1000 Hz errors across lifter cutoffs
+from 20 to 50 quefrency bins, no better than the LPC it would replace. Naive
+peak-picking is part of that and a real implementation would track formants
+properly — but it is not a ten-minute fix, which is worth knowing before
+somebody starts.
+
+*Still untried:* closed-phase LPC synchronised to the glottal cycle, and
+frequency-warped LPC. Both are testable against the harness that now exists.
+
+*How to know it worked:* the sweep in `formants.accuracy.test.ts`, rerun at
+female and child pitches, inside the same 60 Hz tolerance. The refusal tests
+fail when the ceiling rises — deliberately, so the two have to move together.
 
 ### 1.2 The scorer's accent fairness has never been measured
 

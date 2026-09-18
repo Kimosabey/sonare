@@ -212,3 +212,87 @@ describe("a voice pitched above what this method can measure", () => {
     expect(refused.length, `refused: ${refused.map(([n]) => n).join(", ")}`).toBeLessThanOrEqual(1);
   });
 });
+
+/**
+ * Peterson & Barney's other two groups — the voices this estimator refuses.
+ *
+ * The refusal test above synthesises a *male* vowel at a high pitch, which is
+ * not what a woman or a child sounds like: their formants are higher too, by
+ * 15-20% for women and 25-35% for children. So it exercised a case that does
+ * not occur. These are the real ones.
+ */
+const FEMALE: [name: string, f1: number, f2: number, f3: number][] = [
+  ["i (heed)", 310, 2790, 3310],
+  ["ɛ (head)", 610, 2330, 2990],
+  ["æ (had)", 860, 2050, 2850],
+  ["ɑ (hod)", 850, 1220, 2810],
+  ["u (who'd)", 370, 950, 2670],
+];
+
+const CHILD: [name: string, f1: number, f2: number, f3: number][] = [
+  ["i (heed)", 370, 3200, 3730],
+  ["ɛ (head)", 690, 2610, 3570],
+  ["æ (had)", 1010, 2320, 3320],
+  ["ɑ (hod)", 1030, 1370, 3170],
+  ["u (who'd)", 430, 1170, 3260],
+];
+
+/**
+ * What the refusal is actually costing, measured rather than asserted.
+ *
+ * With the pitch gate lifted, these are the mean errors this method produces
+ * across the three reference sets, swept over the whole range:
+ *
+ * | voice  | f0        | mean F1 error | mean F2 error |
+ * |--------|-----------|---------------|---------------|
+ * | male   | 100-120Hz | 11-17 Hz      | 10-12 Hz      |
+ * | male   | 140 Hz    | 203 Hz        | 273 Hz        |
+ * | female | 160-220Hz | 327-368 Hz    | 436-445 Hz    |
+ * | child  | 250-300Hz | 394-429 Hz    | 548-1087 Hz   |
+ *
+ * Against a 60 Hz tolerance. The failure shape is unmistakable in the raw
+ * numbers — `ɛ` comes back with F2 at 554 Hz where it should be 1840, which is
+ * the fourth harmonic of a 140 Hz voice. The fit is tracking pitch, not
+ * resonance.
+ *
+ * Cepstral liftering — the usual first answer, and one of three named in
+ * `docs/PRODUCT-IMPROVEMENTS.md` — was prototyped against these same
+ * references and did **not** clear the bar: 200-1000 Hz errors across lifter
+ * cutoffs from 20 to 50 quefrency bins. It is not a ten-minute fix, which is
+ * worth knowing before somebody starts.
+ */
+describe("the voices this cannot measure are real voices, not a high male one", () => {
+  it.each(FEMALE)("refuses a woman's %s at 200 Hz", (_name, f1, f2, f3) => {
+    const outcome = estimateFormants(vowel(f1, f2, f3, 200), SAMPLE_RATE);
+
+    expect(outcome.kind).toBe("refused");
+    if (outcome.kind === "refused") expect(outcome.reason).toBe("pitch-too-high");
+  });
+
+  it.each(CHILD)("refuses a child's %s at 280 Hz", (_name, f1, f2, f3) => {
+    const outcome = estimateFormants(vowel(f1, f2, f3, 280), SAMPLE_RATE);
+
+    expect(outcome.kind).toBe("refused");
+    if (outcome.kind === "refused") expect(outcome.reason).toBe("pitch-too-high");
+  });
+
+  /**
+   * The reason this matters, stated as a test so it cannot be forgotten: the
+   * Teacher board is about Year 9 pupils, and a class of thirteen-year-olds is
+   * almost entirely above the line. The corrective this estimator exists for
+   * is unavailable to most of the people the product is aimed at.
+   *
+   * If somebody raises the ceiling, this fails — which is the point. It should
+   * fail alongside the accuracy sweep passing at the new pitches, and not
+   * before.
+   */
+  it("is unavailable to an entire Year 9 class, and says so rather than guessing", () => {
+    const typicalPitches = [190, 210, 230, 250];
+    const refused = typicalPitches.filter((f0) => {
+      const outcome = estimateFormants(vowel(610, 2330, 2990, f0), SAMPLE_RATE);
+      return outcome.kind === "refused";
+    });
+
+    expect(refused, "some of these pitches produced a measurement").toEqual(typicalPitches);
+  });
+});
