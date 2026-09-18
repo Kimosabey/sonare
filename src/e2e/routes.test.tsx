@@ -85,7 +85,65 @@ const ROUTES: [label: string, hash: string, heading: RegExp][] = [
   ["diagnostics", "#/diagnostics", /Diagnostics/i],
   ["the fixture runner", "#/fixture", /Fixture/i],
   ["authoring", "#/authoring", /Content/i],
+  ["the teacher board", "#/teacher", /class|teacher/i],
 ];
+
+/**
+ * The table above is hand-written, and a hand-written list of "everything"
+ * omits. `#/teacher` was a route for as long as the board existed and was not
+ * on it, so the one place that assembles the whole app had never mounted the
+ * teacher screens — while the file's own comment claimed every address.
+ *
+ * So the router is read as text and the table is checked against it. Reading
+ * the source rather than importing `App` because the routes are declared in
+ * JSX inside a lazy tree: there is no exported list to compare to, and adding
+ * one only to satisfy a test would be a second thing to keep in step.
+ */
+const appSource = Object.values(
+  import.meta.glob("../App.tsx", { query: "?raw", import: "default", eager: true }),
+)[0] as string;
+
+describe("the table of routes", () => {
+  /** Every `path` the router declares, with the param filled the way a learner fills it. */
+  function declaredPaths(): string[] {
+    return [...appSource.matchAll(/<Route\s+path="([^"]+)"/g)]
+      .map((m) => (m[1] ?? "").replace(":slug", "fr"))
+      .sort();
+  }
+
+  it("covers every route the app declares", () => {
+    const listed = new Set(ROUTES.map(([, hash]) => hash.replace(/^#/, "")));
+
+    for (const path of declaredPaths()) {
+      expect(listed.has(path), `${path} is a route nothing here mounts`).toBe(true);
+    }
+  });
+
+  /**
+   * Non-vacuity twice over: the check above passes against an empty router,
+   * which is what a regex that stops matching would produce — and that is a
+   * silent pass, not a failure. The count is asserted loosely because the
+   * point is that the reader works, not to pin a number that changes whenever
+   * a screen is added.
+   */
+  it("actually reads the router", () => {
+    const paths = declaredPaths();
+
+    expect(paths.length).toBeGreaterThan(5);
+    expect(paths).toContain("/");
+    expect(paths).toContain("/fr");
+  });
+
+  it("mounts nothing the router does not declare", () => {
+    // The other direction: a row left behind after a route is removed would
+    // assert a screen renders at an address that no longer exists.
+    const declared = new Set(declaredPaths());
+
+    for (const [label, hash] of ROUTES) {
+      expect(declared.has(hash.replace(/^#/, "")), `${label} mounts a dead address`).toBe(true);
+    }
+  });
+});
 
 describe("every route renders in the real app", () => {
   it.each(ROUTES)("%s", async (_label, hash, heading) => {

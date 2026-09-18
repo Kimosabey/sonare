@@ -228,13 +228,19 @@ function Header() {
    *
    * Listed rather than inferred, because the alternative — moving every screen
    * onto its own heading — is a change to eight screens' markup and their
-   * tests for a defect that is three routes wide. The route-level test asserts
-   * exactly one `<h1>` everywhere, so a screen added on either side of this
-   * line cannot reintroduce the pair silently.
+   * tests for a defect that is three routes wide.
+   *
+   * This comment used to end by saying the route-level test asserts exactly
+   * one `<h1>` everywhere, so the pair could not come back silently. It did
+   * come back silently: `/teacher` names itself, was never added here, and the
+   * route test's list of "every route" was hand-written and did not have it
+   * either. That list is now read out of the `<Routes>` block below, so a
+   * route cannot be added without the heading check meeting it.
    */
   const ownsItsHeading =
     location.pathname === "/welcome" ||
     location.pathname === "/check" ||
+    location.pathname === "/teacher" ||
     /^\/[a-z]{2}\/journey$/.test(location.pathname);
 
   if (ownsItsHeading) {
