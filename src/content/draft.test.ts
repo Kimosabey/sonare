@@ -20,12 +20,15 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { affordancesFor } from "../learning/affordances.js";
+import { ACTIVITY_KINDS } from "../activities/types.js";
 import { LANGUAGES } from "../activities/languages/index.js";
 import { COURSES } from "../activities/courses/index.js";
 import {
   DRAFT_KINDS,
   MAX_DRAFT_ACTIVITIES,
   MAX_DRAFT_TARGET_WORDS,
+  SILENT_KINDS,
   draftFromSet,
   draftProblems,
   draftToPayload,
@@ -134,6 +137,69 @@ describe("refusing what the server would refuse", () => {
     );
 
     expect(problems.join(" | ")).toMatch(/repeats an earlier/);
+  });
+
+  /**
+   * The scope of that rule, and why it is a scope rather than an exception.
+   *
+   * Two activities that both *record* the same phrase put two accuracies on
+   * one sentence and count its syllables twice in the skills store. A `locate`
+   * records nothing — it plays the phrase and takes a choice — so reusing a
+   * phrase is how it is meant to work: the ear training lands on the sounds
+   * the production drills, and inventing a phrase for it would be content
+   * nobody who speaks the language has checked.
+   */
+  it("lets a kind that records nothing reuse a phrase another activity teaches", () => {
+    const problems = draftProblems(
+      draft({
+        activities: [
+          activity({ id: "1" }),
+          activity({ id: "2", kind: "locate", soundTargets: "jour" }),
+        ],
+      }),
+    );
+
+    expect(problems.join(" | ")).not.toMatch(/repeats an earlier/);
+  });
+
+  /**
+   * And in the other order, which is the case a naive scope gets wrong.
+   *
+   * Skipping only the *check* for a silent kind still lets it claim the phrase
+   * — so a `locate` authored above the `repeat` that teaches it would flag the
+   * `repeat`, and whether a course published would depend on the order its
+   * rows happened to be written in. Silent kinds take no part in the set at
+   * all, so both orders publish.
+   */
+  it("publishes the same set whichever order the rows were authored in", () => {
+    const spoken = activity({ id: "1" });
+    const silent = activity({ id: "2", kind: "locate", soundTargets: "jour" });
+
+    const silentFirst = draftProblems(
+      draft({ activities: [{ ...silent, id: "1" }, { ...spoken, id: "2" }] }),
+    );
+    const spokenFirst = draftProblems(draft({ activities: [spoken, silent] }));
+
+    expect(silentFirst.join(" | ")).not.toMatch(/repeats an earlier/);
+    expect(silentFirst.length).toBe(spokenFirst.length);
+  });
+
+  /**
+   * Two silent kinds on one phrase is also fine, and this is what catches a
+   * scope written as "the first one claims it, the rest are exempt".
+   */
+  it("lets two silent activities ask about the same phrase", () => {
+    const problems = draftProblems(
+      draft({
+        activities: [
+          activity({ id: "1" }),
+          activity({ id: "2", kind: "locate", soundTargets: "jour" }),
+          activity({ id: "3", kind: "locate", soundTargets: "bon" }),
+        ],
+      }),
+    );
+
+    expect(problems.join(" | ")).not.toMatch(/repeats an earlier/);
   });
 
   it("ignores surrounding whitespace when comparing targets", () => {
@@ -510,4 +576,24 @@ describe("a draft with a course spine", () => {
       "locate",
     ]);
   });
+});
+
+/**
+ * The list of kinds that cannot score a phrase, which now exists three times.
+ *
+ * `affordancesFor` decides it for the session, `draft.ts` reads it to gate a
+ * publish from the screen, and `server/store/content.ts` keeps its own copy
+ * because a page cannot import from `server/` and that store does not reach
+ * into `src/` (PRD §6). Three copies of one fact is three chances to disagree,
+ * and the disagreement would be silent: a course publishable from the
+ * authoring screen and refused by the server, or the reverse.
+ */
+describe("what may reuse a phrase", () => {
+  it("agrees with the affordances the session actually applies", () => {
+    for (const kind of ACTIVITY_KINDS) {
+      const silent = !affordancesFor(kind, { takes: 0, revealed: false }).needsMicrophone;
+      expect(SILENT_KINDS.includes(kind), `${kind}`).toBe(silent);
+    }
+  });
+
 });

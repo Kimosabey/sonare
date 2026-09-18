@@ -42,6 +42,16 @@ import {
  */
 export const DRAFT_KINDS: readonly ActivityKind[] = ACTIVITY_KINDS;
 
+/**
+ * Kinds that ask nothing of the microphone, and so cannot score a phrase.
+ *
+ * Mirrors `affordancesFor`'s `needsMicrophone: false` cases. Not derived from
+ * it because this file is the publish gate's client copy and `affordances.ts`
+ * is learner-session logic — but `draft.test.ts` asserts the two agree, so the
+ * duplication cannot drift.
+ */
+export const SILENT_KINDS: readonly string[] = ["listen", "locate"];
+
 /** Mirrors MAX_ACTIVITIES in server/store/content.ts. */
 export const MAX_DRAFT_ACTIVITIES = 50;
 
@@ -331,8 +341,29 @@ export function draftProblems(draft: ContentDraft): string[] {
           `${where}: target is ${words} words — over ${MAX_DRAFT_TARGET_WORDS} is cut off mid-phrase and scored as an omission`,
         );
       }
-      if (targets.has(target)) problems.push(`${where}: target repeats an earlier activity's`);
-      else targets.add(target);
+      /*
+       * Scored twice is the failure, not written twice.
+       *
+       * Two activities that both *record* this phrase would put two accuracies
+       * on one sentence and count its syllables twice in the skills store. A
+       * kind that asks nothing of the microphone — `listen`, `locate` — is a
+       * different case: a `locate` reuses a phrase the course already teaches
+       * on purpose, so the ear training lands on the sounds the production
+       * drills, and inventing a phrase for it would be content nobody checked.
+       *
+       * A silent kind takes no part in the set at all, rather than being
+       * skipped on the way in. Skipping only the check would let a `locate`
+       * claim a phrase and flag the `repeat` that teaches it, if the two were
+       * written in that order — a defect that depends on authoring order is
+       * the kind nobody reproduces.
+       */
+      if (!SILENT_KINDS.includes(a.kind)) {
+        if (targets.has(target)) {
+          problems.push(`${where}: target repeats an earlier activity's`);
+        } else {
+          targets.add(target);
+        }
+      }
     }
 
     /**

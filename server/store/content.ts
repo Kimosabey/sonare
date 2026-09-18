@@ -34,6 +34,14 @@ import { logger } from "../logger.js";
  */
 export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall", "listen", "locate"] as const;
 
+/**
+ * Kinds that ask nothing of the microphone, and so cannot score a phrase.
+ *
+ * The server's own copy, like the kinds list above — a page cannot import from
+ * `server/` and this store does not reach into `src/` (PRD §6).
+ */
+const SILENT_KINDS: readonly string[] = ["listen", "locate"];
+
 /** Bounded, so one publish cannot store an unbounded document. */
 export const MAX_ACTIVITIES = 50;
 
@@ -483,8 +491,29 @@ export function contentProblems(raw: unknown): string[] {
           `${where}: target is ${words} words — over ${MAX_TARGET_WORDS} is cut off mid-phrase and scored as an omission`,
         );
       }
-      if (targets.has(target)) problems.push(`${where}: target repeats an earlier activity's`);
-      else targets.add(target);
+      /*
+       * Scored twice is the failure, not written twice.
+       *
+       * Two activities that both *record* this phrase would put two accuracies
+       * on one sentence and count its syllables twice in the skills store. A
+       * kind that asks nothing of the microphone — `listen`, `locate` — is a
+       * different case: a `locate` reuses a phrase the course already teaches
+       * on purpose, so the ear training lands on the sounds the production
+       * drills, and inventing a phrase for it would be content nobody checked.
+       *
+       * A silent kind takes no part in the set at all, rather than being
+       * skipped on the way in. Skipping only the check would let a `locate`
+       * claim a phrase and flag the `repeat` that teaches it, if the two were
+       * written in that order — a defect that depends on authoring order is
+       * the kind nobody reproduces.
+       */
+      if (!SILENT_KINDS.includes(String(a.kind ?? ""))) {
+        if (targets.has(target)) {
+          problems.push(`${where}: target repeats an earlier activity's`);
+        } else {
+          targets.add(target);
+        }
+      }
     }
 
     /**

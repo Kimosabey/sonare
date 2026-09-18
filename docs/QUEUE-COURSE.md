@@ -805,3 +805,60 @@ mistake twice: asserting a layout instead of measuring one.
 TalkBack by hand, which nobody can automate. And the two that are not queue
 items: the **Spanish content wants a native reader**, and the **Teacher board**
 sits behind the teacher-accounts decision.
+
+### 2026-09-18 — `locate` reaches a learner, and the rule that let it (160b1c3)
+
+`locate` was finished in every sense except the one that counts. Options
+derived, screen rendered, tests passing, publish gate taught about it — and
+**no shipped course used it**, so no learner would ever have met one. The same
+shape as the vowel chart no screen imported: nothing fails, because every test
+about the kind tests the kind, and none of them asks whether any content uses
+it. A check that reads what the source *says* cannot see what it *omits* — the
+fifth time that has been the answer in this repo.
+
+**Three `locate` activities in the French course** (ids 19, 20, 21), each
+reusing a phrase and gloss **verbatim** from an activity already in the set.
+Deliberately: `locate` needs no authored content — its options are derived from
+the syllables other phrases drill — so new French here would be French nobody
+who speaks it has checked, and the ear training is *meant* to land on the
+sounds the production drills.
+
+That ran straight into the duplicate-target rule, in `courses.test.ts` and
+again in the publish gate. **Scoped rather than renumbered.** The rule exists
+to stop a phrase being *scored* twice — two accuracies on one sentence, its
+syllables counted twice in the skills store — and a `locate` asks nothing of
+the microphone. So the kinds that record nothing take **no part in the
+duplicate set at all**, rather than merely skipping the check: skipping only
+the check still lets a silent row claim a phrase, so a `locate` authored above
+the `repeat` that teaches it would flag *that* row, and a publish would be
+refused or accepted on nothing but the order somebody typed the rows in.
+
+Scoped in three places that cannot import from one another (PRD §6), so the
+tests now hold them together: `courses.test.ts` asks `affordancesFor` rather
+than listing kinds, `draft.test.ts` checks its list against the same
+affordances, and a source scan checks the server's copy against the client's.
+
+**Fourteen mutants, all killed** — but four of them lived on the first run, and
+each was a real gap:
+
+- Removing the guard from the *server* copy: caught by nothing. The client's
+  tests read the client's list, and no server test had a silent kind reusing a
+  target.
+- The authoring-order defect above, in both copies: no test put a silent row
+  first.
+- **Deleting every `locate` from the course**: the content gap could silently
+  reopen the day after it was closed.
+
+The last one is now `AWAITING_CONTENT` in `courses.test.ts`: every kind is
+either reachable in shipped content or written down with what it is waiting
+for, and the entry names the `PLANNED` line that tells a learner about it. It
+fails in both directions — a kind that stops shipping, and an entry left behind
+after content arrives.
+
+Writing it surfaced the next one. **`listen` ships in no set either** — not in
+the bundled floor, not in any course. Unlike `locate` it cannot be closed the
+same way: its options are *authored* near-misses, so every language needs pairs
+written by somebody who knows its sounds. `PLANNED` already promises exactly
+that ("Hearing a difference before you have to say it"), so it is recorded as
+awaiting content rather than quietly absent — which is the honest state, and
+now a checked one.

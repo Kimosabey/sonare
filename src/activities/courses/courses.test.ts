@@ -19,12 +19,15 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { affordancesFor } from "../../learning/affordances.js";
 import { COURSES, getCourse } from "./index.js";
 import { LANGUAGES, getLanguage } from "../languages/index.js";
+import { PLANNED } from "../../planned.js";
 import {
   ACTIVITY_KINDS,
   MAX_LESSON_ACTIVITIES,
   MIN_LESSON_ACTIVITIES,
+  type ActivityKind,
   type LanguageActivitySet,
 } from "../types.js";
 
@@ -110,9 +113,51 @@ describe.each(COURSES.map((c) => [c.label, c] as const))("the %s course", (_labe
     expect(ids).toEqual(ids.map((_, i) => i + 1));
   });
 
-  it("has no duplicate targets, which would score the same phrase twice", () => {
-    const targets = set.activities.map((a) => a.target);
-    expect(new Set(targets).size).toBe(targets.length);
+  /**
+   * Scored twice is the failure, not written twice.
+   *
+   * Two activities that both *record* the same phrase would put two accuracies
+   * on one sentence and count the syllables twice in the skills store. But a
+   * `locate` asks nothing of the microphone — it plays the phrase and takes a
+   * choice — so it reuses one on purpose: the ear training lands on the same
+   * sounds the production drills, and inventing a new phrase for it would be
+   * new French nobody has checked.
+   *
+   * Scoped to the kinds that actually score, by asking `affordancesFor` rather
+   * than listing kinds here. A sixth kind that records is covered the day it
+   * is added; one that does not is not quietly forbidden from reuse.
+   */
+  it("never scores the same phrase twice", () => {
+    const scored = set.activities.filter(
+      (a) => affordancesFor(a.kind, { takes: 0, revealed: false }).needsMicrophone,
+    );
+    const targets = scored.map((a) => a.target);
+
+    expect(scored.length, "no scored activities to check").toBeGreaterThan(0);
+    expect(new Set(targets).size, "two activities record the same phrase").toBe(targets.length);
+  });
+
+  /**
+   * And a phrase reused by a silent kind must be one the course already
+   * teaches. Reuse is the point; a `locate` on a phrase no other activity
+   * drills would be a listening question about a sentence the learner never
+   * meets anywhere else.
+   */
+  it("reuses only phrases the course already teaches", () => {
+    const spoken = new Set(
+      set.activities
+        .filter((a) => affordancesFor(a.kind, { takes: 0, revealed: false }).needsMicrophone)
+        .map((a) => a.target),
+    );
+
+    for (const activity of set.activities) {
+      if (affordancesFor(activity.kind, { takes: 0, revealed: false }).needsMicrophone) continue;
+      if (activity.kind === "listen") continue; // authored near-misses, not a reuse
+      expect(
+        spoken.has(activity.target),
+        `activity ${activity.id} asks about a phrase nothing else teaches`,
+      ).toBe(true);
+    }
   });
 
   it("keeps every target inside the capture duration ceiling", () => {
@@ -314,5 +359,91 @@ describe("the new content as Unicode", () => {
     // Stated so a sweep that stopped visiting a field is visible rather than
     // passing over an empty list.
     expect(checked).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Every kind a learner can actually meet.
+ *
+ * `locate` was built end to end — options derived, screen rendered, publish
+ * gate taught to allow the phrase reuse it needs — and shipped in no course
+ * at all, so no learner would ever have seen one. Nothing failed. Every test
+ * about `locate` passed, because they all tested `locate`; none of them asked
+ * whether any content used it. It is the same shape as the vowel chart that no
+ * screen imported, and it is invisible to every check that reads what the
+ * source says rather than what it omits.
+ *
+ * So the bundled sets and the courses together are the content a learner can
+ * reach, and a kind is either in them or written down here with what it is
+ * waiting for. Adding a line to `AWAITING_CONTENT` is then a deliberate edit
+ * somebody has to justify, rather than a regression nobody sees.
+ */
+interface AwaitingContent {
+  /** Why no shipped set uses it. */
+  because: string;
+  /**
+   * The `PLANNED` entry that tells a learner about it, by title.
+   *
+   * The link matters in both directions. A kind we are not shipping that
+   * nobody is told about is a feature that quietly does not exist; a `PLANNED`
+   * entry removed without content arriving is a promise withdrawn in silence.
+   */
+  planned: string;
+}
+
+const AWAITING_CONTENT: Partial<Record<ActivityKind, AwaitingContent>> = {
+  listen: {
+    because:
+      "its options are authored near-misses, not derived — every language needs pairs written by somebody who knows its sounds, unlike `locate`, which every language with sound targets gets for free",
+    planned: "Hearing a difference before you have to say it",
+  },
+};
+
+describe("the kinds a learner can actually meet", () => {
+  /** Everything a learner can open: the offline floor plus the courses. */
+  const shipped = new Set<ActivityKind>(
+    [...LANGUAGES, ...COURSES].flatMap((set) => set.activities.map((a) => a.kind)),
+  );
+
+  it("has content for every kind, or says what that kind is waiting for", () => {
+    for (const kind of ACTIVITY_KINDS) {
+      if (shipped.has(kind)) continue;
+      expect(
+        AWAITING_CONTENT[kind],
+        `\`${kind}\` is built but no set uses it, and nothing says why`,
+      ).toBeDefined();
+    }
+  });
+
+  /**
+   * The other direction, so the list cannot rot. The day somebody authors a
+   * `listen` row, this fails and the entry has to go — which is also what
+   * sends them to the `PLANNED` list to remove the promise.
+   */
+  it("keeps nothing on that list that content already covers", () => {
+    for (const kind of Object.keys(AWAITING_CONTENT) as ActivityKind[]) {
+      expect(shipped.has(kind), `\`${kind}\` ships now — remove it from AWAITING_CONTENT`).toBe(
+        false,
+      );
+    }
+  });
+
+  it("tells learners about every kind it is holding back", () => {
+    for (const [kind, waiting] of Object.entries(AWAITING_CONTENT)) {
+      expect(
+        PLANNED.some((f) => f.title === waiting?.planned),
+        `nothing on the planned list covers \`${kind}\``,
+      ).toBe(true);
+    }
+  });
+
+  /**
+   * Non-vacuity, and not a formality: the first two tests both pass happily
+   * against an empty `shipped` — which is precisely the state they exist to
+   * catch, one kind at a time.
+   */
+  it("actually reads the shipped content", () => {
+    expect(shipped.size).toBeGreaterThan(1);
+    expect([...shipped].every((k) => (ACTIVITY_KINDS as readonly string[]).includes(k))).toBe(true);
   });
 });

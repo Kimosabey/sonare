@@ -358,6 +358,58 @@ describe("what may be published", () => {
     expect(problems.join(" | ")).toMatch(expected);
   });
 
+  /**
+   * The scope of the duplicate-target rule, held at the gate rather than only
+   * on the screen that drafts a publish.
+   *
+   * The rule stops a phrase being *scored* twice — two accuracies on one
+   * sentence, its syllables counted twice in the skills store. The kinds that
+   * ask nothing of the microphone are outside it, because reuse is how they
+   * work: a `locate` plays a phrase the course already teaches and takes a
+   * choice about it.
+   *
+   * This is asserted here and not only in src/content/draft.test.ts because
+   * the two are separate implementations by design (PRD §6), and a server
+   * stricter than the screen refuses a publish somebody was told was fine.
+   */
+  it("lets a kind that records nothing reuse a phrase another activity teaches", () => {
+    const activities = [
+      activity({ id: 1, soundTargets: ["jour"] }),
+      activity({ id: 2, kind: "locate", soundTargets: ["jour"] }),
+    ];
+
+    expect(contentProblems({ ...set(), version: 1, activities })).toEqual([]);
+  });
+
+  /**
+   * And whichever order the rows were authored in.
+   *
+   * Skipping only the check for a silent kind would still let it claim the
+   * phrase, so a `locate` written above the activity that teaches it would
+   * flag *that* activity — a publish refused or accepted on nothing but row
+   * order. Silent kinds take no part in the set at all.
+   */
+  it("refuses nothing when the silent row is authored first", () => {
+    const activities = [
+      activity({ id: 1, kind: "locate", soundTargets: ["jour"] }),
+      activity({ id: 2, soundTargets: ["jour"] }),
+    ];
+
+    expect(contentProblems({ ...set(), version: 1, activities })).toEqual([]);
+  });
+
+  it("still refuses two activities that would both record the same phrase", () => {
+    // The rule this scope narrows is not weakened for the kinds it was
+    // written for — including when a silent row sits between them.
+    const activities = [
+      activity({ id: 1, soundTargets: ["jour"] }),
+      activity({ id: 2, kind: "locate", soundTargets: ["jour"] }),
+      activity({ id: 3, soundTargets: ["jour"] }),
+    ];
+
+    expect(contentProblems({ ...set(), version: 1, activities }).join(" | ")).toMatch(/repeats/);
+  });
+
   it("counts activities from one, so a problem names the row an author is looking at", () => {
     const activities = [activity({ id: 1 }), activity({ id: 2, target: "" })];
 

@@ -117,6 +117,52 @@ const ADDED: LanguageActivitySet["activities"] = [
     focus: "Nasal /ɛ̃/ in train against nasal /ɑ̃/ in dans",
     soundTargets: ["train", "dans", "quart", "heure"],
   },
+  /*
+   * Three `locate` activities, one per unit — hear the phrase, pick which
+   * syllable was in it.
+   *
+   * Every phrase and gloss below is **copied from an activity already in this
+   * course**, deliberately. A `locate` needs no new writing: its options are
+   * composed from sound targets the language already has, and reusing a phrase
+   * the learner is working on means the ear training lands on the same sounds
+   * the production drills do. New French here would be new French nobody has
+   * checked.
+   *
+   * `soundTargets` carries the one syllable being asked about rather than the
+   * phrase's whole list. That is the answer, and the scheduler reads it the
+   * same way it reads any other — so a learner weak on "chan" gets offered the
+   * question about "chan".
+   */
+  {
+    id: 19,
+    title: "Hearing the nasal in enchanté",
+    kind: "locate",
+    prompt: "Listen, then choose which sound was in the phrase.",
+    gloss: "Pleased to meet you.",
+    target: "Enchanté de faire votre connaissance",
+    focus: "Recognising the nasal /ɑ̃/ by ear before producing it",
+    soundTargets: ["chan"],
+  },
+  {
+    id: 20,
+    title: "Hearing deux",
+    kind: "locate",
+    prompt: "Listen, then choose which sound was in the phrase.",
+    gloss: "A table for two people, please.",
+    target: "Une table pour deux personnes s'il vous plaît",
+    focus: "Picking the /ø/ of deux out of a phrase said at speed",
+    soundTargets: ["deux"],
+  },
+  {
+    id: 21,
+    title: "Hearing the r in gare",
+    kind: "locate",
+    prompt: "Listen, then choose which sound was in the phrase.",
+    gloss: "The station is behind the church.",
+    target: "La gare se trouve derrière l'église",
+    focus: "Recognising the French r by ear, which is the sound this course drills most",
+    soundTargets: ["gare"],
+  },
 ];
 
 export const FRENCH_COURSE: LanguageActivitySet = {
@@ -143,7 +189,7 @@ export const FRENCH_COURSE: LanguageActivitySet = {
           id: 1,
           title: "Hello, and who you are",
           outcome: "You can say hello, give your name and say where you live.",
-          activityIds: [1, 2, 11],
+          activityIds: [1, 2, 11, 19],
         },
         {
           id: 2,
@@ -162,7 +208,7 @@ export const FRENCH_COURSE: LanguageActivitySet = {
           id: 3,
           title: "Ordering",
           outcome: "You can ask for a table and order what you want.",
-          activityIds: [14, 3, 9],
+          activityIds: [14, 3, 9, 20],
         },
         {
           id: 4,
@@ -181,7 +227,7 @@ export const FRENCH_COURSE: LanguageActivitySet = {
           id: 5,
           title: "Asking the way",
           outcome: "You can ask where something is, say a direction back, and ask how far it is.",
-          activityIds: [5, 16, 17],
+          activityIds: [5, 16, 17, 21],
         },
         {
           id: 6,
