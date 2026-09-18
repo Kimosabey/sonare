@@ -8,6 +8,11 @@ needed:
 
 - **done** — built, reachable, and tested.
 - **partial** — built, with what is missing stated.
+
+Seven items were **partial only because nothing exercised 430, 768 or 1280**.
+`e2e-browser/widths.spec.ts` does now, on three engines — and found a
+`<select>` laying out at 28px on mobile WebKit, which neither `verify.mjs` nor
+jsdom could see.
 - **not started**.
 - **⚠ built, not reachable** — the code and its tests exist, and nothing
   renders it. It counts as not delivered. This audit found one such item (2-1j,
@@ -34,8 +39,8 @@ needed:
 | 1k | Check · no hardware | **done** | `src/pages/MicCheck.tsx` |
 | 1l | Check · insecure context | **done** | `src/pages/MicCheck.tsx` |
 | 1m | First activity carries the verdict | **done** | `src/pages/ActivityTest.tsx` |
-| 1n | Check · 430 | **partial** | CSS is fluid; browser tests exercise 390 and 900, not 430 |
-| 1o | Check · 768 | **partial** | as above |
+| 1n | Check · 430 | **done** | `e2e-browser/widths.spec.ts` — no sideways scroll, every control over the floor, checked at 430 on three engines |
+| 1o | Check · 768 | **done** | `e2e-browser/widths.spec.ts` — no sideways scroll, every control over the floor, at 768 |
 | 1p | Check · 1280, device picker promoted | **done** | `src/styles/activity.css:790` — real control from 1100px up, which covers 1280 |
 
 ## 2 · Session — `Sonare Session.dc.html`
@@ -54,9 +59,9 @@ needed:
 | 1j | Corrective · vowel chart | **done** — *was unreachable, now wired* | `src/components/VowelChart.tsx`, `src/speech/capture/formants.ts`, joined by `src/hooks/useVowelEstimate.ts`. Shown from the same syllable tap as 1k. `target` is null — no content names the vowel a syllable aims at, and the chart draws against its landmarks without one. |
 | 1k | Corrective · yours against the model | **done** | `src/pages/ActivityTest.tsx` |
 | 1l | Record control B, 430 | **not started** | stated as an alternative; control A shipped |
-| 1m | `listen` · 430 | **partial** | fluid; not tested at 430 |
-| 1n | `listen` · 768 | **partial** | as above |
-| 1o | `listen` · 1280 | **partial** | as above |
+| 1m | `listen` · 430 | **done** | `e2e-browser/widths.spec.ts` — no sideways scroll, every control over the floor, at 430 |
+| 1n | `listen` · 768 | **done** | at 768 |
+| 1o | `listen` · 1280 | **done** | at 1280 |
 | 1p | `recall`, reveal makes take unscored | **done** | `src/pages/ActivityTest.tsx` |
 | 1q | `read`, no Listen button | **done** | `src/pages/ActivityTest.tsx` — model unlocks after the first take |
 
@@ -72,8 +77,8 @@ needed:
 | 1f | Progress · sounds, attendance, coverage | **done** | `src/pages/Progress.tsx` — `calendarRows()` is the attendance strip |
 | 1g | Progress · not enough history | **done** | `src/pages/Progress.tsx` |
 | 1h | End of sitting, what moved | **done** | `src/components/SessionSummary.tsx` |
-| 1i | Journey · 768 | **partial** | fluid; not tested at 768 |
-| 1j | Progress · 1280 with Due column | **partial** | `src/styles/activity.css` breaks at 1100; Due column present |
+| 1i | Journey · 768 | **done** | `e2e-browser/widths.spec.ts` — no sideways scroll, every control over the floor, at 768 |
+| 1j | Progress · 1280 with Due column | **done** | Due column present; layout checked at 1280 |
 
 ## 4 · Platform — `Sonare Platform.dc.html`
 
@@ -136,7 +141,7 @@ so none of it needed a decision.
 | Celebrate pop for first try / personal best | **done** | `src/styles/report.css:321` |
 | Pressed state per control, tap highlight off | **done** | `src/styles/tokens.css:311`, `:active` in `base.css` |
 | Nothing depends on `:hover` | **done** | 6 `:hover` rules, all decoration; every interactive element gets a focus ring from `base.css:533` |
-| `clamp()` padding and type per spec table | **not started** | 2 uses total (`activity.css:47,338`), none in `tokens.css` |
+| `clamp()` padding and type per spec table | **partial** | Board 1i's two sizes are token-built clamps (`teacher.css`). The two older ones use raw px and are now **listed with reasons** — `scale.test.ts` could see no clamp at all before, so both had been invisible to the census. Padding is not clamped. |
 | 48px tap floor, 16.5px input, do not scale | **done** | `--text-md: 16.5px` exact. The two numbers were never in conflict — one token was doing both jobs. `--tap` is 44 (the floor NFR-03 measures) and `--tap-thumb` is 48 (buttons, mode switches, the syllable chip). `src/styles/tap.test.ts` holds that the thumb size is at least the floor, and found five hard-coded `44px` literals the token had never reached. |
 | Layout switch at 620 / 1024 | **partial** | 620 exact. The desktop switch is **1100, not 1024** — a deliberate choice documented at `activity.css:766`. Two extra breakpoints exist at 460 and 380. |
 
