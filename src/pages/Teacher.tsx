@@ -25,6 +25,8 @@ import { SoundDetail } from "../components/SoundDetail.js";
 import { PupilList } from "../components/PupilList.js";
 import { PupilDetail } from "../components/PupilDetail.js";
 import { CreateClass, type NameVisibility } from "../components/CreateClass.js";
+import { SetSitting, type SuggestionWindow } from "../components/SetSitting.js";
+import { resolveLanguage } from "../content/resolve.js";
 import type { PupilRow } from "../teacher/roster.js";
 import type { ClassSummary } from "../teacher/classSummary.js";
 
@@ -88,6 +90,9 @@ export function Teacher() {
   const [openSound, setOpenSound] = useState<string | null>(null);
   /** Which pupil is opened, by label. Null is the list. */
   const [openPupil, setOpenPupil] = useState<string | null>(null);
+  /** Which lesson is open for suggesting, by id. Null is none. */
+  const [openLesson, setOpenLesson] = useState<number | null>(null);
+  const [suggested, setSuggested] = useState<number | null>(null);
   /** The code a freshly created class returned. Shown once, never stored. */
   const [newCode, setNewCode] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -245,6 +250,69 @@ export function Teacher() {
           />
         </section>
       )}
+
+      {/*
+        Suggesting a sitting. The lesson list comes from the same resolver a
+        learner reads, so a teacher previews what pupils will actually be
+        offered rather than what happened to be bundled at build time. The
+        suggestion itself travels as a lesson id, which is stable across
+        content versions by design.
+      */}
+      {data !== null && (() => {
+        const language = resolveLanguage(data.slug);
+        const lessons = (language?.units ?? []).flatMap((unit) => unit.lessons);
+        if (lessons.length === 0) return null;
+
+        const open = lessons.find((lesson) => lesson.id === openLesson);
+        if (open === undefined) {
+          return (
+            <section>
+              <h2>Set a sitting</h2>
+              <p className="hint">
+                A suggestion on their Today screen — never a lock, and never a mark.
+              </p>
+              <ul className="sitting-windows">
+                {lessons.map((lesson) => (
+                  <li key={lesson.id}>
+                    <button type="button" className="ghost" onClick={() => setOpenLesson(lesson.id)}>
+                      {lesson.title}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {suggested !== null && (
+                <p className="what" role="status">
+                  Suggested. It is on their Today screen now.
+                </p>
+              )}
+            </section>
+          );
+        }
+
+        const activities = open.activityIds
+          .map((id) => language?.activities.find((activity) => activity.id === id))
+          .filter((activity): activity is NonNullable<typeof activity> => activity !== undefined);
+
+        return (
+          <section>
+            <p className="row">
+              <button type="button" className="ghost" onClick={() => setOpenLesson(null)}>
+                Back to the lessons
+              </button>
+            </p>
+            <SetSitting
+              lesson={open}
+              activities={activities}
+              code={data.slug}
+              joinedCount={data.summary.reportable ? data.summary.joinedCount : 0}
+              onSuggest={({ lessonId }: { lessonId: number; window: SuggestionWindow }) => {
+                setSuggested(lessonId);
+                setOpenLesson(null);
+              }}
+            />
+          </section>
+        );
+      })()}
 
       {data?.roster !== undefined && data.roster.length > 0 && (
         <section>

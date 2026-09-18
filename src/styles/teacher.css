@@ -296,3 +296,59 @@
 .visibility-choices .hint {
   grid-area: note;
 }
+
+/* ── suggesting a sitting ──────────────────────────────────────────────────
+ *
+ * Board 1f. Numbered, because a sitting has an order — unlike the pupil list
+ * above, where an order would imply a ranking. The difference is the point:
+ * activities happen in sequence, pupils do not.
+ */
+.sitting-activities {
+  margin: 8px 0 0;
+  padding-left: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sitting-activities > li {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.sitting-kind {
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.sitting-windows {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Each option is its own target at the tap floor. Three radios in a row are
+   three 13px dots otherwise, and this is the control that decides whether a
+   suggestion reads as a deadline. */
+.sitting-windows label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: 0 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.sitting-windows input {
+  accent-color: var(--signal);
+}
