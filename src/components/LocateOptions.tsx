@@ -18,6 +18,7 @@
  * learning is.
  */
 
+import { useId } from "react";
 import type { LocateOption } from "../activities/locate.js";
 
 export interface LocateOptionsProps {
@@ -39,13 +40,25 @@ export function LocateOptions({
   onChoose,
 }: LocateOptionsProps) {
   const answered = chosen !== null;
+  /**
+   * The question names the list of answers, rather than only sitting above it.
+   *
+   * `ListenOptions` carries an `aria-label` on its own list and this had
+   * nothing, so a screen reader announced "list, four items" with no
+   * indication of what was being asked — the question was on screen and not in
+   * the accessibility tree. Pointed at the paragraph instead of repeating its
+   * text, so the two cannot drift into asking different questions.
+   */
+  const questionId = useId();
   const correct = options.find((option) => option.correct)?.grapheme ?? "";
 
   return (
     <div className="locate">
-      <p className="what">Which sound was in that?</p>
+      <p className="what" id={questionId}>
+        Which sound was in that?
+      </p>
 
-      <ul className="locate-options">
+      <ul className="locate-options" aria-labelledby={questionId}>
         {options.map((option) => {
           const picked = chosen === option.grapheme;
           const reveal = answered && (option.correct || picked);

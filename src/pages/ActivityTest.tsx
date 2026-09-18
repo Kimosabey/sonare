@@ -75,8 +75,27 @@ import { resolveLanguage } from "../content/resolve.js";
 import { buildReport } from "../activities/report.js";
 import { adviceFor, weakestSyllable } from "../activities/advice.js";
 import { useCompareToModel } from "../hooks/useCompareToModel.js";
-import type { ActivityAttempt, ActivityProgress } from "../activities/types.js";
+import type { ActivityAttempt, ActivityKind, ActivityProgress } from "../activities/types.js";
 import type { PronunciationResult } from "../speech/scoring/types.js";
+
+/**
+ * Whether an activity of this kind could ever open the microphone.
+ *
+ * Asked of `affordancesFor` rather than by listing kinds, so this cannot drift
+ * from the rule the rest of the screen is driven by — and asked at `takes: 0`
+ * because the question is what the kind *can* need, not what it needs right
+ * now. A spoken kind whose tries are spent still had a microphone to warm.
+ *
+ * It exists because warming is invisible. `warm()` pays the getUserMedia cost
+ * ahead of the learner's first Record tap, and on a `listen` or a `locate`
+ * there is no Record tap and no record button — so the screen was opening the
+ * microphone for an activity that only asks somebody to choose an answer.
+ * On iOS that spends the one permission prompt a learner ever gets, on a
+ * screen that gives them no reason to expect it.
+ */
+function canNeedMicrophone(kind: ActivityKind): boolean {
+  return affordancesFor(kind, { takes: 0, revealed: false }).needsMicrophone;
+}
 
 export function ActivityTest() {
   const { slug } = useParams<{ slug: string }>();
@@ -541,9 +560,15 @@ export function ActivityTest() {
     if (lastScopedIndex.current === index) return;
     lastScopedIndex.current = index;
 
+    /**
+     * The device is released either way — a silent activity should not leave
+     * the recording indicator lit while somebody reads four options — but it
+     * is only re-warmed for a kind that can actually use it.
+     */
     recorder.releaseDevice();
-    recorder.warm();
-  }, [index, started, finished, recorder.releaseDevice, recorder.warm]);
+    const next = activities[index];
+    if (next !== undefined && canNeedMicrophone(next.kind)) recorder.warm();
+  }, [index, started, finished, activities, recorder.releaseDevice, recorder.warm]);
 
   // A learner who already passed can still retry to beat their own score —
   // the old banner must not survive into that new attempt looking current.
@@ -665,10 +690,15 @@ export function ActivityTest() {
   // learner's first graded attempt hits the same warm path every later one
   // does instead of paying the cold getUserMedia + AudioWorklet cost.
   const beginSession = useCallback(() => {
-    recorder.warm();
+    // Only when the first activity is one that can use it — see
+    // canNeedMicrophone. Start is a tap, and a permission prompt on the back
+    // of it is exactly what the learner does not expect from a listening
+    // question.
+    const first = activities[index];
+    if (first !== undefined && canNeedMicrophone(first.kind)) recorder.warm();
     startedAt.current = Date.now();
     setStarted(true);
-  }, [recorder]);
+  }, [recorder, activities, index]);
 
   const report = useMemo(
     () => buildReport(activities, progress, Date.now() - startedAt.current),
