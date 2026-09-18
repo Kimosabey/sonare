@@ -1,198 +1,212 @@
-# The next version
+# 0.3.0 — the classroom release
 
-Written 2026-09-18, from `docs/COMPETITIVE-POSITION.md`. Every item says what
-it borrows, what it costs, and who it is waiting on.
+**Where we are:** `package.json` says `0.2.0-alpha.1`, the last tag says the
+same, and **212 commits have landed since it**. See `docs/VERSIONS.md`. The
+first thing this release does is give that work a name.
 
-**State at the time of writing:** all five gates green. 4,287 tests pass, 1
-expected fail, 3 skipped. Branch `redesign/course-platform`.
+**Written:** 2026-09-18, from `docs/COMPETITIVE-POSITION.md`.
+
+**Thesis of this version:** everything built in those 212 commits is a
+classroom product that no classroom can currently reach. 0.3.0 is the release
+that makes it reachable, and says out loud what it is already good at.
 
 ---
 
-## Part 1 — Decisions only you can make
+## Part 1 — Decisions, not engineering
 
-These are not engineering questions. Nothing below them moves until these are
-settled, and each one has a recommendation rather than a menu.
+Nothing below Part 2 moves until these are settled. Each carries a
+recommendation rather than a menu.
+
+### D7 · Cut the version
+
+212 commits with no name means nobody can say which build they are running, and
+a bug report cannot be tied to anything.
+
+**Recommended: tag the current tree `v0.3.0-alpha.1` now**, before any of the
+work below, so this release has a floor to measure from. The alternative — one
+tag at the end — leaves the largest body of work in the project permanently
+unnamed.
 
 ### D1 · How does a teacher get in?
 
-The teacher board is built, tested, accessible, axe-clean, and **reachable only
-by typing a URL**. It is the difference between a consumer app and a classroom
-product, and it is one decision away from existing.
+The board is built, tested, axe-clean, and **reachable only by typing a URL**.
 
 | Option | What it means |
 |---|---|
-| **Token link per teacher** *(recommended)* | A teacher gets a URL with a token. No accounts, no password reset, no personal data. Fits the existing `x-diagnostics-token` gate and the product's data posture. |
-| Full accounts | Email, password, recovery, and a lot of child-adjacent data policy. Real work, and it buys little the token does not. |
-| Leave it internal | The class features never reach anyone, and the second USP claim is about a screen nobody uses. |
+| **Token link per teacher** *(recommended)* | A URL with a token. No accounts, no password reset, no personal data. Fits the existing gate and the data posture that is a procurement asset. |
+| Full accounts | Email, password, recovery, and child-adjacent data policy. Buys little the token does not. |
+| Leave it internal | The class features reach nobody, and the second USP claim is about a screen nobody uses. |
 
-### D2 · Kannada and Hindi — perception courses, yes or no?
+### D2 · Kannada and Hindi — perception courses?
 
 Azure names **0 syllables** in both, so production scoring cannot be honest.
-But `listen` and `locate` need no scorer at all, and a perception-only course
-is proven to publish, compose and run (`src/learning/perceptionCourse.test.ts`).
+`listen` and `locate` need no scorer, and a perception-only course is proven to
+publish, compose and run (`src/learning/perceptionCourse.test.ts`).
 
-**Recommended: yes, one language first.** It serves a market the native
-competitors do not serve at all, and it is honest by construction. It is also
-the only thing that gives the `listen` activity kind a home — it currently
-ships in no language.
-
-**Not recommended:** shipping them with production scoring. That is the one
-thing this product's positioning forbids.
+**Recommended: yes, one language first.** It also gives `listen` its first home
+— the kind currently ships in no language at all.
 
 ### D3 · Who checks the language?
 
-The single most recurring blocker in the repo. Spanish content has never had a
-native reader. Kannada and Hindi would need one. A mispronounced generated clip
-is worse than no clip — every learner copies the error, *and* the scorer marks
-them down for matching it — and the provider returns HTTP 200 for audio it
-mispronounces, so nothing automated can detect it.
+The most recurring blocker in the repo. Spanish has never had a native reader.
+A mispronounced generated clip is worse than none — every learner copies the
+error *and* the scorer marks them down for matching it — and the provider
+returns HTTP 200 for audio it mispronounces, so nothing automated detects it.
 
-**Recommended: one reviewer per language, as a standing arrangement, not a
-hire.** `voice-check.html` already exists as the review surface: it puts every
-generated clip next to the phrase it is meant to be saying. Borrowed from
-Busuu, which answered this structurally rather than by hiring.
+**Recommended: one reviewer per language as a standing arrangement.**
+`voice-check.html` is already the review surface.
 
-### D4 · Image activities — do we start?
+### D4 · Image activities — start?
 
-You have offered Gemini and OpenAI keys. The best use is **not** a new activity
-type: it is an **articulation diagram per sound** — a picture of where the
-tongue goes.
+**Recommended: yes, scoped to articulation diagrams only** — a picture of where
+the tongue goes, per scorable sound. Highest-value single borrow from ELSA,
+closes the warmth gap, concedes no measurement honesty, and carries no privacy
+cost. Picture-naming activities are a different product and should wait.
 
-This is the highest-value single borrow from ELSA. It closes the warmth gap
-without conceding any measurement honesty, because a diagram of a mouth is not
-a claim about the learner. It also has no privacy cost: the images are of
-sounds, generated once, shipped as assets, and no learner data goes anywhere.
+### D5 · Publish a course?
 
-**Recommended: yes, scoped to articulation diagrams only.** Picture-naming
-activities are a different product and should wait.
+`COURSES` exists — French has 21 activities against the bundled 10 — and
+publishes only via `npm run seed-content -- --course`. If yes, the model voice
+must regenerate at publish time, because the cache key includes the content
+version.
 
-### D5 · Do we publish a course at all?
-
-`COURSES` exists — French has 21 activities against the bundled 10 — and is
-published only by running `npm run seed-content -- --course`. Until then
-learners see the flat bundled set.
-
-If the answer is yes, one piece of work comes with it: the model voice must
-regenerate at publish time. The cache key includes the content version, so
-course phrases generated at version 0 would never be found. This is a known
-three-line addition to `POST /content/:slug`, deliberately deferred.
-
-**Recommended: yes, after D3.** Publishing content no native reader has checked
-is the thing that makes D3 urgent rather than important.
+**Recommended: yes, after D3.**
 
 ### D6 · Who runs the browser suite, and when?
 
-`npm run test:browser` is not one of the five gates, deliberately — 4,287 jsdom
-tests run in thirty seconds and making each wait on a browser launch is the
-surest way to stop anyone running them.
+Not a gate, deliberately. But the 28px Safari `<select>` was live with all five
+gates green, and two of 18 September's defects were only visible there.
 
-But the 28px Safari `<select>` was live with every gate green, and two of the
-five defects found on 18 September were only visible there.
+**Recommended: a pre-release step owned by a person.** Three minutes. Something
+has to make it happen and nothing does.
 
-**Recommended: a pre-release step, owned by a person, not a gate.** The suite
-takes about three minutes. Something has to make it happen, and nothing
-currently does.
+### D8 · Which market — the new one
+
+**This is the largest strategic question and it was missing from the first
+analysis.** ELSA teaches English to speakers of other languages. Sonare teaches
+French and Spanish to English speakers. Those are not comparable markets:
+learners of English outnumber the other two by an order of magnitude, and
+English is where the exam pressure is.
+
+The mechanism is language-agnostic — the scorer takes a locale — and the
+syllable-coverage problem that blocks Kannada as a *taught* language does not
+apply when the taught language is English.
+
+**No recommendation.** This is a business decision, not a technical one. It is
+here so it is asked deliberately rather than settled by inertia.
 
 ---
 
-## Part 2 — The work, ordered by what it unblocks
+## Part 2 — The work
 
-### 1 · Make the anti-gamification constraint structural
+Ordered by what it unblocks. ✅ = done in this cycle already.
 
-**Borrowed from:** nobody — this is the differentiator itself.
+### ✅ 1 · Make the anti-gamification constraint structural
 
-`docs/MIGRATION-CHECKLIST.md` claimed a `scripts/verify.mjs` rule enforced "no
-points, XP, hearts, lives, leagues, leaderboards". **There is none.** The only
-enforcement anywhere is one test on the Today screen.
+`scripts/verify.mjs` **T16**. Seven plausible additions were planted and each
+failed the build. **Done — `f3863e8`.**
 
-Of the three USP claims, this is the one most likely to be said in public and
-the least structurally true. A repo-wide gate fixes that.
+### 2 · A way into the teacher board
 
-**Cost:** small. **Blocked on:** nothing.
+**Borrowed from:** Rosetta Stone — a classroom product needs a door that is not
+a typed URL. **Blocked on:** D1. **Cost:** small.
 
-### 2 · Articulation diagrams, per scorable sound
+### 3 · Say the procurement story out loud
 
-**Borrowed from:** ELSA.
+**Borrowed from:** nobody — this is being undersold, not missing.
 
-The diagnosis is currently a number and a syllable. A learner who cannot make a
-sound needs telling what to do with their tongue. Per-sound notes exist for
-some sounds; the diagram is what makes them land.
+Two assets exist and are framed as ethics rather than as sales:
 
-**Cost:** moderate, mostly generation and review. **Blocked on:** D4.
+- **Data protection.** GDPR, COPPA and FERPA are frequently the *first*
+  question in education procurement. A teacher is never sent a pupil's score;
+  a name is opt-in per class; looking up a class sends no credential; practice
+  works offline. Competitors are consumer accounts with a school skin.
+- **Accessibility compliance.** EN 301 549 and Section 508 both reduce to WCAG
+  2.1 AA, and it is an RFP line with a yes/no answer. Sonare enforces it *in
+  CI*, on every screen, across three engines, plus rendered tap targets and
+  keyboard reachability. Few products of any size can evidence that.
 
-### 3 · One perception course
+**Cost:** writing, not building. **Blocked on:** nothing.
 
-**Borrowed from:** Pimsleur.
-
-Kannada or Hindi, built from `listen` and `locate` only. Proves the honesty
-position commercially: a language competitors cannot serve well, served
-honestly. The authoring template is written
-(`docs/PERCEPTION-COURSE-TEMPLATE.md`).
-
-**Cost:** small once the content exists. **Blocked on:** D2, then D3.
-
-### 4 · A way into the teacher board
-
-**Borrowed from:** Rosetta Stone — the observation that a classroom product
-needs a door that is not a typed URL.
-
-**Cost:** small. **Blocked on:** D1.
-
-### 5 · Native review as a process
-
-**Borrowed from:** Busuu.
-
-One reviewer per language, `voice-check.html` as the surface. Unblocks Spanish
-now and every language after.
-
-**Cost:** recurring and small. **Blocked on:** D3.
-
-### 6 · Lean into being a web app, out loud
+### 4 · Install path and the web-app story
 
 **Borrowed from:** nobody — competitors cannot do this.
 
-The platform is currently treated as a constraint and it is a distribution
-advantage: it runs on locked-down school fleets and on Chromebooks, where a
-native app is not an option at all, and a fix ships the same day.
+Running on locked-down school fleets and Chromebooks is a distribution
+advantage being treated as a constraint. The one real cost is that nobody is
+told they can keep the app.
 
-Two pieces of work follow: **an install prompt with real guidance** (the
-discovery gap is the one genuine cost of being a PWA), and saying so in the
-positioning rather than treating it as a thing to apologise for.
+`src/lib/install.ts` exists: three routes, because Chromium fires
+`beforeinstallprompt`, iOS fires nothing and never has, and everything else
+gets neither. **No popup** — it lives on a screen somebody chose to open. A
+product built on not nagging does not get to make its first interruption an ad
+for itself.
 
-Worth noting when the question comes up: **the PWA's weakest capability is push
-notification, and this product deliberately has nothing to nag about.** The
-platform's biggest limitation costs it almost nothing.
+**Cost:** small, in progress. **Blocked on:** nothing.
 
-**Cost:** small. **Blocked on:** nothing.
+### 5 · One perception course
 
-### 7 · A coaching note for every scorable sound
+**Borrowed from:** Pimsleur. Template written
+(`docs/PERCEPTION-COURSE-TEMPLATE.md`). **Blocked on:** D2, then D3.
 
-**Borrowed from:** ELSA.
+### 6 · Native review as a process
 
-Content work, parallelisable, and the cheapest way to close the warmth gap.
+**Borrowed from:** Busuu. **Blocked on:** D3. **Cost:** recurring, small.
 
-**Cost:** content. **Blocked on:** nothing, though D3's reviewer improves it.
+### 7 · Articulation diagrams per scorable sound
 
-### 8 · Regenerate the model voice at publish time
+**Borrowed from:** ELSA. **Blocked on:** D4.
 
-**Cost:** small. **Blocked on:** D5 — it only matters once a course publishes.
+### 8 · Curriculum alignment — a real gap
+
+Schools buy against a syllabus. CEFR levels, and in the UK exam-board
+specifications, are how a department justifies a purchase.
+
+**Sonare has no alignment story at all.** Content is chosen for the sounds it
+drills, which is pedagogically right and commercially invisible. Cheaper to fix
+than it looks — the content exists and the mapping is what is missing.
+
+**Cost:** moderate. **Blocked on:** nothing, though a language reviewer helps.
+
+### 9 · Content depth — the weakest dimension
+
+Competitors ship hundreds of hours; French has 21 activities. Every honesty
+advantage is worth nothing to a learner who finishes in a fortnight, and this
+is the gap most likely to lose a trial.
+
+**Blocked on:** D3 — depth without a native reader is depth nobody has checked.
+
+### 10 · Regenerate the model voice at publish time
+
+**Blocked on:** D5. **Cost:** small.
 
 ---
 
-## Part 3 — Deliberately not in this version
+## Part 3 — Definition of done for 0.3.0
 
-- **The vowel chart.** Measured: male voices 11–17 Hz error, female 327–368,
-  child up to 1087, against a 60 Hz tolerance. Cepstral liftering was
-  prototyped and was no better. The gate refusing to draw it is correct.
-- **Production scoring for Kannada or Hindi.** 0 syllables named. See D2.
-- **Engagement mechanics.** Not an omission — the position.
-- **A native app.** See Part 2 item 6: the web is an advantage here, not a
-  stage to grow out of.
+1. The tree is tagged and `package.json` matches.
+2. A teacher can reach the board without typing a URL.
+3. The browser suite has an owner and a place in the release steps.
+4. The procurement story — data protection and accessibility compliance — is
+   written somewhere a buyer can be sent.
+5. All five gates green, and the browser suite green on three engines.
+
+Items 5 to 10 are 0.3.x or 0.4.0 depending on the decisions above.
 
 ---
 
-## Part 4 — Still needing hands, not decisions
+## Part 4 — Deliberately out
 
-- **VoiceOver and TalkBack**, one activity each. Nobody can automate it.
+- **The vowel chart.** Male voices 11–17 Hz error, female 327–368, child up to
+  1087, against a 60 Hz tolerance. The gate refusing to draw it is correct.
+- **Production scoring for Kannada or Hindi.** 0 syllables named.
+- **Engagement mechanics.** Not an omission — the position, and now T16.
+- **A native app.** The web is the advantage, not a stage to grow out of.
+
+## Part 5 — Needs hands, not decisions
+
+- **VoiceOver and TalkBack**, one activity each. Unautomatable.
 - **The accent fairness study** (T19) — whether the scorer is harder on some
   first languages than others. Needs scope and a reviewer.
+- **Pricing and business model.** No research done, none invented. The largest
+  remaining hole in the positioning.

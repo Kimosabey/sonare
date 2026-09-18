@@ -211,6 +211,93 @@ checked, not against it.
 | A question asked about audio the device could not play | Every part tested alone; the assembly was not | The screen is driven with the voice off |
 | Options list had no accessible name | Not a WCAG failure, so axe passed | The list is found by its question |
 
+## The dimensions the first version left out
+
+The analysis above compares products. Schools do not buy products on product
+grounds alone, and four of these change what should be built.
+
+### 1. Data protection is a buying gate, not an ethical stance
+
+GDPR, and in other markets COPPA and FERPA, are frequently the **first**
+question in education procurement — before pedagogy, before price. A tool that
+cannot answer it is not shortlisted, however good it is.
+
+Sonare's posture is unusually strong and this document has been treating it as
+a matter of principle rather than as the commercial asset it is:
+
+- A teacher is **never sent a pupil's score** — the conversion happens before
+  the class boundary.
+- A pupil's name is **opt-in per class**, removable without leaving.
+- Looking up a class **sends no credential**, so it is not an attributable act.
+- Practice works offline against a bundled set, so a learner's audio and
+  progress need not leave the device to use the product at all.
+
+Competitors are consumer accounts with a school skin. This is the one dimension
+where Sonare is not catching up — it is ahead, and has not been saying so.
+
+### 2. Accessibility is a legal requirement, not a quality bar
+
+Public-sector education buyers in the UK and EU procure against **EN 301 549**,
+and in the US against **Section 508** — both of which reduce to WCAG 2.1 AA.
+It is an RFP line item with a yes/no answer.
+
+Sonare enforces WCAG 2.1 AA **in continuous integration**, on every screen,
+across three browser engines, and additionally checks rendered tap-target sizes
+and keyboard reachability. Very few products of any size can evidence that
+rather than assert it.
+
+This is the second asset being undersold: the accessibility work was done for
+the right reasons and happens to be worth money.
+
+### 3. Curriculum alignment — a genuine gap
+
+Schools buy against a syllabus. CEFR levels, and in the UK exam-board
+specifications, are how a department justifies a purchase to a budget holder.
+
+**Sonare has no alignment story at all.** Content is a set of phrases chosen
+for the sounds they drill, which is pedagogically defensible and commercially
+invisible. This is a real gap, not a hidden strength, and it is cheaper to fix
+than it looks: the content exists, and what is missing is the mapping.
+
+### 4. The market asymmetry — the one that changes strategy
+
+ELSA teaches **English to speakers of other languages**. Sonare teaches
+**French and Spanish to English speakers**.
+
+Those are not comparable markets. Learners of English outnumber learners of
+French and Spanish by an order of magnitude, and English pronunciation is where
+the money, the anxiety and the exam pressure are. Being the honest tool in a
+smaller market is a weaker position than being the honest tool in the largest
+one.
+
+The mechanism is language-agnostic — the scorer takes a locale, and the whole
+pipeline is built around that. **Nothing technical stops Sonare scoring English
+for a Hindi or Kannada speaker**, and the syllable-coverage problem that blocks
+Kannada as a *taught* language does not apply when the taught language is
+English.
+
+That is not a decision this document can make. But it should be asked
+deliberately rather than settled by inertia.
+
+### 5. Content depth — the weakest dimension
+
+Competitors ship hundreds of hours. French has 21 activities. Every honesty
+advantage above is worth nothing to a learner who finishes the content in a
+fortnight, and this is the gap most likely to lose a trial.
+
+### 6. Teacher workload
+
+The thing that actually drives classroom adoption is time saved. Sonare's class
+view answers "who is struggling with what sound" without a teacher listening to
+thirty recordings — which is a strong workload story that is nowhere in the
+positioning.
+
+### Still not covered
+
+**Pricing and business model.** Freemium, per-seat, site licence — no research
+has been done and none is invented here. It is the largest remaining hole in
+this document.
+
 ## What this does not know
 
 - **No market data.** No pricing research, market sizing, funding position or
