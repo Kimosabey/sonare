@@ -38,15 +38,62 @@ function walk(dir) {
 const failures = [];
 
 /**
+ * Blank the contents of comments, keeping every line in place.
+ *
+ * Only for rules where the *explanation* of a constraint would otherwise trip
+ * the constraint. T16 is the case: this repository's comments discuss
+ * leaderboards at length, entirely in order to say why there are none, and a
+ * raw scan fails on its own reasoning.
+ *
+ * Positions are preserved rather than lines removed, so a reported line number
+ * still points at the right line. `https://` is left alone — treating its `//`
+ * as a comment would blank the rest of the line and could hide a violation.
+ */
+function stripComments(text) {
+  let out = "";
+  let inBlock = false;
+  for (const line of text.split("\n")) {
+    let kept = "";
+    let i = 0;
+    while (i < line.length) {
+      if (inBlock) {
+        const end = line.indexOf("*/", i);
+        if (end === -1) i = line.length;
+        else { inBlock = false; i = end + 2; }
+        continue;
+      }
+      const block = line.indexOf("/*", i);
+      let lineC = line.indexOf("//", i);
+      while (lineC > 0 && line[lineC - 1] === ":") lineC = line.indexOf("//", lineC + 2);
+      if (block !== -1 && (lineC === -1 || block < lineC)) {
+        kept += line.slice(i, block);
+        inBlock = true;
+        i = block + 2;
+      } else if (lineC !== -1) {
+        kept += line.slice(i, lineC);
+        i = line.length;
+      } else {
+        kept += line.slice(i);
+        i = line.length;
+      }
+    }
+    out += kept + "\n";
+  }
+  return out;
+}
+
+/**
  * Flag every line in `files` matching `pattern`.
  * `allow` is a predicate on the repo-relative path — files that may legitimately match.
+ * `strip` blanks comments first — see stripComments. Off by default.
  */
-function forbid({ rule, what, why, files, pattern, allow = () => false }) {
+function forbid({ rule, what, why, files, pattern, allow = () => false, strip = false }) {
   const hits = [];
   for (const file of files) {
     // This file necessarily contains every pattern it searches for.
     if (file === "scripts/verify.mjs" || allow(file)) continue;
-    const lines = readFileSync(join(ROOT, file), "utf8").split("\n");
+    const raw = readFileSync(join(ROOT, file), "utf8");
+    const lines = (strip ? stripComments(raw) : raw).split("\n");
     lines.forEach((line, i) => {
       if (pattern.test(line)) hits.push({ file, line: i + 1, text: line.trim().slice(0, 100) });
     });
@@ -485,6 +532,51 @@ forbid({
     });
   }
 }
+
+// ── T16 — the constraint the product is sold on ─────────────────────────────
+/**
+ * No points, XP, hearts, leagues, leaderboards, gems or streak repair.
+ *
+ * This is the product's sharpest differentiator and it was the least enforced
+ * thing in the repository. `docs/MIGRATION-CHECKLIST.md` claimed a
+ * `scripts/verify.mjs` rule held it. There was none — the only enforcement
+ * anywhere was a single test on the Today screen — so the claim most likely to
+ * be said out loud in public was the one least true. This is that rule.
+ *
+ * Why it matters more than a style rule: the constraint is not "we prefer not
+ * to". Every competitor in this market is built on exactly these mechanics,
+ * and each one arrives reasonably — a badge to mark progress, a league to make
+ * practice social, a freeze so a learner is not punished for a sick day. The
+ * failure mode is not somebody deciding to gamify the product. It is six
+ * defensible additions over two years, none of which is the moment it changed.
+ *
+ * The streak that exists counts **attendance only** and never score, has no
+ * repair tokens and no make-up days, so it records turning up rather than
+ * becoming a thing to protect. That distinction is the whole of what is
+ * allowed here.
+ *
+ * Comments are stripped before matching, because this repository discusses
+ * leaderboards in several places precisely to explain why it has none —
+ * see server/identity.ts and server/domain/classSummary.ts. A rule that fails
+ * on its own reasoning teaches people to stop writing the reasoning down.
+ *
+ * Tests are excluded: `src/pages/Today.test.tsx` names these mechanics in order
+ * to assert their absence, which is the behaviour this rule wants, not a
+ * violation of it.
+ *
+ * `badge` is deliberately **not** in the list. The one use in the tree is a
+ * CSS class for the report's "Perfect run" label — a visual element, not a
+ * thing a learner collects — and forbidding it would buy nothing while
+ * creating an allowlist, which is how a rule starts being negotiated with.
+ */
+forbid({
+  rule: "T16",
+  what: "a game mechanic this product is sold on not having",
+  why: "Gamification arrives one defensible addition at a time. The streak counts attendance only.",
+  files: [...walk("src"), ...walk("server")].filter((f) => !/\.(test|spec)\./.test(f)),
+  pattern: /\b(leaderboards?|leagues?|gems?|coins?|hearts|troph(y|ies))\b|\bXP\b|\b(streak[_ -]?(freeze|repair)|freeze[_ -]?streak)\b/i,
+  strip: true,
+});
 
 // ── T15 — the provider's worst case fits inside the client's deadline ───────
 // The client abandons the whole exchange after UPLOAD_TIMEOUT_MS. If the

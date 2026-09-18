@@ -165,7 +165,7 @@ back.
 
 | Constraint | Mark |
 |---|---|
-| No points, XP, hearts, lives, leagues, leaderboards | **partly** — held by `src/pages/Today.test.tsx` on the return screen only. This row used to claim a `scripts/verify.mjs` rule; there is none, and a repo-wide gate is the thing that would make the constraint structural rather than observed. |
+| No points, XP, hearts, lives, leagues, leaderboards | **done** — `scripts/verify.mjs` **T16**, repo-wide, comments stripped so the rule does not fail on its own reasoning. This row claimed a verifier rule for months while there was none; it is true now. Also held by `src/pages/Today.test.tsx` for the return screen. |
 | Streak counts attendance only, no score | **done** |
 | No freezes, repair tokens, make-up days | **done** |
 | No hard gates — three attempts then `skipped` | **done** |

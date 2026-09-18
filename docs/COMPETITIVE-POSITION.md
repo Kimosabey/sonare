@@ -80,17 +80,24 @@ A pupil sees the consequences before agreeing, can **join without their name**,
 leave at any time, or remove their name without leaving. The lookup step sends
 no credential, so looking is not an act anyone can attribute.
 
-### 3. No points, XP, hearts, leagues or leaderboards — *partly enforced*
+### 3. No points, XP, hearts, leagues or leaderboards — *enforced*
 
 The streak counts attendance only and has no repair tokens or make-up days, so
 it cannot become a thing to protect. Three attempts then move on; no hard gate
 traps a learner on a sound they cannot yet make.
 
-**But this is currently held by a single test on the Today screen, not by a
-repo-wide gate.** `docs/MIGRATION-CHECKLIST.md` claimed a `scripts/verify.mjs`
-rule enforced it; there is none. Of the three claims here, this is the one most
-likely to be said out loud and the least structurally true — which is the wrong
-way round. See `docs/NEXT-VERSION.md`, item 1.
+Held repo-wide by `scripts/verify.mjs` **T16**, which fails the build on a
+leaderboard, league, XP, gem, coin, heart, trophy or streak freeze anywhere in
+shipped code. Comments are stripped before matching, because this repository
+discusses leaderboards in several places precisely to explain why it has none,
+and a rule that fails on its own reasoning teaches people to stop writing the
+reasoning down.
+
+For most of this project's life the checklist claimed such a rule existed and
+it did not — the claim most likely to be said out loud was the least true. It
+is true now, and the failure mode it guards against is worth naming: nobody
+decides to gamify a product. It arrives as six defensible additions over two
+years, none of which is the moment it changed.
 
 ## Web app against native apps
 
