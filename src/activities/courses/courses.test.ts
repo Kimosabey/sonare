@@ -23,6 +23,7 @@ import { affordancesFor } from "../../learning/affordances.js";
 import { COURSES, getCourse } from "./index.js";
 import { LANGUAGES, getLanguage } from "../languages/index.js";
 import { PLANNED } from "../../planned.js";
+import { LOCATE_OPTIONS, locateOptions, phraseContains } from "../locate.js";
 import {
   ACTIVITY_KINDS,
   MAX_LESSON_ACTIVITIES,
@@ -434,6 +435,50 @@ describe("the kinds a learner can actually meet", () => {
         PLANNED.some((f) => f.title === waiting?.planned),
         `nothing on the planned list covers \`${kind}\``,
       ).toBe(true);
+    }
+  });
+
+  /**
+   * Reachable is not the same as working, and `locate` is the kind where they
+   * come apart.
+   *
+   * Its options are **derived** from the language's own sound targets rather
+   * than authored, so an activity can be perfectly well-formed and still
+   * compose no question: too few distinct syllables in the set, or every
+   * candidate distractor turning out to occur in this phrase. The screen
+   * handles that honestly — it says the question could not be put together and
+   * counts nothing against the learner — which means a broken one ships
+   * silently, showing that message to everybody who reaches it, with every
+   * test still green.
+   *
+   * So the question is composed here, from the shipped set, exactly as the
+   * screen composes it.
+   */
+  it("composes a real question for every locate activity it ships", () => {
+    const located = [...LANGUAGES, ...COURSES].flatMap((set) =>
+      set.activities.filter((a) => a.kind === "locate").map((a) => [set, a] as const),
+    );
+
+    expect(located.length, "no locate activity to check").toBeGreaterThan(0);
+
+    for (const [set, activity] of located) {
+      const options = locateOptions(activity, set);
+
+      expect(options, `${set.slug} activity ${activity.id} composes no question`).not.toBeNull();
+      expect(options?.length, `${set.slug} activity ${activity.id}`).toBe(LOCATE_OPTIONS);
+
+      const correct = options?.filter((o) => o.correct) ?? [];
+      expect(correct.length, `${set.slug} activity ${activity.id} has no single answer`).toBe(1);
+
+      // The answer is in the phrase and the wrong ones are not — otherwise the
+      // learner is asked to hear something that is not there, or marked wrong
+      // for a syllable the phrase actually contains.
+      for (const option of options ?? []) {
+        expect(
+          phraseContains(activity.target, option.grapheme),
+          `${set.slug} activity ${activity.id}: ${option.grapheme}`,
+        ).toBe(option.correct);
+      }
     }
   });
 
