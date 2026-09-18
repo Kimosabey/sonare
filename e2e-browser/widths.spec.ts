@@ -13,9 +13,64 @@
  * composition silently fails to happen.
  */
 
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 /** The boards' own widths, with a plausible height for each. */
+/**
+ * The router is the authority on what routes exist, so it is read rather than
+ * remembered. Reading `App.tsx` as text because the routes are JSX inside a
+ * lazy tree with no exported list, and adding one purely to satisfy a test
+ * would be a second thing to keep in step with the first.
+ */
+function declaredRoutes(): string[] {
+  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  return [...source.matchAll(/<Route\s+path="([^"]+)"/g)]
+    .map((match) => (match[1] ?? "").replace(":slug", "fr"))
+    .sort();
+}
+
+/** `/#/fr/journey` is the address; `/fr/journey` is what the router declares. */
+function declaredPathOf(route: string): string {
+  return route === "/" ? "/" : route.replace(/^\/#/, "");
+}
+
+test.describe("the routes this file measures", () => {
+  test("accounts for every route the app declares", () => {
+    const measured = new Set(ROUTES.map(declaredPathOf));
+
+    for (const path of declaredRoutes()) {
+      expect(
+        measured.has(path) || path in NOT_MEASURED,
+        `${path} is neither measured nor listed as out of scope`,
+      ).toBe(true);
+    }
+  });
+
+  test("measures nothing the router does not declare", () => {
+    const declared = new Set(declaredRoutes());
+
+    for (const route of ROUTES) {
+      expect(declared.has(declaredPathOf(route)), `${route} is a dead address`).toBe(true);
+    }
+    for (const path of Object.keys(NOT_MEASURED)) {
+      expect(declared.has(path), `${path} is excluded but no longer exists`).toBe(true);
+    }
+  });
+
+  /**
+   * Non-vacuity. Both checks above pass against an empty router, which is
+   * exactly what a reader that stops matching would return — a silent pass.
+   */
+  test("actually reads the router", () => {
+    const paths = declaredRoutes();
+
+    expect(paths.length).toBeGreaterThan(5);
+    expect(paths).toContain("/");
+    expect(paths).toContain("/fr");
+  });
+});
+
 const WIDTHS = [
   { name: "360 · the narrowest phone a board is drawn at", width: 360, height: 780 },
   { name: "430 · a large phone", width: 430, height: 932 },
@@ -41,7 +96,36 @@ const ROUTES = [
   "/#/fr/progress",
   "/#/settings",
   "/#/teacher",
+  /* Both are screens a learner meets before any of the others — onboarding is
+     the first thing they see, and the microphone check is what they are sent
+     to when a take comes back unusable. Neither had ever been measured at any
+     width. */
+  "/#/welcome",
+  "/#/check",
+  /* A desk screen, but not only: a teacher authoring on a tablet lands at 768,
+     and its controls are the smallest in the product. */
+  "/#/authoring",
 ];
+
+/**
+ * Routes left out, with the reason — because the list above is hand-written,
+ * and a hand-written list of "every route" omits.
+ *
+ * `/#/welcome` and `/#/check` were missing from it for as long as it existed:
+ * two screens every learner meets, measured at no width, while the file's own
+ * heading said it covered the product. The same shape of omission left
+ * `/#/teacher` out of the jsdom route suite, where it turned out to be
+ * rendering two `<h1>`s.
+ *
+ * So what is not measured is now written down and checked against the router,
+ * and both of these are genuinely out of scope rather than forgotten: they are
+ * debug surfaces, reached only by typing the address, and neither is a screen
+ * anybody is asked to use on a phone.
+ */
+const NOT_MEASURED: Record<string, string> = {
+  "/diagnostics": "a debug readout, typed-address only, never on a phone",
+  "/fixture": "a test-fixture runner, typed-address only, never on a phone",
+};
 
 /**
  * The least this file must actually look at, per route.
