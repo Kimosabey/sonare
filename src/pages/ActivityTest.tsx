@@ -45,6 +45,8 @@ import { markLanguageDirty, markStreakDirty } from "../sync/dirty.js";
 import { affordancesFor, activityNeedsMicrophone } from "../learning/affordances.js";
 import { isSpoken } from "../activities/types.js";
 import { ListenOptions } from "../components/ListenOptions.js";
+import { LocateOptions } from "../components/LocateOptions.js";
+import { locateOptions } from "../activities/locate.js";
 import { MicUnavailable } from "../components/MicUnavailable.js";
 import { LeaveSittingDialog } from "../components/LeaveSittingDialog.js";
 import { useMicEnvironment } from "../hooks/useMicEnvironment.js";
@@ -1300,6 +1302,43 @@ export function ActivityTest() {
           onChoose={chooseOption}
         />
       )}
+
+      {/*
+        A `locate` activity asks which sound was in the phrase. Composed from
+        the language's own sound targets rather than from authored options —
+        the answer is a syllable this phrase drills, the wrong ones are
+        syllables other phrases drill that this one does not contain.
+
+        `null` means the language cannot compose a question: too few distinct
+        syllables, or an activity whose targets do not occur in its own phrase.
+        The publish gate refuses both, but this reads served content, so it
+        says so rather than rendering a blank task.
+      */}
+      {activity.kind === "locate" && phase !== "result" && (() => {
+        const options = locateOptions(activity, activeLanguage);
+        if (options === null) {
+          return (
+            <p className="what">
+              This question could not be put together from the sounds this
+              language has. Nothing has been counted against you.
+            </p>
+          );
+        }
+        return (
+          <LocateOptions
+            options={options}
+            code={activeLanguage.code}
+            target={activity.target}
+            chosen={chosenOptionId}
+            onChoose={(grapheme) =>
+              chooseOption({
+                id: grapheme,
+                correct: options.some((o) => o.grapheme === grapheme && o.correct),
+              })
+            }
+          />
+        );
+      })()}
 
       <div className="row">
         {/*

@@ -272,12 +272,40 @@ describe("N5 — a listening activity costs no permission", () => {
     }
   });
 
-  it("is the only kind that does not", () => {
+  /**
+   * Two kinds now, and naming both is the point rather than a loosening.
+   *
+   * `locate` joined `listen` in asking nothing of the microphone, and the rule
+   * this file protects is not "exactly one kind is silent" — it is that a kind
+   * needing no microphone must never trigger the prompt, because on iOS a
+   * learner may only ever be asked once. Written as a list, a third kind has
+   * to come past this line and say why.
+   */
+  const SILENT_KINDS = ["listen", "locate"];
+
+  it("is one of exactly the kinds that ask nothing of the microphone", () => {
     for (const kind of ACTIVITY_KINDS) {
       const needs = affordancesFor(kind, { takes: 0, revealed: false }).needsMicrophone;
-      expect(needs, kind).toBe(kind !== "listen");
+      expect(needs, kind).toBe(!SILENT_KINDS.includes(kind));
     }
   });
+
+  /**
+   * And the silent ones stay silent in every state. A kind that reached the
+   * recorder after a reveal or a retake would spend the one prompt iOS gives,
+   * by a route nothing on the screen suggests.
+   */
+  it.each(["listen", "locate"] as const)(
+    "%s needs no microphone in any state it can be in",
+    (kind) => {
+      for (const takes of [0, 1, 3, 10]) {
+        for (const revealed of [false, true]) {
+          expect(affordancesFor(kind, { takes, revealed }).needsMicrophone).toBe(false);
+          expect(affordancesFor(kind, { takes, revealed }).canReveal).toBe(false);
+        }
+      }
+    },
+  );
 
   /**
    * And it has nothing to reveal and nothing to hear itself back on, so no

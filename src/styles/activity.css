@@ -919,3 +919,58 @@
   margin: var(--space-3) 0 0;
   font-size: var(--text-base);
 }
+
+/* ── "which sound was in that?" ────────────────────────────────────────────
+ *
+ * The options are syllables, set at content weight rather than as a row of
+ * controls: a learner is choosing between four short strings that differ by
+ * a letter or two, and at control weight they are unreadable.
+ *
+ * No colour-only outcome. The mark beside a chosen option is a glyph on
+ * screen and a word to a screen reader, and the border carries it too.
+ */
+.locate-options {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+}
+
+.locate-option {
+  width: 100%;
+  min-height: var(--tap-thumb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.locate-option.is-picked {
+  border-color: var(--signal);
+}
+
+/* The answer, once the question is over. Border *and* fill *and* the mark —
+   three carriers, because this is the moment the learning happens and a
+   learner who cannot see one of them still gets it. */
+.locate-option.is-answer {
+  border-color: var(--pass);
+  background: var(--pass-soft);
+}
+
+.locate-mark {
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+.locate-reveal {
+  margin-top: var(--space-5);
+}

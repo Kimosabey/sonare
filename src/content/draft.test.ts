@@ -499,7 +499,15 @@ describe("a draft with a course spine", () => {
     // A mistyped kind renders as a blank task, so the screen offers a list —
     // and a list that had stayed at three would have made `recall` unwritable
     // from the only screen an author has, as a list stuck at four would have
-    // done to `listen`. It is `ACTIVITY_KINDS` itself for that reason.
-    expect([...DRAFT_KINDS]).toEqual(["repeat", "respond", "read", "recall", "listen"]);
+    // done to `listen`, and at five to `locate`. It is `ACTIVITY_KINDS` itself
+    // for that reason, and this line is the reminder each time.
+    expect([...DRAFT_KINDS]).toEqual([
+      "repeat",
+      "respond",
+      "read",
+      "recall",
+      "listen",
+      "locate",
+    ]);
   });
 });

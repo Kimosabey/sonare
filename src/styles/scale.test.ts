@@ -173,7 +173,9 @@ describe("font sizes come from the scale", () => {
      * restates the button rule for anchors carrying that class
      * (src/styles/base.css), and +1 for `a.ghost`, the same restatement for the
      * quieter variant (src/styles/base.css), and +1 for `.vowel-chart h4`, the
-     * "how the sound is made" heading (src/styles/activity.css), and +3 for
+     * "how the sound is made" heading (src/styles/activity.css), and +2 for
+     * the `locate` kind — `.locate-option` and `.locate-mark`
+     * (src/styles/activity.css), and +3 for
      * the publish diff (src/styles/authoring.css): the four mono labels
      * (`.publish-diff-versions`, `.diff-tag`, `.diff-where`, `.diff-kind`)
      * share one declaration because they share a step, then `.diff-before,
@@ -202,7 +204,7 @@ describe("font sizes come from the scale", () => {
      * neither can arrive unnoticed.
      */
     const onScale = declarations().filter((d) => d.value.startsWith("var(--text"));
-    expect(onScale.length).toBe(96);
+    expect(onScale.length).toBe(98);
   });
 });
 

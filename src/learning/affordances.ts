@@ -94,9 +94,10 @@ export interface Affordances {
  * The affordances of one activity, given what has happened on it.
  *
  * Total over `ActivityKind` by construction — a `switch` with no default, so
- * adding a sixth kind is a type error here rather than a screen that silently
+ * adding a kind is a type error here rather than a screen that silently
  * renders it as a `repeat`, which is exactly how `read` and `recall` came to
- * be rendered as one.
+ * be rendered as one. It earned that when `locate` was added: the compiler
+ * stopped the build before any screen could guess.
  */
 export function affordancesFor(kind: ActivityKind, state: ActivityState): Affordances {
   const { takes, revealed } = state;
@@ -178,6 +179,30 @@ export function affordancesFor(kind: ActivityKind, state: ActivityState): Afford
      * appears among the options, not above them.
      */
     case "listen":
+      return {
+        showsTarget: false,
+        canListen: true,
+        canReveal: false,
+        needsMicrophone: false,
+        takeCounts: true,
+        canMoveOn: false,
+        attemptLimit: 1,
+      };
+
+    /**
+     * Hear the phrase, pick which written syllable was in it.
+     *
+     * The same affordances as `listen` and for the same reasons — no
+     * microphone, one answer, the target withheld until it is over — but a
+     * different question. `listen` asks what the phrase *meant*; this asks
+     * which sound it *contained*, which is the unit the scorer reports and the
+     * one a learner has to recognise before they can produce it.
+     *
+     * `showsTarget: false` is load-bearing here rather than incidental. The
+     * answer is a syllable **of the phrase**, so printing the phrase prints
+     * the answer, and the exercise becomes reading.
+     */
+    case "locate":
       return {
         showsTarget: false,
         canListen: true,

@@ -33,10 +33,17 @@ import type { PronunciationResult } from "../speech/scoring/types.js";
  *                hidden; the escape is a reveal that makes the take unscored,
  *                rather than a Listen button that gives the answer away.
  *  - `listen`   — hear the model and pick which written phrase it was, from
- *                authored near-misses. The only kind that asks nothing of the
- *                microphone: no recording, no provider call, no permission.
+ *                authored near-misses. Asks nothing of the microphone: no
+ *                recording, no provider call, no permission.
+ *  - `locate`  — hear the model and pick which written syllable the phrase
+ *                contained, from syllables other phrases drill. The second
+ *                kind that asks nothing of the microphone, and the only one
+ *                whose options are **derived** rather than authored: every
+ *                language with sound targets has it for free. It is the
+ *                perception half of what the other kinds ask in production,
+ *                on the exact unit the scorer reports.
  */
-export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall", "listen"] as const;
+export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall", "listen", "locate"] as const;
 
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 

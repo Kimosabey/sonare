@@ -32,7 +32,7 @@ import { logger } from "../logger.js";
  * against a client that predates it is dropped by that client's own validation
  * rather than rendered wrong.
  */
-export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall", "listen"] as const;
+export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall", "listen", "locate"] as const;
 
 /** Bounded, so one publish cannot store an unbounded document. */
 export const MAX_ACTIVITIES = 50;
