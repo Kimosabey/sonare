@@ -56,6 +56,7 @@ vi.mock("../diagnostics.js", () => ({ recordDiagnostic: vi.fn(() => Promise.reso
 vi.mock("../rateLimit.js", () => ({
   scoringLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
   perLearnerScoringLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+  perLearnerDailyScoringLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
   diagnosticsLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 

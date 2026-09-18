@@ -24,7 +24,11 @@ import { mergeAndSaveSkills } from "../store/skills.js";
 import { alignSpoken } from "../alignment.js";
 import { compareVerdicts } from "../verdicts.js";
 import { recordDiagnostic } from "../diagnostics.js";
-import { scoringLimiter, perLearnerScoringLimiter } from "../rateLimit.js";
+import {
+  scoringLimiter,
+  perLearnerScoringLimiter,
+  perLearnerDailyScoringLimiter,
+} from "../rateLimit.js";
 import type { PronunciationResult } from "../services/types.js";
 import { numberFromEnv } from "../env.js";
 
@@ -74,6 +78,9 @@ pronunciationRouter.post(
   optionalLearner,
   scoringLimiter,
   perLearnerScoringLimiter,
+  // The daily ceiling, last: a caller refused by pace should be told that
+  // rather than that their day is spent.
+  perLearnerDailyScoringLimiter,
   (req: Request, res: Response) => {
   uploadAudio(req, res, (uploadErr: unknown) => {
     if (uploadErr) {

@@ -107,15 +107,25 @@ What does exist is rate limiting: 30 requests per minute per address, 20 per
 minute per identified learner. Those bound the *rate*, not the day. A single
 token used flat out is bounded at roughly $0.028 a minute.
 
-**Recommended: enforce the cap before announcing free anywhere.** The code
-already computes everything needed, and the alert already promises the
-behaviour — this is making reality match a documented intent rather than
-inventing policy.
+**Decided and done.** The enforced ceiling is **per learner, 60 scoring calls
+a UTC day** (`MAX_DAILY_SCORING_CALLS_PER_LEARNER`), and the global figure
+stays what it always was in practice: an **alarm**.
 
-The number needs deciding, though, and it is not obviously 2000: at a typical
-ten takes per sitting that is about 200 learners a day, so a cap set to protect
-a budget could lock out a school mid-lesson. That trade — a surprise bill
-versus a class that stops working — is yours.
+Per learner rather than global, because a global gate is the thing that stops a
+class mid-lesson — thirty pupils in one period spend it together and the
+thirty-first take fails for everybody, including learners who had done nothing
+all week. "The app broke during my lesson" costs more trust than a bill costs
+money, and it costs it with the person whose recommendation the product depends
+on. Keyed per learner, the worst case is one person who has already practised
+six times today.
+
+60 is six full sittings, far past any real day, and bounds a runaway token at
+about five minutes of audio a day. Generous deliberately: a cap that bites in
+normal use gets raised in a hurry by somebody who then forgets to lower it.
+
+The global alert's wording is corrected. It used to say "calls keep succeeding
+until the cap, then they stop", which was never true and was exactly what
+stopped anyone building the gate.
 
 ### D9 · The Duolingo for Schools window
 

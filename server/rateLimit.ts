@@ -15,6 +15,15 @@ import rateLimit from "express-rate-limit";
 import { MongoRateLimitStore } from "./rateLimitStore.js";
 import { learnerIdFrom } from "./middleware/identity.js";
 
+/**
+ * Scoring calls one learner may make in a UTC day. See the limiter below for
+ * why this is per learner rather than global, and why it is generous.
+ */
+const DAILY_PER_LEARNER = Number.parseInt(
+  process.env.MAX_DAILY_SCORING_CALLS_PER_LEARNER ?? "60",
+  10,
+);
+
 /** Generous for real use — 3 scored tries × 10 activities is 30 calls in a
     session, spread over minutes, not seconds. Tight enough to block a script. */
 /**
@@ -83,6 +92,84 @@ export const perLearnerScoringLimiter = rateLimit({
       // being throttled invites them to think their account is in trouble.
       message: "too many scoring requests",
       userMessage: "Please slow down and try again in a moment.",
+    },
+  },
+});
+
+/**
+ * The daily ceiling, per learner — the one that bounds spend rather than pace.
+ *
+ * The limiters above bound how fast a caller may score. Neither bounds how
+ * much in a day, so before this the answer to "what is the most this can cost"
+ * was "nothing stops it". That matters now the product is free: every take is
+ * billed whether it scores or not, and an indeterminate one bills the same.
+ *
+ * ## Why per learner and not globally
+ *
+ * A global daily cap is the thing that stops a class mid-lesson. Thirty pupils
+ * practising in the same period would spend one together, and the thirty-first
+ * take fails for everybody — including the learners who had done nothing all
+ * week. "The app broke during my lesson" costs more trust than a bill costs
+ * money, and it costs it with the person whose recommendation the product
+ * depends on.
+ *
+ * Keyed per learner, the worst case is that one person who has already
+ * practised six times today is told to come back tomorrow. Nobody else on the
+ * class, the school or the address notices.
+ *
+ * `MAX_DAILY_SCORING_CALLS` stays what it is: a **global alarm**, not a gate.
+ * It fires long before anything here does, so a human looks at the bill rather
+ * than a learner meeting a wall.
+ *
+ * ## The number
+ *
+ * 60 is six sittings of a full ten takes, which is far past any real day's
+ * practice — the product's own sitting is three to six activities of at most
+ * three tries. It bounds a runaway token at about five minutes of audio a day.
+ * Generous on purpose: a cap that bites in normal use is a cap that will be
+ * raised in a hurry by somebody who then forgets to put it back.
+ *
+ * ## The window
+ *
+ * `MongoRateLimitStore` floors to a fixed multiple of the window, so this is a
+ * UTC day rather than a rolling twenty-four hours. Predictable, and it resets
+ * at a time nobody is in a lesson in the timezones this ships to — but it does
+ * mean a learner well east of UTC gets their reset mid-morning, which is worth
+ * knowing before somebody reports it as a bug.
+ */
+export const perLearnerDailyScoringLimiter = rateLimit({
+  store: new MongoRateLimitStore("scoring-learner-daily"),
+  keyGenerator: (_req, res) => learnerIdFrom(res) ?? "anonymous",
+  skip: (_req, res) => learnerIdFrom(res) === null,
+  windowMs: 86_400_000,
+  limit: DAILY_PER_LEARNER,
+  /**
+   * No headers from this one, deliberately.
+   *
+   * `standardHeaders` on two limiters means the later one wins, and this
+   * running last would replace the per-minute budget with the daily one in
+   * every `RateLimit-*` header. The per-minute figure is the useful one: it is
+   * what a well-behaved client paces against and what will actually bite, many
+   * times, long before this fires once. Advertising a remaining 59 while the
+   * next request is about to be refused for pace is worse than advertising
+   * nothing.
+   *
+   * The refusal still carries its own distinct body, so a caller that does hit
+   * this is told which wall it met.
+   */
+  standardHeaders: false,
+  legacyHeaders: false,
+  message: {
+    error: {
+      code: "RATE_LIMITED",
+      domain: "client",
+      message: "daily scoring budget spent",
+      /**
+       * A fact about the limit, not an encouragement to return. This product
+       * has nothing to chase anybody about, and "come back tomorrow!" is where
+       * that would start.
+       */
+      userMessage: "That is a lot of recording for one day. Recording works again tomorrow.",
     },
   },
 });

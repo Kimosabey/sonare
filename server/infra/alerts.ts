@@ -234,6 +234,23 @@ function latencyRule({ providerP95Ms: p95, providerSamples }: AlertInputs): Verd
   return { state: "ok", value: p95, detail: `provider p95 is ${p95}ms, inside the ${PROVIDER_P95_MS}ms line` };
 }
 
+/**
+ * The global daily spend, as an **alarm**.
+ *
+ * This used to end its message with "calls keep succeeding until the cap, then
+ * they stop". They did not, and nothing ever made them: `MAX_DAILY_SCORING_CALLS`
+ * is read here and nowhere else, and no route has ever consulted it. A sentence
+ * describing a guard nobody built is worse than silence, because it is exactly
+ * what stops somebody building it.
+ *
+ * It stays an alarm deliberately. A global gate is the thing that stops a class
+ * mid-lesson — thirty pupils in one period spend it together and the
+ * thirty-first take fails for everyone. The enforced ceiling is per learner,
+ * in `perLearnerDailyScoringLimiter`, where the worst case is one person being
+ * told they have recorded a great deal today.
+ *
+ * So this fires early and a human looks at the bill.
+ */
 function spendRule({ capUsedFraction: used }: AlertInputs): Verdict {
   if (used === null) {
     return {
@@ -246,7 +263,7 @@ function spendRule({ capUsedFraction: used }: AlertInputs): Verdict {
     return {
       state: "firing",
       value: used,
-      detail: `${pct(used)} of today's call cap is spent — calls keep succeeding until the cap, then they stop`,
+      detail: `${pct(used)} of today's call cap is spent — this is an alarm, not a gate: nothing stops on it`,
     };
   }
   return { state: "ok", value: used, detail: `${pct(used)} of today's call cap is spent` };
