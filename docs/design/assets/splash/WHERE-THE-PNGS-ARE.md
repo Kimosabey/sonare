@@ -39,47 +39,52 @@ because the number of files is a repository cost the per-asset ceiling cannot
 see, and pasting Apple's full thirty-odd-entry startup-image matrix would pass
 every byte ceiling while putting 6 MB in every clone.
 
-## These exports are about 45% larger than they need to be
+## Done — they were 47% larger than they needed to be
 
-Measured, not guessed. All seven are 8-bit **RGBA** and **every pixel is fully
-opaque** — the alpha channel carries one value across 1.09 MiB of image. A
-splash is a wordmark on a flat ground; it has nothing to be transparent for.
+All seven arrived as 8-bit **RGBA with every pixel fully opaque**: the alpha
+channel carried one value across 1.09 MiB of image. A splash is a wordmark on a
+flat ground; it has nothing to be transparent for.
 
-Re-exported as alpha-free 8-bit RGB, at the same resolution and with no loss of
-any kind, the estimated sizes are:
+Re-encoded as alpha-free RGB, at the same resolution, with no loss of any kind:
 
-| File | Now | Alpha-free RGB | Saving |
+| File | Was | Now | Saved |
 |---|---|---|---|
-| `apple-splash-1290x2796.png` | 201,353 | ~103,550 | 48.6% |
-| `apple-splash-1179x2556.png` | 175,984 | ~89,824 | 49.0% |
-| `apple-splash-1170x2532.png` | 175,749 | ~89,717 | 49.0% |
-| `apple-splash-1125x2436.png` | 163,371 | ~84,151 | 48.5% |
-| `apple-splash-828x1792.png` | 107,604 | ~57,263 | 46.8% |
-| `icon-1024.png` | 241,914 | ~149,914 | 38.0% |
-| `icon-maskable-512.png` | 80,330 | ~50,967 | 36.6% |
-| **Total** | **1,146,305** | **~625,386** | **45.4%** |
+| `apple-splash-1290x2796.png` | 201,353 | 100,319 | 50.2% |
+| `apple-splash-1179x2556.png` | 175,984 | 86,767 | 50.7% |
+| `apple-splash-1170x2532.png` | 175,749 | 86,958 | 50.5% |
+| `apple-splash-1125x2436.png` | 163,371 | 80,845 | 50.5% |
+| `apple-splash-828x1792.png` | 107,604 | 55,569 | 48.4% |
+| `icon-1024.png` | 241,914 | 148,514 | 38.6% |
+| `icon-maskable-512.png` | 80,330 | 49,281 | 38.7% |
+| **Total** | **1,146,305** | **608,253** | **46.9%** |
 
-Estimated by decoding each file, dropping the alpha byte, re-filtering and
-deflating at level 9 — which is what a real encoder's IDAT would come to, plus a
-few dozen bytes of chunk framing.
+Slightly better than the 45.4% estimated here, because the estimate assumed the
+existing filter choices rather than re-choosing per scanline.
 
-**Palettising is not the answer.** The images carry 3,661 to 14,124 distinct
-colours after antialiasing, so an 8-bit palette does not fit without
-quantisation, and quantising a gradient-free flat ground is how banding appears
-on a screen the learner stares at for a second and a half. Alpha-free RGB is
-lossless and gets almost all of it.
+### This note used to say the repository could not do it
 
-There is also **5,770 bytes per file — 40,390 in total** — of `caBX` chunk in
-every export: the design tool's own canvas metadata, ancillary, ignored by every
-decoder, and shipped to every device.
+> "Nothing installed can write a PNG: there is no `sharp`, `pngjs`, `optipng`,
+> `pngquant` or `zopflipng`, and adding one is a new dependency."
 
-**This repository cannot do the re-encode.** Nothing installed can write a PNG:
-there is no `sharp`, `pngjs`, `optipng`, `pngquant` or `zopflipng`, and adding
-one is a new dependency. macOS's `sips` is present but cannot drop an alpha
-channel — a round-trip through it re-deflates and strips `caBX` for about 12% on
-the largest file and leaves the image RGBA. Hand-rolling an encoder to save
-500 KiB is not a trade worth making.
+The premise was right and the conclusion was wrong. None of those is installed
+and none is needed. A PNG is a signature, an IHDR, deflated scanlines and an
+IEND — and **Node ships zlib**. `scripts/strip-png-alpha.mjs` is 200 lines and
+adds no dependency.
 
-So the ask goes back to the design side: **re-export the seven with the alpha
-channel off**. Nothing else about them needs to change, and the committed files
-stay byte-identical to whatever arrives so the two copies can be diffed.
+Two things it refuses to do, because both would be silent:
+
+- **It converts only a file where every pixel is fully opaque.** The brand
+  favicons are 66% transparent by design — the mark takes the colour of the
+  chrome behind it — and flattening one would put a square in a browser tab.
+  The check is per file and refusal is the default.
+- **It re-decodes its own output and compares every RGB byte before writing.**
+  A "lossless" conversion that is not is the one failure nobody would notice
+  until a learner saw it. An independent decoder confirmed all seven.
+
+`scripts/png-encoding.test.ts` holds it: the splash files must be colour type
+2, the brand images must stay type 6, and the set must weigh about half what it
+did. A re-export that brings the channel back fails.
+
+The `caBX` chunks went with the re-encode — 5,770 bytes per file of the design
+tool's own canvas metadata, ancillary, ignored by every decoder, and previously
+shipped to every device.

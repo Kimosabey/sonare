@@ -154,11 +154,12 @@ so none of it needed a decision.
 | `maskable` only on `icon-maskable-512.png` | **done** | `public/manifest.webmanifest:24`; `scripts/pwa-manifest.test.ts` holds it both ways |
 | First screen paints content, not a spinner | **done** | `src/App.tsx` `RouteFallback` |
 
-**Outstanding from our side:** the seven PNGs in this handoff are byte-identical
-to the previous export — still RGBA with every pixel opaque. The alpha-free
-re-export asked for in `docs/design/assets/splash/WHERE-THE-PNGS-ARE.md` would
-save ~45% (1.09 MiB → ~625 KiB) losslessly. Nothing in this repo can write a
-PNG without a new dependency, so it has to come from the design side.
+**Closed from our side.** All seven were RGBA with every pixel opaque. They are
+alpha-free RGB now — 1.09 MiB → 594 KiB, 46.9% off, not one pixel changed,
+verified against an independent decoder. The claim that this needed the design
+side was wrong: Node ships zlib, so `scripts/strip-png-alpha.mjs` adds no
+dependency, and `scripts/png-encoding.test.ts` fails if the channel comes
+back.
 
 ## Constraints
 
