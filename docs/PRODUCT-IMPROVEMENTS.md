@@ -76,7 +76,38 @@ backgrounds, scored through the existing pipeline. The fixture runner
 The output is a per-accent distribution, and the question is whether the
 distributions overlap.
 
-### 1.3 Hindi cannot deliver the product's core promise
+### 1.3 Hindi cannot deliver the product's core promise — and nor can Kannada
+
+**Kannada, measured.** `scripts/kannada-viability.ts` synthesises phrases with
+ElevenLabs' Kannada voice and scores them through Azure at `kn-IN`. Four
+phrases, two of them multi-word:
+
+| | result |
+|---|---|
+| ElevenLabs Kannada TTS | works — clean 16 kHz WAV every time |
+| Azure accepts `kn-IN` | **yes** — accuracy 100, and words segment correctly |
+| Syllables returned | **0 of 0, on every phrase** |
+
+So Azure assesses Kannada at the **word** level and returns no syllable
+breakdown at all. That is worse than Hindi, which at least returns seven
+syllables scored with empty labels — Kannada returns none to label.
+
+A Kannada learner would get one overall number and nothing else: no sound
+history, no scheduler input, no per-sound advice, no vowel chart. Every screen
+built on the per-syllable layer would be empty.
+
+The accuracy of 100 on all four is the expected answer rather than a good sign
+— it is text-to-speech being scored against its own script, and it confirms the
+pipeline works end to end. Real speech would score lower and still return no
+syllables.
+
+**So the choice for both languages is the same**, and it is a product decision
+rather than an engineering one: ship them as a *different, simpler* thing —
+word-level feedback, honestly labelled, with the per-sound screens absent
+rather than blank — or do not ship them. A half-working version of the core
+promise is the one option that should be off the table.
+
+
 
 Measured: hi-IN returns **0 of 7** syllables named. Azure gives back empty
 `Phoneme` labels for every locale this product ships, and syllable graphemes
