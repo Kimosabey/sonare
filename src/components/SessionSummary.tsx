@@ -110,8 +110,8 @@ export function SessionSummary({ slug, learnerName }: SessionSummaryProps) {
       )}
 
       <p className="row">
-        <Link to="/">
-          <button type="button">Back to today</button>
+        <Link to="/" className="enter-cta">
+          Back to today
         </Link>
       </p>
     </section>

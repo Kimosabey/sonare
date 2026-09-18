@@ -699,8 +699,8 @@ export function ActivityTest() {
         <h2>Language not found</h2>
         <p className="what">That's not one of the available languages.</p>
         <div className="row">
-          <Link to="/languages">
-            <button type="button">Back to language picker</button>
+          <Link to="/languages" className="enter-cta">
+            Back to language picker
           </Link>
         </div>
       </section>

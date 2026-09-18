@@ -430,10 +430,8 @@ export function Teacher() {
 
       <section>
         <p className="row">
-          <Link to="/">
-            <button type="button" className="ghost">
-              Back to today
-            </button>
+          <Link to="/" className="ghost">
+            Back to today
           </Link>
         </p>
       </section>

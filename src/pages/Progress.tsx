@@ -109,8 +109,8 @@ export function Progress() {
         <h2>Language not found</h2>
         <p className="what">That&rsquo;s not one of the available languages.</p>
         <p className="row">
-          <Link to="/">
-            <button type="button">Back to today</button>
+          <Link to="/" className="enter-cta">
+            Back to today
           </Link>
         </p>
       </section>
@@ -265,13 +265,11 @@ export function Progress() {
       </div>
 
       <p className="row">
-        <Link to={`/${language.slug}`}>
-          <button type="button">Practise {language.label}</button>
+        <Link to={`/${language.slug}`} className="enter-cta">
+          Practise {language.label}
         </Link>
-        <Link to="/">
-          <button type="button" className="ghost">
-            Back to today
-          </button>
+        <Link to="/" className="ghost">
+          Back to today
         </Link>
       </p>
     </section>

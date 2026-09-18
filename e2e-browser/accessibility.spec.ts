@@ -160,3 +160,40 @@ test.describe("the two things a rule cannot check from source", () => {
     });
   }
 });
+
+/**
+ * Controls that contain other controls, and why the WCAG sweep above missed
+ * eight of them.
+ *
+ * `<Link><button>Back to today</button></Link>` renders `<a><button></a>`.
+ * It is invalid HTML, it is **two tab stops for one action**, a screen reader
+ * announces "link, Back to today, button, Back to today", and pressing Enter
+ * on the inner button does nothing because the anchor is what navigates. Eight
+ * of those shipped.
+ *
+ * The sweep runs `withTags(["wcag2a", …])`, and axe files `nested-interactive`
+ * under `best-practice` rather than any WCAG tag — so a rule that describes
+ * exactly this defect was installed, working, and never asked. Naming it is
+ * the fix, the same way `color-contrast` and the heading rules are named.
+ *
+ * The replacement was already in the stylesheet: `a.enter-cta` and `a.ghost`
+ * exist to give an anchor a button's shape, with a comment saying so. The
+ * pattern was there and these eight sites had not used it.
+ */
+test.describe("no control contains another control", () => {
+  for (const [name, path] of SCREENS) {
+    test(`controls do not nest on ${name}`, async ({ page }) => {
+      await page.goto(path);
+      await settle(page);
+
+      const results = await new AxeBuilder({ page })
+        .withRules(["nested-interactive"])
+        .analyze();
+
+      expect(
+        results.violations.flatMap((v) => v.nodes.map((n) => n.html.slice(0, 90))),
+        `${name}: ${results.violations.map((v) => v.help).join("; ")}`,
+      ).toEqual([]);
+    });
+  }
+});
