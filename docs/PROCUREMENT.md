@@ -40,6 +40,30 @@ classroom display.
 
 *Enforced by: `server/domain/classSummary.ts`, and `src/pages/Teacher.test.tsx`.*
 
+### A teacher sees their own class, and no other
+
+A class has an owner. Creating one mints a key, returns it **once**, and stores
+only a keyed digest of it — so a lost key means a class nobody can administer
+rather than one anybody can. Every teacher route checks the presented key
+against the class being asked about.
+
+This was not true until 21 September 2026, and the history is worth stating
+because a buyer's question is about what the software does now rather than what
+it intended. Before that, one shared operator token gated every teacher surface
+and the routes then read whichever class was asked for: a holder could read any
+class on the deployment. Nothing linked to the board, so the only holder was
+the operator — but the fix landed before any teacher was given a link, which
+was the step that would have mattered.
+
+A refusal answers "that class does not exist", identically to a class that
+genuinely does not, so the guard cannot be used to discover which class ids are
+real.
+
+*Enforced by: `server/middleware/classOwner.test.ts`, which also checks the
+guard is **mounted** on every teacher route rather than merely written, and
+`src/pages/Teacher.test.tsx` for the key's journey from creation to a second
+device.*
+
 ### A pupil's name is theirs
 
 - They see what joining means **before** they join — the decision screen sits

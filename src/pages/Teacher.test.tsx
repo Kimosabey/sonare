@@ -86,11 +86,13 @@ function body(over: Record<string, unknown> = {}) {
 }
 
 let responses: { status: number; json?: unknown; throws?: boolean }[] = [];
+let calls: { url: string; headers: unknown }[] = [];
 
 function installFetch(): void {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => {
+    vi.fn(async (url: string, init: RequestInit = {}) => {
+      calls.push({ url: String(url), headers: init.headers ?? {} });
       const next = responses.shift() ?? { status: 200, json: body() };
       if (next.throws === true) throw new TypeError("Failed to fetch");
       return {
@@ -131,6 +133,7 @@ async function open(search = `?class=${CLASS_ID}`) {
 beforeEach(() => {
   vi.clearAllMocks();
   responses = [];
+  calls = [];
   installStorage();
   installFetch();
 });
@@ -322,5 +325,101 @@ describe("the limits", () => {
     });
 
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+});
+
+/**
+ * The teacher key, on the client side of the guard.
+ *
+ * `server/middleware/classOwner.test.ts` covers the refusal. This covers the
+ * half that decides whether a teacher is ever *able* to be recognised: the key
+ * arrives once at creation, has to be kept, has to be sent on every later
+ * request, and has to reach a second device by link. Any one of those missing
+ * and the server guard simply locks the owner out of their own class.
+ */
+describe("the key that proves this device owns the class", () => {
+  it("sends it on the summary request when it has one", async () => {
+    installFetch();
+    localStorage.setItem("sonare.teacherKeys", JSON.stringify({ [CLASS_ID]: "k-abc" }));
+    responses = [{ status: 200, json: body() }];
+
+    await open();
+    await waitFor(() => {
+      expect(loaded()).not.toHaveLength(0);
+    });
+
+    const headers = (calls.at(-1)?.headers ?? {}) as Record<string, string>;
+    expect(headers["x-teacher-key"]).toBe("k-abc");
+  });
+
+  /**
+   * And takes it from the URL, so a teacher opening their link on a second
+   * device is recognised there too — which is the entire point of the link
+   * being a link rather than a note in a drawer.
+   */
+  it("accepts a key from the link and keeps it", async () => {
+    installFetch();
+    responses = [{ status: 200, json: body() }];
+
+    await open(`?class=${CLASS_ID}&key=k-from-link`);
+    await waitFor(() => {
+      expect(loaded()).not.toHaveLength(0);
+    });
+
+    const headers = (calls.at(-1)?.headers ?? {}) as Record<string, string>;
+    expect(headers["x-teacher-key"]).toBe("k-from-link");
+    // Kept, so the next visit needs no link.
+    expect(JSON.parse(localStorage.getItem("sonare.teacherKeys") ?? "{}")).toEqual({
+      [CLASS_ID]: "k-from-link",
+    });
+  });
+
+  /**
+   * Keys are kept per class. One teacher may own several, and a single slot
+   * would mean creating a second class silently revoked access to the first.
+   */
+  it("keeps one key per class rather than one key", async () => {
+    installFetch();
+    localStorage.setItem("sonare.teacherKeys", JSON.stringify({ "other-class": "k-other" }));
+    responses = [{ status: 200, json: body() }];
+
+    await open(`?class=${CLASS_ID}&key=k-this`);
+    await waitFor(() => {
+      expect(loaded()).not.toHaveLength(0);
+    });
+
+    expect(JSON.parse(localStorage.getItem("sonare.teacherKeys") ?? "{}")).toEqual({
+      "other-class": "k-other",
+      [CLASS_ID]: "k-this",
+    });
+  });
+
+  it("sends no key header at all when it has none", async () => {
+    installFetch();
+    responses = [{ status: 200, json: body() }];
+
+    await open();
+    await waitFor(() => {
+      expect(loaded()).not.toHaveLength(0);
+    });
+
+    const headers = (calls.at(-1)?.headers ?? {}) as Record<string, string>;
+    expect("x-teacher-key" in headers).toBe(false);
+  });
+
+  /**
+   * Unreadable storage is no keys, never a crash. This screen carries the only
+   * route to "leave the class" and "delete everything" for whoever is looking
+   * at it, and a thrown JSON parse would take those down over a convenience.
+   */
+  it("survives storage holding nonsense", async () => {
+    installFetch();
+    localStorage.setItem("sonare.teacherKeys", "not json");
+    responses = [{ status: 200, json: body() }];
+
+    await expect(open()).resolves.toBeDefined();
+    await waitFor(() => {
+      expect(loaded()).not.toHaveLength(0);
+    });
   });
 });
