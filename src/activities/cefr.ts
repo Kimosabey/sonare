@@ -48,7 +48,14 @@ export interface CefrEntry {
   skill: "speaking" | "listening";
 }
 
-export const CEFR_MAP: readonly CefrEntry[] = [
+/**
+ * The bundled ten, which every language really does share.
+ *
+ * Same function, same order, in French, Spanish and German — activity 3 is
+ * ordering a drink in all three. This is the parallelism the first version of
+ * this file assumed held everywhere.
+ */
+const SHARED: readonly CefrEntry[] = [
   { ids: [1], level: "A1", skill: "speaking", canDo: "Can greet someone and ask how they are." },
   {
     ids: [2],
@@ -63,12 +70,7 @@ export const CEFR_MAP: readonly CefrEntry[] = [
     skill: "speaking",
     canDo: "Can say and understand numbers and quantities.",
   },
-  {
-    ids: [5],
-    level: "A1",
-    skill: "speaking",
-    canDo: "Can ask where a place is.",
-  },
+  { ids: [5], level: "A1", skill: "speaking", canDo: "Can ask where a place is." },
   { ids: [6], level: "A1", skill: "speaking", canDo: "Can describe the weather." },
   {
     ids: [7],
@@ -89,51 +91,116 @@ export const CEFR_MAP: readonly CefrEntry[] = [
     skill: "speaking",
     canDo: "Can close a conversation politely and wish someone well.",
   },
-  {
-    ids: [11],
-    level: "A1",
-    skill: "speaking",
-    canDo: "Can use the set phrase for being introduced to someone.",
-  },
-  { ids: [12], level: "A1", skill: "speaking", canDo: "Can thank someone and wish them well." },
-  { ids: [13], level: "A1", skill: "speaking", canDo: "Can arrange to meet again." },
-  {
-    ids: [14],
-    level: "A2",
-    skill: "speaking",
-    canDo: "Can make a simple request in a restaurant.",
-  },
-  { ids: [15], level: "A2", skill: "speaking", canDo: "Can ask how they may pay." },
-  {
-    ids: [16],
-    level: "A2",
-    skill: "speaking",
-    canDo: "Can say where a place is using words of position.",
-  },
-  { ids: [17], level: "A1", skill: "speaking", canDo: "Can ask how far away something is." },
-  {
-    ids: [18],
-    level: "A2",
-    skill: "speaking",
-    canDo: "Can understand and give departure times.",
-  },
-  /**
-   * Perception, and listed separately because the framework separates them.
-   * These reuse phrases the course already teaches — the point of a `locate`
-   * is hearing a sound in something already met, not meeting new material —
-   * so the *function* repeats while the skill does not.
-   */
-  {
-    ids: [19, 20, 21],
-    level: "A1",
-    skill: "listening",
-    canDo: "Can recognise individual sounds inside a familiar spoken phrase.",
-  },
 ];
 
+/**
+ * What each course adds beyond the shared ten, which is where the languages
+ * part company.
+ *
+ * French and German run in step — meeting someone, thanks, arranging to meet,
+ * a table for two, paying, directions, distance, departure times. Spanish does
+ * not: it teaches a dog in a park, a city in May, a brother's job, asking for
+ * something to be repeated, help with luggage, and how long they have studied.
+ * Both are reasonable courses. Only one map can describe them.
+ */
+const COURSE_EXTRAS: Readonly<Record<string, readonly CefrEntry[]>> = {
+  fr: [
+    {
+      ids: [11],
+      level: "A1",
+      skill: "speaking",
+      canDo: "Can use the set phrase for being introduced to someone.",
+    },
+    { ids: [12], level: "A1", skill: "speaking", canDo: "Can thank someone and wish them well." },
+    { ids: [13], level: "A1", skill: "speaking", canDo: "Can arrange to meet again." },
+    { ids: [14], level: "A2", skill: "speaking", canDo: "Can make a simple request in a restaurant." },
+    { ids: [15], level: "A2", skill: "speaking", canDo: "Can ask how they may pay." },
+    {
+      ids: [16],
+      level: "A2",
+      skill: "speaking",
+      canDo: "Can say where a place is using words of position.",
+    },
+    { ids: [17], level: "A1", skill: "speaking", canDo: "Can ask how far away something is." },
+    { ids: [18], level: "A2", skill: "speaking", canDo: "Can understand and give departure times." },
+    /**
+     * Perception, listed separately because the framework separates them.
+     * These reuse phrases the course already teaches — the point of a `locate`
+     * is hearing a sound in something already met — so the function repeats
+     * while the skill does not.
+     */
+    {
+      ids: [19, 20, 21],
+      level: "A1",
+      skill: "listening",
+      canDo: "Can recognise individual sounds inside a familiar spoken phrase.",
+    },
+  ],
+  de: [
+    {
+      ids: [11],
+      level: "A1",
+      skill: "speaking",
+      canDo: "Can use the set phrase for being introduced to someone.",
+    },
+    { ids: [12], level: "A1", skill: "speaking", canDo: "Can thank someone and wish them well." },
+    { ids: [13], level: "A1", skill: "speaking", canDo: "Can arrange to meet again." },
+    { ids: [14], level: "A2", skill: "speaking", canDo: "Can make a simple request in a restaurant." },
+    { ids: [15], level: "A2", skill: "speaking", canDo: "Can ask how they may pay." },
+    {
+      ids: [16],
+      level: "A2",
+      skill: "speaking",
+      canDo: "Can say where a place is using words of position.",
+    },
+    { ids: [17], level: "A1", skill: "speaking", canDo: "Can ask how far away something is." },
+    { ids: [18], level: "A2", skill: "speaking", canDo: "Can understand and give departure times." },
+  ],
+  es: [
+    { ids: [11], level: "A1", skill: "speaking", canDo: "Can thank someone and take their leave." },
+    {
+      ids: [12],
+      level: "A1",
+      skill: "speaking",
+      canDo: "Can describe a simple action in the present.",
+    },
+    { ids: [13], level: "A1", skill: "speaking", canDo: "Can describe a place and say when." },
+    {
+      ids: [14],
+      level: "A1",
+      skill: "speaking",
+      canDo: "Can say what a member of their family does.",
+    },
+    {
+      ids: [15],
+      level: "A1",
+      skill: "speaking",
+      canDo: "Can use the set phrase for being introduced to someone.",
+    },
+    {
+      ids: [16],
+      level: "A2",
+      skill: "speaking",
+      canDo: "Can ask someone to repeat themselves more slowly.",
+    },
+    { ids: [17], level: "A2", skill: "speaking", canDo: "Can ask for help with a practical problem." },
+    {
+      ids: [18],
+      level: "A2",
+      skill: "speaking",
+      canDo: "Can say how long they have been doing something.",
+    },
+  ],
+};
+
+/** Everything mapped for one language: the shared ten plus whatever it adds. */
+export function cefrMapFor(slug: string): readonly CefrEntry[] {
+  return [...SHARED, ...(COURSE_EXTRAS[slug] ?? [])];
+}
+
 /** The entry covering an activity, or null when nothing does. */
-export function cefrFor(id: number): CefrEntry | null {
-  return CEFR_MAP.find((entry) => entry.ids.includes(id)) ?? null;
+export function cefrFor(slug: string, id: number): CefrEntry | null {
+  return cefrMapFor(slug).find((entry) => entry.ids.includes(id)) ?? null;
 }
 
 /**
@@ -143,10 +210,10 @@ export function cefrFor(id: number): CefrEntry | null {
  * describes content, and a claim about a person is the thing the rest of the
  * product is careful not to make from material like this.
  */
-export function levelsCovered(ids: readonly number[]): CefrLevel[] {
+export function levelsCovered(slug: string, ids: readonly number[]): CefrLevel[] {
   const found = new Set<CefrLevel>();
   for (const id of ids) {
-    const entry = cefrFor(id);
+    const entry = cefrFor(slug, id);
     if (entry !== null) found.add(entry.level);
   }
   return (["A1", "A2"] as const).filter((level) => found.has(level));

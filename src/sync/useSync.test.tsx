@@ -27,8 +27,13 @@
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const syncNow = vi.fn(async () => ({ pushed: 0, pulled: 0 }));
-vi.mock("./engine.js", () => ({ syncNow: (...args: unknown[]) => syncNow(...args) }));
+interface Outcome {
+  pushed: number;
+  pulled: number;
+}
+
+const syncNow = vi.fn<(options: unknown) => Promise<Outcome>>(async () => ({ pushed: 0, pulled: 0 }));
+vi.mock("./engine.js", () => ({ syncNow: (options: unknown) => syncNow(options) }));
 
 const { useSync } = await import("./useSync.js");
 
@@ -147,8 +152,13 @@ describe("when it does not", () => {
 
 describe("unmounting", () => {
   it("does not call back into a component that has gone", async () => {
-    let release: (value: unknown) => void = () => undefined;
-    syncNow.mockImplementationOnce(async () => new Promise((resolve) => (release = resolve)));
+    let release: (value: Outcome) => void = () => undefined;
+    syncNow.mockImplementationOnce(
+      async () =>
+        new Promise<Outcome>((resolve) => {
+          release = resolve;
+        }),
+    );
     const onSynced = vi.fn();
 
     const { unmount } = render(<Harness onSynced={onSynced} />);
