@@ -17,7 +17,7 @@
  * screen therefore cannot show a pupil's score, because it is never sent one.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ClassLimits } from "../components/ClassLimits.js";
 import { ClassOverview } from "../components/ClassOverview.js";
@@ -33,6 +33,46 @@ import type { ClassSummary } from "../teacher/classSummary.js";
 
 /** The same key the diagnostics and authoring screens write. One secret. */
 const TOKEN_STORAGE_KEY = "sonare.diagnosticsToken";
+
+/**
+ * Teacher keys, one per class, kept per class id.
+ *
+ * A single key would be wrong: a teacher may own more than one class, and the
+ * key is what proves ownership of a *particular* one. Storing them together
+ * under one name would mean creating a second class silently revoked access to
+ * the first.
+ */
+const TEACHER_KEYS_STORAGE_KEY = "sonare.teacherKeys";
+
+function readTeacherKeys(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(TEACHER_KEYS_STORAGE_KEY);
+    if (raw === null) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return {};
+    const out: Record<string, string> = {};
+    for (const [id, key] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof key === "string" && key !== "") out[id] = key;
+    }
+    return out;
+  } catch {
+    // Unreadable storage is no keys, never a throw — this screen also carries
+    // the only route to a class somebody may need right now.
+    return {};
+  }
+}
+
+function rememberTeacherKey(classId: string, key: string): void {
+  try {
+    localStorage.setItem(
+      TEACHER_KEYS_STORAGE_KEY,
+      JSON.stringify({ ...readTeacherKeys(), [classId]: key }),
+    );
+  } catch {
+    // Storage full or blocked. The key is still on screen as a link, which is
+    // the copy that matters — it cannot be shown again.
+  }
+}
 /** Where the teacher's chosen class is remembered between visits. */
 const CLASS_STORAGE_KEY = "sonare.teacherClassId";
 
@@ -84,6 +124,25 @@ export function Teacher() {
     })();
 
   const [classId, setClassId] = useState(() => params.get("class") ?? readStored(CLASS_STORAGE_KEY) ?? "");
+
+  /**
+   * The key proving this device owns the class it is asking about.
+   *
+   * Taken from the URL first, so a teacher who opens their link on a second
+   * device is recognised there too; then from storage. A class the operator
+   * created before ownership existed has neither, and the operator token still
+   * opens it.
+   */
+  const teacherKey = useMemo(() => {
+    const fromUrl = params.get("key");
+    if (fromUrl !== null && fromUrl !== "" && classId !== "") {
+      rememberTeacherKey(classId, fromUrl);
+      return fromUrl;
+    }
+    return readTeacherKeys()[classId] ?? null;
+  }, [params, classId]);
+
+  const [newKey, setNewKey] = useState<string | null>(null);
   const [data, setData] = useState<ClassResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -125,9 +184,20 @@ export function Teacher() {
         }
         if (!response.ok) throw new Error("request failed");
 
-        const body = (await response.json()) as { classId?: string; code?: string };
+        const body = (await response.json()) as {
+          classId?: string;
+          code?: string;
+          teacherKey?: string;
+        };
         if (typeof body.code !== "string" || typeof body.classId !== "string") {
           throw new Error("malformed");
+        }
+        // Shown once and never again — only its digest is stored server-side,
+        // so a key that is not kept means a class nobody can administer rather
+        // than one anybody can.
+        if (typeof body.teacherKey === "string" && body.teacherKey !== "") {
+          rememberTeacherKey(body.classId, body.teacherKey);
+          setNewKey(body.teacherKey);
         }
         setNewCode(body.code);
         // Remembered so the summary below loads the class just created.
@@ -138,7 +208,7 @@ export function Teacher() {
         setCreating(false);
       }
     },
-    [token],
+    [token, teacherKey],
   );
 
   const suggest = useCallback(
@@ -154,6 +224,7 @@ export function Teacher() {
             headers: {
               "content-type": "application/json",
               ...(token === null ? {} : { "x-diagnostics-token": token }),
+              ...(teacherKey === null ? {} : { "x-teacher-key": teacherKey }),
             },
             body: JSON.stringify(input),
           },
@@ -170,7 +241,7 @@ export function Teacher() {
         setSuggesting(false);
       }
     },
-    [classId, token],
+    [classId, token, teacherKey],
   );
 
   const regenerate = useCallback(async (): Promise<void> => {
@@ -182,7 +253,10 @@ export function Teacher() {
         `/api/v1/classes/${encodeURIComponent(classId)}/code`,
         {
           method: "POST",
-          headers: token === null ? {} : { "x-diagnostics-token": token },
+          headers: {
+            ...(token === null ? {} : { "x-diagnostics-token": token }),
+            ...(teacherKey === null ? {} : { "x-teacher-key": teacherKey }),
+          },
         },
       );
       if (!response.ok) throw new Error("request failed");
@@ -206,7 +280,10 @@ export function Teacher() {
       setError(null);
       try {
         const response = await fetch(`/api/v1/classes/${encodeURIComponent(id)}/summary`, {
-          headers: token === null ? {} : { "x-diagnostics-token": token },
+          headers: {
+            ...(token === null ? {} : { "x-diagnostics-token": token }),
+            ...(teacherKey === null ? {} : { "x-teacher-key": teacherKey }),
+          },
         });
         if (response.status === 401) {
           setData(null);
@@ -229,12 +306,12 @@ export function Teacher() {
         setLoading(false);
       }
     },
-    [token],
+    [token, teacherKey],
   );
 
   useEffect(() => {
     if (classId !== "") void load(classId);
-  }, [classId, load]);
+  }, [classId, teacherKey, load]);
 
   const opened =
     data?.summary.reportable === true && openSound !== null
@@ -264,6 +341,49 @@ export function Teacher() {
           {...(newCode !== null ? { onRegenerate: () => void regenerate() } : {})}
         />
       </section>
+
+      {/*
+        The key, shown once.
+
+        This is the door D1 asked for, and it is a link rather than an account
+        because an account for a teacher means email, password recovery and a
+        child-adjacent data policy, none of which buys anything this does not.
+
+        Shown exactly once because only its digest is stored. A teacher who
+        loses it has a class nobody can open, which is the correct failure —
+        the alternative is a key the server can hand back, which is a key
+        anybody who reaches the server can hand themselves.
+      */}
+      {newKey !== null && (
+        <section>
+          <h2>Your link to this class</h2>
+          <p className="what">
+            This opens the class on any device. It is shown once and cannot be shown again —
+            keep it somewhere you will still have it next term.
+          </p>
+          <p className="row">
+            <label htmlFor="teacher-link">Link</label>
+            <input
+              id="teacher-link"
+              type="text"
+              readOnly
+              spellCheck={false}
+              value={`${window.location.origin}/#/teacher?class=${encodeURIComponent(classId)}&key=${encodeURIComponent(newKey)}`}
+              onFocus={(event) => event.currentTarget.select()}
+            />
+          </p>
+          <p className="hint">
+            Anyone with this link can see this class. It shows no pupil&rsquo;s score — nothing
+            here ever does — but it does show who has practised and which sounds they are
+            working on.
+          </p>
+          <p className="row">
+            <button type="button" className="ghost" onClick={() => setNewKey(null)}>
+              I have saved it
+            </button>
+          </p>
+        </section>
+      )}
 
       <section>
         <h2>Your class</h2>

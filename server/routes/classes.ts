@@ -20,6 +20,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { diagnosticsLimiter } from "../rateLimit.js";
 import { requireDiagnosticsToken } from "./diagnostics.js";
+import { requireClassOwner } from "../middleware/classOwner.js";
 import { requireLearner, learnerIdFrom } from "../middleware/identity.js";
 import { isSlug } from "../domain/merge.js";
 import { logger } from "../logger.js";
@@ -88,6 +89,8 @@ classesRouter.post(
   "/classes/:classId/code",
   diagnosticsLimiter,
   requireDiagnosticsToken,
+  // Checks who is asking, not only that they hold a token — see classOwner.ts.
+  requireClassOwner,
   (req: Request, res: Response) => {
     regenerateCode(String(req.params.classId))
       .then((code) => {
@@ -204,6 +207,8 @@ classesRouter.get(
   "/classes/:classId/summary",
   diagnosticsLimiter,
   requireDiagnosticsToken,
+  // Checks who is asking, not only that they hold a token — see classOwner.ts.
+  requireClassOwner,
   (req: Request, res: Response) => {
     const classId = String(req.params.classId);
 
@@ -273,6 +278,8 @@ classesRouter.post(
   "/classes/:classId/suggestion",
   diagnosticsLimiter,
   requireDiagnosticsToken,
+  // Checks who is asking, not only that they hold a token — see classOwner.ts.
+  requireClassOwner,
   (req: Request, res: Response) => {
     const classId = String(req.params.classId);
     const body = req.body as { lessonId?: unknown; window?: unknown };

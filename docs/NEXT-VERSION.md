@@ -26,13 +26,21 @@ a bug report cannot be tied to anything.
 The release now has a floor to measure from, and the 212 commits that had no
 name have one.
 
-### D1 · How does a teacher get in?
+### D1 · How does a teacher get in? — **decided and built**
 
-The board is built, tested, axe-clean, and **reachable only by typing a URL**.
+The board is built, tested, axe-clean, and was **reachable only by typing a
+URL**. Building the way in turned up why that mattered more than it looked:
+every teacher surface sat behind one shared `DIAGNOSTICS_TOKEN` and then read
+whichever class id arrived, so a holder could read **every class on the
+server**. It was contained only because nobody had the link. Handing teachers
+one — the whole point of D1 — is what would have turned that into a breach.
+
+A class now has an owner, a key is minted once at creation and only its digest
+is stored, and every teacher route checks who is asking.
 
 | Option | What it means |
 |---|---|
-| **Token link per teacher** *(recommended)* | A URL with a token. No accounts, no password reset, no personal data. Fits the existing gate and the data posture that is a procurement asset. |
+| **Token link per teacher** — **built 2026-09-21** | A URL carrying a key bound to one class. No accounts, no password reset, no personal data. |
 | Full accounts | Email, password, recovery, and child-adjacent data policy. Buys little the token does not. |
 | Leave it internal | The class features reach nobody, and the second USP claim is about a screen nobody uses. |
 

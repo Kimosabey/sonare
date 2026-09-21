@@ -37,7 +37,7 @@ import type { Db } from "mongodb";
 import { getDb } from "../db.js";
 import { keyedDigest } from "../identity.js";
 import { CODE_ALPHABET, CODE_LENGTH, formatCode, normaliseCode } from "../linkCodes.js";
-import { randomInt } from "node:crypto";
+import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 
 /** Separates a class code's digest from every other use of the secret. */
 const DIGEST_DOMAIN = "class-join";
@@ -54,6 +54,20 @@ export interface ClassDocument {
   codeDigest: string;
   /** How many pupils the teacher expects, for "28 joined of 31". Optional. */
   expectedCount: number | null;
+  /**
+   * Keyed digest of the teacher key that owns this class. Never the key.
+   *
+   * Before this existed, every teacher surface was gated by one shared
+   * `DIAGNOSTICS_TOKEN` and then read whichever `classId` was asked for. The
+   * token was checked; **who was asking was not**. Anybody holding the link
+   * could read every class on the server — another teacher's, another
+   * school's — and handing teachers that link was the step that would have
+   * turned a contained arrangement into a breach.
+   *
+   * Nullable because classes created before this shipped have no owner. Those
+   * stay reachable by the operator token alone, which is what created them.
+   */
+  ownerDigest?: string | null;
   createdAt: Date;
 }
 
@@ -93,7 +107,65 @@ export function classCodeDigest(code: string): string {
   return keyedDigest(DIGEST_DOMAIN, code);
 }
 
+/**
+ * The domain separating an owner key's digest from a join code's.
+ *
+ * Distinct literals with no `|` in either, so ("class-join", x) and
+ * ("class-owner", x) cannot collide — the reason `keyedDigest` takes a domain
+ * at all. Without it a join code and an owner key would hash alike, and a
+ * pupil's code would be a teacher's credential.
+ */
+const OWNER_DOMAIN = "class-owner";
+
+/** How long a teacher key is, in bytes before encoding. */
+const OWNER_KEY_BYTES = 32;
+
+/**
+ * Mint a teacher key. Returned once, never stored — only its digest is.
+ *
+ * 32 bytes from `randomBytes`, not the human-typeable alphabet the join codes
+ * use. A join code is short because a child types it off a whiteboard under a
+ * rate limit; this is pasted from a link and guarded by nothing but its own
+ * length, so it gets the full keyspace.
+ */
+export function mintTeacherKey(): string {
+  return randomBytes(OWNER_KEY_BYTES).toString("base64url");
+}
+
+/** The digest stored against a class for a given teacher key. */
+export function teacherKeyDigest(key: string): string {
+  return keyedDigest(OWNER_DOMAIN, key);
+}
+
+/**
+ * Whether this key owns this class.
+ *
+ * A class with no owner answers `false` — it predates ownership and is
+ * reachable only by the operator token that made it. Answering `true` would
+ * make every legacy class readable by anybody who minted themselves a key.
+ */
+export async function ownsClass(classId: string, key: string | null): Promise<boolean> {
+  if (key === null || key === "") return false;
+  const klass = await readClass(classId);
+  if (klass === null) return false;
+
+  const stored = klass.ownerDigest ?? null;
+  if (stored === null) return false;
+
+  // Compared as buffers of equal length, so this leaks no timing signal about
+  // how much of a digest matched.
+  const expected = Buffer.from(stored, "utf8");
+  const actual = Buffer.from(teacherKeyDigest(key), "utf8");
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
 export interface CreatedClass {
+  /**
+   * The teacher key for this class. **Returned once and never again** — only
+   * its digest is stored, so a lost key means a class nobody can administer
+   * rather than one anybody can.
+   */
+  teacherKey: string;
   classId: string;
   /** Grouped for reading aloud. Returned once, and never stored. */
   code: string;
@@ -113,6 +185,9 @@ export async function createClass(
   const db = await getDb();
   const code = generateCode();
   const classId = keyedDigest("class-id", `${input.name}|${now.toISOString()}|${code}`).slice(0, 22);
+  // Minted here rather than by the caller, so there is exactly one place a
+  // class can come into existence without an owner.
+  const teacherKey = mintTeacherKey();
 
   const doc: ClassDocument = {
     _id: classId,
@@ -121,11 +196,12 @@ export async function createClass(
     slug: input.slug,
     codeDigest: classCodeDigest(code),
     expectedCount: input.expectedCount ?? null,
+    ownerDigest: teacherKeyDigest(teacherKey),
     createdAt: now,
   };
 
   await db.collection<ClassDocument>("classes").insertOne(doc);
-  return { classId, code: formatCode(code) };
+  return { classId, code: formatCode(code), teacherKey };
 }
 
 /** Replaces a class's join code, invalidating the one on the board. */
