@@ -211,6 +211,22 @@ const MEDIA_ASSET_CEILING = 256 * KIB;
 const MAX_MEDIA_ASSETS = 12;
 
 /**
+ * How many font subsets may ship. Seven today; the cap is eight.
+ *
+ * Deliberately *not* folded in by raising MAX_MEDIA_ASSETS. That number was
+ * set against one specific risk — pasting Apple's full startup-image matrix,
+ * thirty-odd entries at ~200 KiB each — and a limit moved to fit whatever
+ * arrived stops being a limit, which is the argument this file already makes
+ * about EAGER_ASSET_CEILING.
+ *
+ * The font risk is different and wants its own number. Nunito is a variable
+ * face covering 400 to 800 in one file per range; adding a second *static*
+ * weight would multiply the subsets rather than add one, and the only visible
+ * symptom would be a slower first paint on a school's connection.
+ */
+const MAX_FONT_SUBSETS = 8;
+
+/**
  * A script served verbatim out of `public/` rather than emitted by the build —
  * today exactly `public/sw.js`. Measured 14,839 B; +38%.
  *
@@ -274,8 +290,22 @@ interface Copied {
 const SOURCE_MAP = /\.map$/;
 /** Vite's own output: hashed chunks and stylesheets, always under `assets/`. */
 const BUILD_CHUNK = /^assets\/.*\.(js|css)$/;
-/** Conditionally fetched: one splash frame per device, one icon per platform. */
-const CONDITIONAL_MEDIA = /^splash\//;
+/**
+ * Conditionally fetched: one splash frame per device, one icon per platform —
+ * and the font subsets no learner in a given language ever asks for.
+ *
+ * The fonts belong here for exactly the splash reason. `unicode-range` means a
+ * browser fetches a subset only when it renders a character inside that range,
+ * so a French learner downloads `nunito-latin.woff2` and touches none of the
+ * Cyrillic, Vietnamese or the 121 KiB of Devanagari. Summing all eight would
+ * measure a transfer nobody performs, in any language.
+ *
+ * `nunito-latin.woff2` is deliberately **not** here. Every learner in every
+ * language the product offers renders Latin characters — the interface is in
+ * English whatever is being learnt — so it is fetched unconditionally and is
+ * counted against the tight ceiling with the rest.
+ */
+const CONDITIONAL_MEDIA = /^splash\/|^fonts\/(?!nunito-latin\.woff2$)/;
 /** A script copied verbatim out of `public/` rather than bundled. */
 const SHIPPED_SCRIPT = /^[^/]+\.js$/;
 
@@ -582,9 +612,17 @@ describe("the bundle a learner downloads", () => {
       // colours and 20 KB, and the white variant covers the two places
       // transparency does not work — a dark browser tab, and iOS, which
       // composites a touch icon onto black.
+      "brand-fonts.css",
       "brand/favicon-white.png",
       "brand/favicon.png",
       "brand/wordmark-purple.png",
+      // The Latin face and the stylesheet that names it. Both were fetched
+      // from Google's CDN until the request was removed for the
+      // data-protection reason in public/brand-fonts.css, so they are new to
+      // this bucket without being new cost to a learner — the bytes simply
+      // became ours to account for. The other seven subsets are conditional;
+      // see CONDITIONAL_MEDIA.
+      "fonts/nunito-latin.woff2",
       "manifest.webmanifest",
       "sw.js",
     ]);
@@ -640,6 +678,17 @@ describe("the bundle a learner downloads", () => {
      * its largest file is required to be a real export.
      */
     expect(media.map((f) => f.name).sort()).toEqual([
+      // Font subsets. A browser fetches one of these only when it renders a
+      // character in its range, so a French learner touches none of them —
+      // including the 121 KiB of Devanagari, the largest file in the build and
+      // needed by no language the product currently offers.
+      "fonts/noto-sans-devanagari-devanagari.woff2",
+      "fonts/noto-sans-devanagari-latin-ext.woff2",
+      "fonts/noto-sans-devanagari-latin.woff2",
+      "fonts/nunito-cyrillic-ext.woff2",
+      "fonts/nunito-cyrillic.woff2",
+      "fonts/nunito-latin-ext.woff2",
+      "fonts/nunito-vietnamese.woff2",
       "splash/apple-splash-1125x2436.png",
       "splash/apple-splash-1170x2532.png",
       "splash/apple-splash-1179x2556.png",
@@ -660,6 +709,16 @@ describe("the bundle a learner downloads", () => {
       .toBeGreaterThan(64 * KIB);
   });
 
+  it(`keeps the font subsets to ${MAX_FONT_SUBSETS} files`, () => {
+    const fonts = media.filter((f) => f.name.startsWith("fonts/"));
+    const names = fonts.map((f) => f.name).join(", ");
+
+    // Non-vacuous: an empty bucket would pass a ceiling while the brand faces
+    // were missing from the build entirely.
+    expect(fonts.length, names).toBeGreaterThan(0);
+    expect(fonts.length, names).toBeLessThanOrEqual(MAX_FONT_SUBSETS);
+  });
+
   it(`keeps the conditionally-fetched set to ${MAX_MEDIA_ASSETS} files`, () => {
     /**
      * The repository cost the per-asset ceiling cannot see. Every one of
@@ -669,7 +728,11 @@ describe("the bundle a learner downloads", () => {
      * because the number of files is the thing that is actually being bounded.
      */
     const names = media.map((f) => f.name).join(", ");
-    expect(media.length, names).toBeLessThanOrEqual(MAX_MEDIA_ASSETS);
+    // Splash frames only. The fonts are conditional too, and capped
+    // separately by MAX_FONT_SUBSETS — this number was earned against the
+    // startup-image matrix and stays pointed at it.
+    const splash = media.filter((f) => f.name.startsWith("splash/"));
+    expect(splash.length, names).toBeLessThanOrEqual(MAX_MEDIA_ASSETS);
     expect(media.length, "the conditionally-fetched bucket is empty").toBeGreaterThan(0);
   });
 

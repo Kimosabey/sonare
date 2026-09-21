@@ -258,12 +258,21 @@ self.addEventListener("fetch", (event) => {
   /**
    * (3) Cross-origin requests are never touched.
    *
-   * The webfonts are the real case (fonts.googleapis.com,
-   * fonts.gstatic.com). A no-cors fetch of those comes back *opaque*: status
-   * 0, body unreadable, indistinguishable from an error. Storing one in a
-   * versioned cache means possibly caching a failure permanently under a name
-   * that says it is valid. The browser's HTTP cache handles them correctly
-   * already, and `display=swap` means a slow font never blanks the phrase.
+   * The webfonts **used** to be the case this was written for
+   * (fonts.googleapis.com, fonts.gstatic.com): a no-cors fetch of those comes
+   * back *opaque* — status 0, body unreadable, indistinguishable from an
+   * error — so storing one in a versioned cache risks caching a failure
+   * permanently under a name that says it is valid.
+   *
+   * They are served from this origin now, for the data-protection reason in
+   * `public/brand-fonts.css`, so they no longer take this path at all. They
+   * fall through to the stale-while-revalidate branch below like any other
+   * unhashed asset, which is a small gain nobody set out for: the brand faces
+   * are now cached and a second visit renders in them **offline**, where
+   * before a cross-origin font was simply never available without a network.
+   *
+   * The rule itself stands unchanged. It is about opaque responses rather than
+   * about fonts, and the next cross-origin asset will have the same problem.
    */
   if (url.origin !== self.location.origin) return;
 

@@ -120,12 +120,30 @@
       media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)"
     />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Served from this origin, not Google's.
+
+      These used to be two preconnects and a stylesheet on fonts.googleapis.com,
+      which meant every learner's browser sent its IP address to Google before
+      the page had rendered. It was the only external request this application
+      made, and the one thing in docs/PROCUREMENT.md that would not have
+      survived a strict GDPR reading — a German court has already found this
+      exact pattern to be a transfer requiring consent.
+
+      Preloaded rather than only linked: the Latin face is on the critical path
+      for every learner, and `font-display: swap` means the alternative is a
+      visible reflow once it lands. The other seven subsets are deliberately
+      not preloaded — they are fetched only if a character in their range is
+      rendered, which for most learners is never.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400..800&family=Noto+Sans+Devanagari:wght@400..700&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/nunito-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
+    <link href="/brand-fonts.css" rel="stylesheet" />
     <title>Lingotran — Sonare speech activity</title>
   </head>
   <body>

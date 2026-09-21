@@ -98,41 +98,73 @@ describe("the font stack reaches Devanagari without losing Latin", () => {
     expect(stack[stack.length - 1]).toBe("sans-serif");
   });
 
-  it("asks the font service for both families, with matching weights", () => {
+  it("loads both families, with the weights the design uses", () => {
     /**
      * The stack is a request the page has to honour. Naming
      * "Noto Sans Devanagari" in `--sans` without loading it leaves the same
      * bug in place with a comment claiming it is fixed — the family is not
-     * installed on a phone, so the fallback still lands on whatever the
-     * device has.
+     * installed on a phone, so the fallback still lands on whatever the device
+     * has.
+     *
+     * Read from `public/brand-fonts.css` rather than from a Google Fonts URL
+     * in the document. The faces are served from this origin now, because a
+     * CDN request sent every learner's IP to Google before the page rendered —
+     * see the note in that file. What has to be true is unchanged; only where
+     * it is written down has moved.
      */
-    const html = read("index.html");
-    const link = /<link[^>]*fonts\.googleapis\.com\/css2[^>]*>/.exec(html)?.[0] ?? "";
-    expect(link, "index.html requests no Google Fonts stylesheet").toBeTruthy();
+    const css = read("public/brand-fonts.css");
+    const faces = css.match(/@font-face\s*\{[^}]*\}/g) ?? [];
+    expect(faces.length, "brand-fonts.css declares no faces").toBeGreaterThan(0);
 
-    expect(link).toContain("family=Nunito");
-    expect(link).toContain("family=Noto+Sans+Devanagari");
+    const families = new Set(
+      faces.map((face) => /font-family:\s*"([^"]+)"/.exec(face)?.[1] ?? ""),
+    );
+    expect(families).toContain("Nunito");
+    expect(families).toContain("Noto Sans Devanagari");
+
     // Devanagari needs the weights the design actually uses — 700 for the
     // phrase, 400 for body — or a Hindi learner gets a synthesised bold.
-    expect(link).toMatch(/family=Nunito:wght@\d+\.\.\d+/);
-    expect(link).toMatch(/family=Noto\+Sans\+Devanagari:wght@\d+\.\.\d+/);
+    for (const family of ["Nunito", "Noto Sans Devanagari"]) {
+      const forFamily = faces.filter((face) => face.includes(`"${family}"`));
+      for (const face of forFamily) {
+        expect(face, `${family} weight range`).toMatch(/font-weight:\s*\d+\s+\d+/);
+      }
+    }
+
     // `swap`, so a slow font does not blank the phrase a learner is reading.
-    expect(link).toContain("display=swap");
-    // The two-hop DNS/TLS cost of a webfont, paid once up front.
-    expect(html).toContain('rel="preconnect" href="https://fonts.gstatic.com"');
+    for (const face of faces) expect(face).toMatch(/font-display:\s*swap/);
+
+    // And the document links it, or none of the above is loaded at all.
+    expect(read("index.html")).toContain('href="/brand-fonts.css"');
   });
 
-  it("names every family in --sans in the font request, and nothing unrequested", () => {
-    // The two webfonts are the only families that have to be fetched;
-    // everything after them is a system font that is either present or not.
+  it("declares a face for every family in --sans, and nothing unused", () => {
+    /**
+     * The two webfonts are the only families that have to be fetched;
+     * everything after them is a system font that is either present or not.
+     *
+     * Checked against `public/brand-fonts.css` since the faces moved to this
+     * origin. The failure this catches is unchanged and is the one that
+     * matters: a family named in `--sans` that nothing loads falls through to
+     * whatever the device happens to have, which for Devanagari is often
+     * nothing at all.
+     */
     const stack = families(customProperty("sans"));
-    const html = read("index.html");
+    const css = read("public/brand-fonts.css");
+    const declared = new Set(
+      [...css.matchAll(/font-family:\s*"([^"]+)"/g)].map((m) => m[1] ?? ""),
+    );
+
     const webfonts = stack.filter((f) => /^Nunito$|devanagari/i.test(f));
     expect(webfonts).toHaveLength(2);
     for (const family of webfonts) {
-      expect(html, `${family} is in --sans but never requested`).toContain(
-        `family=${family.replace(/ /g, "+")}`,
-      );
+      expect(declared.has(family), `${family} is in --sans but no face loads it`).toBe(true);
+    }
+
+    // And nothing loaded that the stack never asks for — a face nobody can
+    // reach is bytes in the build and a family nobody selected.
+    for (const family of declared) {
+      expect(stack, `${family} is loaded but absent from --sans`).toContain(family);
     }
   });
 

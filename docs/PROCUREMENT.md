@@ -121,21 +121,30 @@ running a version from three weeks ago.
 
 ---
 
-## The gap, stated plainly
+## The application makes no third-party request at all
 
-**Fonts are loaded from Google's CDN.** `index.html` requests Nunito and Noto
-Sans Devanagari from `fonts.googleapis.com`, which means every learner's
-browser sends its IP address to Google on page load.
+Not "almost none". None.
 
-This is the single external request the application makes, and it is the one
-thing on this page that would not survive a strict reading of GDPR — a German
-court has already found embedding Google Fonts this way to be a transfer
-requiring consent. It is also the easiest thing here to fix: the font files can
-be served from the same origin as the application, which removes the request
-entirely.
+This section previously recorded a gap, and it is worth keeping the history:
+fonts were loaded from Google's CDN, so every learner's browser sent its IP
+address to Google before the page rendered. It was the single external request
+the application made, and the one claim here that would not have survived a
+strict GDPR reading — a German court has already found that exact pattern to be
+a transfer requiring consent.
 
-It is listed here rather than left out because a procurement answer that omits
-its own exception is worth nothing the first time somebody checks.
+The font files are now served from the same origin as the application, and the
+request is gone. Two details of the fix matter to a buyer:
+
+- **The subsetting is preserved.** A French learner downloads a 39 KB Latin
+  file and never touches the 121 KB of Devanagari, which is fetched only if a
+  Devanagari character is rendered. Self-hosting did not turn into a payload
+  cost.
+- **The faces are now cached with everything else**, so a second visit renders
+  in them offline. A cross-origin font never could.
+
+*Enforced by: `scripts/fonts-selfhosted.test.ts`, which fails on a reference to
+Google's font hosts, on a stylesheet naming a file that is not shipped, on a
+shipped file nothing references, and on a face that loses its unicode range.*
 
 ---
 
