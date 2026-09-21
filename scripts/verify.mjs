@@ -578,6 +578,52 @@ forbid({
   strip: true,
 });
 
+// ── T17 — nothing watches a child ───────────────────────────────────────────
+/**
+ * No analytics, tracking, session recording or advertising, anywhere.
+ *
+ * `docs/PROCUREMENT.md` tells schools there is none, and that is a claim about
+ * children. It arrives the same way gamification does — one reasonable
+ * addition at a time, each with a case: a crash reporter to find bugs faster,
+ * a product analytic to learn which activities get abandoned, a session replay
+ * to see what confused somebody. Every one is defensible and every one sends
+ * data about a child to a third party.
+ *
+ * The distinction this holds is *third party*, not measurement. The product
+ * measures a great deal about itself — spend, capture health, indeterminate
+ * rate, provider latency — and all of it stays on our own server behind the
+ * diagnostics token. What is refused is anything that reports to somebody
+ * else's.
+ *
+ * `index.html` is scanned too, because a tracking snippet's natural home is a
+ * script tag in the document rather than a module in the bundle — which is
+ * exactly where a source scan over `src/` would not look.
+ *
+ * Comments are stripped, for the same reason T16 strips them: this repository
+ * discusses analytics in order to say it has none, and a rule that fails on
+ * its own reasoning teaches people to stop writing the reasoning down.
+ */
+forbid({
+  rule: "T17",
+  what: "an analytics, tracking or session-recording service",
+  why: "PROCUREMENT.md tells schools there is none. It arrives one reasonable addition at a time.",
+  files: [...walk("src"), ...walk("server"), "index.html"].filter(
+    (f) => !/\.(test|spec)\./.test(f) && existsSync(join(ROOT, f)),
+  ),
+  /**
+   * Vendor names **and** the globals their snippets install.
+   *
+   * The second half is the half that matters, and it was missing: a planted
+   * Hotjar tag written the way Hotjar actually writes it — `window.hj = ...` —
+   * walked straight past a pattern that only knew the word "hotjar". A
+   * tracker's loader names the vendor; the code that calls it need not, and a
+   * minified or self-hosted copy names nothing at all.
+   */
+  pattern:
+    /google-analytics|googletagmanager|gtag\(|\bga\(|segment\.(com|io)|mixpanel|amplitude\.com|fullstory|hotjar|logrocket|smartlook|clarity\.ms|posthog|heap\.io|\bsentry\b|bugsnag|datadoghq|doubleclick|facebook\.net|fbq\(|tiktok\.com\/i18n|matomo|piwik|window\.hj\b|\b_paq\b|\bdataLayer\b|\banalytics\.(track|identify|page)\b/i,
+  strip: true,
+});
+
 // ── T15 — the provider's worst case fits inside the client's deadline ───────
 // The client abandons the whole exchange after UPLOAD_TIMEOUT_MS. If the
 // server's worst case is longer, a learner waits the full deadline and is then
