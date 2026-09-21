@@ -22,10 +22,9 @@ recommendation rather than a menu.
 212 commits with no name means nobody can say which build they are running, and
 a bug report cannot be tied to anything.
 
-**Recommended: tag the current tree `v0.3.0-alpha.1` now**, before any of the
-work below, so this release has a floor to measure from. The alternative — one
-tag at the end — leaves the largest body of work in the project permanently
-unnamed.
+**Done.** Tagged `v0.3.0-alpha.1` on 2026-09-21, with `package.json` matching.
+The release now has a floor to measure from, and the 212 commits that had no
+name have one.
 
 ### D1 · How does a teacher get in?
 

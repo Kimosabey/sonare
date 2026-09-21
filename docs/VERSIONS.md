@@ -4,19 +4,15 @@ The short answer, so nobody has to dig for it:
 
 | | |
 |---|---|
-| **`package.json` says** | `0.2.0-alpha.1` |
-| **Last git tag** | `v0.2.0-alpha.1` |
-| **Commits since that tag** | **212, unreleased** |
+| **`package.json` says** | `0.3.0-alpha.1` |
+| **Last git tag** | `v0.3.0-alpha.1` |
 | **Branch** | `redesign/course-platform` |
-| **Gates** | all five green · 4,287 tests pass, 1 expected fail, 3 skipped |
+| **Gates** | all five green · 4,403 tests pass, 1 expected fail, 3 skipped |
+| **Browser suite** | 464 pass, 4 skipped, three engines |
 
-**The version number is stale.** `0.2.0-alpha.1` describes the tree as it was
-212 commits ago. Everything below under "unreleased" has landed since and has
-no version of its own, which means there is currently no name for what is
-running, and no way for anyone to say which build they are talking about.
-
-Fixing that is a release decision rather than an engineering one — see
-`docs/NEXT-VERSION.md`, D7.
+The version was stale for a long time — `0.2.0-alpha.1` with **212 commits** on
+top of it, so no bug report could be tied to anything. That is what
+`v0.3.0-alpha.1` names.
 
 ---
 
@@ -35,10 +31,10 @@ Answered yes. Capture in `src/speech/capture/`, framework-free, 16 kHz mono
 a streak that counts attendance only, the indeterminate path, the vowel work,
 the offline floor.
 
-## Unreleased — 212 commits, no version
+## v0.3.0-alpha.1 — the classroom release
 
-This is the largest body of work in the project and it has no name. Broadly it
-is four things:
+The largest body of work in the project, and for a long time it had no name.
+Broadly four things:
 
 **A course platform.** Content gained a spine — language, unit, lesson,
 activity — and the scheduler gained the sound mapping it had been waiting for.
