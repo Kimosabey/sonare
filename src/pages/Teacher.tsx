@@ -23,6 +23,7 @@ import { ClassLimits } from "../components/ClassLimits.js";
 import { ClassOverview } from "../components/ClassOverview.js";
 import { ClassGlance } from "../components/ClassGlance.js";
 import { SoundDetail } from "../components/SoundDetail.js";
+import { soundNoteFor } from "../teacher/soundNote.js";
 import { PupilList } from "../components/PupilList.js";
 import { PupilDetail } from "../components/PupilDetail.js";
 import { CreateClass, type NameVisibility } from "../components/CreateClass.js";
@@ -441,6 +442,20 @@ export function Teacher() {
             </button>
           </p>
           <SoundDetail
+            /*
+              The note the table has always held and nothing ever passed. See
+              src/teacher/soundNote.ts — null when no guidance exists for this
+              sound, which renders nothing rather than a filled-in sentence
+              nobody stands behind.
+
+              Resolved to a locale rather than handed `slug`. The difficulty
+              table is keyed by pair — "en→fr-FR" — and the class response
+              carries "fr". The first version passed the slug, which matched
+              nothing, so every note was null and the screen looked exactly as
+              it had when the prop was never passed at all. Caught by the test
+              that opens a sound and reads what is on it.
+            */
+            note={soundNoteFor(resolveLanguage(data.slug)?.code ?? data.slug, opened.grapheme)}
             grapheme={opened.grapheme}
             code={data.slug}
             difficulty={opened}

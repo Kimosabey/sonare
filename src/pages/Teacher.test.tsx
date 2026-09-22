@@ -51,7 +51,21 @@ function reportable(): ClassSummary {
     joinedCount: 28,
     sounds: [
       {
-        grapheme: "ʁ",
+        /**
+         * A real grapheme, which is a **syllable**.
+         *
+         * This said "ʁ" until the sound-detail test was written, and "ʁ" never
+         * occurs in production data: the skills store is keyed by the
+         * `soundTargets` the content declares — "jour", "ris", "drais" — and
+         * the scorer reports those. The IPA symbol lives only in the
+         * difficulty table's `ipa` field, as description.
+         *
+         * An unreal fixture was worse than a thin one here, because the screen
+         * looked right with it: the distribution rendered, the heading
+         * rendered, and the per-sound guidance silently resolved to nothing —
+         * which is exactly the state this test was written to end.
+         */
+        grapheme: "jour",
         justStarted: 9,
         gettingThere: 13,
         holding: 6,
@@ -77,7 +91,7 @@ function body(over: Record<string, unknown> = {}) {
         anonymous: false,
         days: ["2026-09-15"],
         lastPractised: "2026-09-15",
-        workingOn: ["ʁ"],
+        workingOn: ["jour"],
         capture: { unusable: 1, total: 20 },
       },
     ],
@@ -194,7 +208,7 @@ describe("what the class boundary is for", () => {
               anonymous: false,
               days: ["2026-09-15"],
               lastPractised: "2026-09-15",
-              workingOn: ["ʁ"],
+              workingOn: ["jour"],
               capture: { unusable: 1, total: 20 },
               accuracy: 87,
             },
@@ -421,5 +435,73 @@ describe("the key that proves this device owns the class", () => {
     await waitFor(() => {
       expect(loaded()).not.toHaveLength(0);
     });
+  });
+});
+
+/**
+ * Opening a sound, which is where the board stops describing and starts
+ * advising.
+ *
+ * This block exists because of a specific absence. `SoundDetail` has always
+ * had a `note` prop and `difficulty.ts` has always held the advice, and
+ * nothing passed one to the other — so a teacher opening a sound got the
+ * distribution, the words it was heard in, and no guidance at all, on the
+ * screen whose entire purpose is telling them what to do about it.
+ *
+ * Every test of either piece passed throughout. Only a test that opens the
+ * screen and reads what is on it can see a join that is not there.
+ */
+describe("opening one sound", () => {
+  async function openSound(): Promise<void> {
+    installFetch();
+    responses = [{ status: 200, json: body() }];
+    await open();
+    await waitFor(() => {
+      expect(loaded()).not.toHaveLength(0);
+    });
+    /*
+      Board 1i and board 1d both render — a media query picks one, and jsdom
+      applies no CSS — so the grapheme appears as a button twice and only the
+      overview's carries the open handler. Pressing every one of them is what
+      a learner-facing test cannot do and this one must.
+    */
+    const sounds = screen
+      .queryAllByRole("button")
+      .filter((button) => (button.textContent ?? "").trim() === "jour");
+    expect(sounds.length, "no sound on the board could be opened").toBeGreaterThan(0);
+    for (const button of sounds) fireEvent.click(button);
+  }
+
+  it("tells the teacher what the mouth has to do", async () => {
+    await openSound();
+
+    // The advice difficulty.ts holds for the French r, reaching the screen.
+    await new Promise((r) => setTimeout(r, 30));
+    await waitFor(() => {
+      expect(document.body.textContent ?? "").toMatch(/back of the throat|gargle/i);
+    });
+  });
+
+  /**
+   * And which wrong sound is coming. A teacher who knows only that a sound is
+   * hard listens for wrongness; one who knows the substitution can name it as
+   * it arrives.
+   */
+  it("names the substitution to listen for", async () => {
+    await openSound();
+
+    await waitFor(() => {
+      expect(document.body.textContent ?? "").toMatch(/listen for/i);
+    });
+  });
+
+  /** And still shows no score, which opening a sound must not change. */
+  it("shows no pupil's score on the way in", async () => {
+    await openSound();
+
+    await waitFor(() => {
+      expect(document.body.textContent ?? "").toMatch(/listen for/i);
+    });
+    expect(textNodes().filter((text) => /\b87\b/.test(text))).toEqual([]);
   });
 });
