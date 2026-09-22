@@ -71,9 +71,15 @@ const INITIAL_GZIP_CEILING = 132 * KIB;
 /**
  * ## Why these three moved on 2026-09-22
  *
- * Hindi shipped, and a fifth language cost **932 B gzipped** in the entry
- * chunk — its ten phrases, prompts and glosses, bundled eagerly with every
- * other language's.
+ * Hindi shipped and cost **932 B gzipped** in the entry chunk. Kannada
+ * followed the next hour and cost **1,123 B** — its ten phrases, prompts and
+ * glosses, bundled eagerly with every other language's, and Kannada's script
+ * is three bytes per character in UTF-8 where Latin is one.
+ *
+ * Two languages in two hours, two ceiling moves. That is the argument below
+ * arriving faster than expected, and it is the last time these should move for
+ * this reason: a sixth language is a third move, and at that point the number
+ * is not measuring anything except how many languages have shipped.
  *
  * Raising a ceiling to fit what arrived is what this file warns against
  * everywhere else, so the distinction matters: these numbers were set when the
@@ -89,13 +95,13 @@ const INITIAL_GZIP_CEILING = 132 * KIB;
  * than with the app, which is a real change and not one to make while shipping
  * content. When it happens these three come back down and this note goes.
  */
-const INITIAL_RAW_CEILING = 424 * KIB;
+const INITIAL_RAW_CEILING = 428 * KIB;
 
 /** React + ReactDOM + router, gzipped. Measured 72,683 B; +13%. */
 const VENDOR_GZIP_CEILING = 80 * KIB;
 
 /** The app's own entry chunk, gzipped. Measured 34,231 B; +35%. */
-const APP_ENTRY_GZIP_CEILING = 46 * KIB;
+const APP_ENTRY_GZIP_CEILING = 48 * KIB;
 
 /* ── everything emitted, which is also two different things ────────────────
  *
@@ -138,7 +144,7 @@ const APP_ENTRY_GZIP_CEILING = 46 * KIB;
  * and the honest response to that is to say so rather than to trim a feature
  * to fit a number set before it existed.
  */
-const LEARNER_CHUNKS_GZIP_CEILING = 142 * KIB;
+const LEARNER_CHUNKS_GZIP_CEILING = 144 * KIB;
 
 /**
  * The four internal operator screens, gzipped. Measured 25,203 B; +19%.
@@ -706,6 +712,9 @@ describe("the bundle a learner downloads", () => {
       "fonts/noto-sans-devanagari-devanagari.woff2",
       "fonts/noto-sans-devanagari-latin-ext.woff2",
       "fonts/noto-sans-devanagari-latin.woff2",
+      // Kannada's own block, and only that — Google also serves this family a
+      // Latin file that duplicates what Nunito already covers.
+      "fonts/noto-sans-kannada-kannada.woff2",
       "fonts/nunito-cyrillic-ext.woff2",
       "fonts/nunito-cyrillic.woff2",
       "fonts/nunito-latin-ext.woff2",

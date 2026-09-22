@@ -2,6 +2,7 @@ import { FRENCH } from "./french.js";
 import { SPANISH } from "./spanish.js";
 import { GERMAN } from "./german.js";
 import { HINDI } from "./hindi.js";
+import { KANNADA } from "./kannada.js";
 import type { LanguageActivitySet } from "../types.js";
 
 export const PASS_SCORE = 60;
@@ -25,7 +26,7 @@ export const MAX_ATTEMPTS = 3;
  * is the one language where this product's core claim degrades rather than
  * being delivered.
  */
-export const LANGUAGES: LanguageActivitySet[] = [FRENCH, SPANISH, GERMAN, HINDI];
+export const LANGUAGES: LanguageActivitySet[] = [FRENCH, SPANISH, GERMAN, HINDI, KANNADA];
 
 /**
  * Every set that has been authored, offered or not.

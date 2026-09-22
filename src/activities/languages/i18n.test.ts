@@ -146,8 +146,8 @@ const ACTIVITY: Activity = {
 
 describe("every offered language is shipped and addressable", () => {
   it("offers exactly fr and es, each with a locale and a slug", () => {
-    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es", "de", "hi"]);
-    expect(LANGUAGES.map((l) => l.code)).toEqual(["fr-FR", "es-ES", "de-DE", "hi-IN"]);
+    expect(LANGUAGES.map((l) => l.slug)).toEqual(["fr", "es", "de", "hi", "kn"]);
+    expect(LANGUAGES.map((l) => l.code)).toEqual(["fr-FR", "es-ES", "de-DE", "hi-IN", "kn-IN"]);
     for (const language of LANGUAGES) {
       expect(getLanguage(language.slug)).toBe(language);
     }
@@ -199,12 +199,35 @@ describe("each language is written in its own script", () => {
     }
   });
 
-  it("keeps the other three in Latin, with no Devanagari leaking in", () => {
-    for (const language of LANGUAGES.filter((l) => l.slug !== "hi")) {
+  /**
+   * Kannada, by the same rule Hindi gets: its own script throughout, and not
+   * one Latin letter in a target.
+   *
+   * The Kannada block has no face in Nunito and none in Noto Sans Devanagari,
+   * so before `Noto Sans Kannada` was added to `--sans` every one of these
+   * rendered as the device's fallback or as tofu. This test refused the
+   * content on the day it was written, which is the whole return on the Hindi
+   * episode that bought it.
+   */
+  it("writes Kannada in the Kannada script", () => {
+    const kannada = LANGUAGES.find((l) => l.slug === "kn");
+    expect(kannada, "Kannada is not offered").toBeDefined();
+
+    for (const activity of kannada?.activities ?? []) {
+      const where = `kn activity ${activity.id}`;
+      expect(activity.target, where).toMatch(/\p{Script=Kannada}/u);
+      expect(activity.target, where).not.toMatch(/\p{Script=Latin}/u);
+      expect(activity.target, where).not.toMatch(/\p{Script=Devanagari}/u);
+    }
+  });
+
+  it("keeps the Latin-script languages in Latin, with no other script leaking in", () => {
+    for (const language of LANGUAGES.filter((l) => l.slug !== "hi" && l.slug !== "kn")) {
       for (const activity of language.activities) {
         const where = `${language.slug} activity ${activity.id}`;
         expect(activity.target, where).toMatch(/\p{Script=Latin}/u);
         expect(activity.target, where).not.toMatch(/\p{Script=Devanagari}/u);
+        expect(activity.target, where).not.toMatch(/\p{Script=Kannada}/u);
       }
     }
   });
@@ -233,7 +256,7 @@ describe("each language is written in its own script", () => {
      * not having been thought of.
      */
     const allowed =
-      /^[\p{Script=Latin}\p{Script=Devanagari}\p{Script=Greek}\p{Script=Common}\p{Script=Inherited}]+$/u;
+      /^[\p{Script=Latin}\p{Script=Devanagari}\p{Script=Kannada}\p{Script=Greek}\p{Script=Common}\p{Script=Inherited}]+$/u;
     /**
      * `Script=Common` is broad enough to need a second gate: emoji live there
      * too, and a flag on the language picker has no glyph in Nunito either —

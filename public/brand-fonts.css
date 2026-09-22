@@ -95,3 +95,26 @@
   src: url("/fonts/nunito-latin.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+
+/*
+ * Kannada.
+ *
+ * Neither Nunito nor Noto Sans Devanagari covers the Kannada block, so before
+ * this a Kannada phrase fell through to whatever the device happened to have —
+ * a different typeface on a good device, tofu boxes on one with no Kannada
+ * face at all. `i18n-typography.test.ts` exists because exactly that shipped
+ * for Hindi once, and `i18n.test.ts` caught this one before it could.
+ *
+ * Only the Kannada subset is taken. Google also serves this family a Latin and
+ * a Latin-Ext file, and both duplicate what Nunito already covers for every
+ * interface string — shipping them would be 40 KiB nobody's browser has a
+ * reason to fetch.
+ */
+@font-face {
+  font-family: "Noto Sans Kannada";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/noto-sans-kannada-kannada.woff2") format("woff2");
+  unicode-range: U+0951-0952, U+0964-0965, U+0C80-0CF3, U+1CD0, U+1CD2-1CD3, U+1CDA, U+1CF2, U+1CF4, U+200C-200D, U+20B9, U+25CC, U+A830-A835;
+}

@@ -63,16 +63,25 @@ describe("the table covers what the product ships", () => {
   });
 
   /**
-   * And the exclusion is real rather than a way to pass. Exactly one shipped
-   * language declares no sounds today; if that becomes two, somebody should
-   * look at why rather than have this quietly widen.
+   * And the exclusion is real rather than a way to pass — it names which
+   * languages, so widening it is a deliberate edit somebody makes.
+   *
+   * It widened once already, the day after it was written: Kannada shipped and
+   * the guard failed, which is exactly what it is for. Both are Indic scripts
+   * the provider segments into words and not syllables — 0 of 108 named for
+   * Devanagari, 0 of 0 for Kannada — so both give a learner a score with
+   * positional feedback rather than a named sound.
+   *
+   * A third arriving should be looked at rather than waved through. Two is a
+   * property of one provider's coverage; three starts to be a claim about what
+   * this product can honestly teach.
    */
-  it("has exactly one language that can name no sounds", () => {
+  it("names every language that can identify no sounds", () => {
     const silent = LANGUAGES.filter(
       (language) => !language.activities.some((a) => (a.soundTargets?.length ?? 0) > 0),
     );
 
-    expect(silent.map((l) => l.code)).toEqual(["hi-IN"]);
+    expect(silent.map((l) => l.code).sort()).toEqual(["hi-IN", "kn-IN"]);
   });
 
   /**
