@@ -6,6 +6,7 @@
 import { MongoClient } from "mongodb";
 import type { Db } from "mongodb";
 import { logger } from "./logger.js";
+import { ensureClassIndexes } from "./store/classes.js";
 import { numberFromEnv } from "./env.js";
 
 const MONGO_URL = process.env.MONGO_URL ?? "mongodb://localhost:27017";
@@ -284,4 +285,22 @@ export async function ensureIndexes(db: Db): Promise<void> {
       }
     }
   }
+  /**
+   * Indexes a store owns rather than this table.
+   *
+   * `ensureClassIndexes` declared itself "called from the migration runner"
+   * and was called by nothing at all, so `classes` and `classMembers` carried
+   * only `_id_`. Found by listing what a real cluster actually had, which is
+   * the only place it was visible: every test passed, the code read correctly,
+   * and the lookup every pupil join performs was a full collection scan.
+   *
+   * Two classes made that free. Two thousand would not, and the symptom would
+   * arrive as joins getting slower rather than as anything failing.
+   *
+   * Called here rather than left to a runner that does not exist, and
+   * `db.indexes.test.ts` now refuses any `ensure*Indexes` export that nothing
+   * calls — the declaration is the easy half.
+   */
+  await ensureClassIndexes(db);
+
 }
