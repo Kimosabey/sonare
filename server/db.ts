@@ -6,7 +6,6 @@
 import { MongoClient } from "mongodb";
 import type { Db } from "mongodb";
 import { logger } from "./logger.js";
-import { ensureClassIndexes } from "./store/classes.js";
 import { numberFromEnv } from "./env.js";
 
 const MONGO_URL = process.env.MONGO_URL ?? "mongodb://localhost:27017";
@@ -145,6 +144,31 @@ export const INDEXES: Record<RetentionClass, IndexSpec[]> = {
   ],
 
   learnerRecord: [
+    /**
+     * A class and its membership.
+     *
+     * These lived in `ensureClassIndexes` in the store, which documented
+     * itself as "called from the migration runner" and was called by nothing —
+     * so neither index existed, and the lookup every pupil join performs was a
+     * full collection scan. Found by listing what a real cluster had.
+     *
+     * Moved here rather than wired up where they were, because two mechanisms
+     * for one job is what produced the bug: a second list that any given
+     * caller might or might not run. One declaration site cannot be half
+     * called, and it inherits the invariant this table already enforces —
+     * nothing in `learnerRecord` may carry an expiry, and a class is a
+     * learner's record of belonging rather than telemetry about them.
+     */
+    {
+      collection: "classes",
+      keys: { codeDigest: 1 },
+      why: "The lookup every pupil's join performs; without it, a collection scan per attempt.",
+    },
+    {
+      collection: "classMembers",
+      keys: { classId: 1 },
+      why: "Reading a class's members, on every summary the teacher board draws.",
+    },
     {
       collection: "learners",
       keys: { lastSeenAt: -1 },
@@ -301,6 +325,5 @@ export async function ensureIndexes(db: Db): Promise<void> {
    * `db.indexes.test.ts` now refuses any `ensure*Indexes` export that nothing
    * calls — the declaration is the easy half.
    */
-  await ensureClassIndexes(db);
 
 }

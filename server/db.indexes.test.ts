@@ -41,45 +41,44 @@ function sources(dir = "."): string[] {
 const files = sources();
 const text = new Map(files.map((f) => [f, readFileSync(new URL(f, ROOT), "utf8")]));
 
-describe("index creation is wired, not merely written", () => {
-  /** Exported functions whose job is creating indexes. */
-  const declared: { file: string; name: string }[] = [];
-  for (const [file, body] of text) {
-    for (const match of body.matchAll(/export async function (ensure\w*Indexes)\s*\(/g)) {
-      declared.push({ file, name: match[1] ?? "" });
+describe("index creation has one declaration site", () => {
+  /**
+   * The fix, held in place.
+   *
+   * The two class indexes lived in a store function that documented itself as
+   * "called from the migration runner" and was called by nothing, so neither
+   * existed. Two mechanisms for one job is what allowed it: a second list a
+   * caller might or might not run.
+   *
+   * There is one now, `INDEXES` in db.ts, and these check nothing grows a
+   * second — an exported `ensure*Indexes` outside db.ts is exactly the shape
+   * that went uncalled, and a bare `createIndex` in a store is the same thing
+   * written inline.
+   */
+  it("declares no index outside the table", () => {
+    for (const [file, body] of text) {
+      if (file.endsWith("db.ts")) continue;
+      expect(body, `${file} creates an index outside INDEXES`).not.toMatch(/\.createIndex\(/);
     }
-  }
-
-  it("finds the index functions at all", () => {
-    // Non-vacuity: every check below passes against an empty list, which is
-    // precisely the state that would hide the next one of these.
-    expect(declared.length).toBeGreaterThan(1);
   });
 
-  it.each(declared.map((d) => [d.name, d.file] as const))(
-    "%s is called by something other than its own file",
-    (name, file) => {
-      const callers = [...text.entries()].filter(
-        ([other, body]) => other !== file && new RegExp(`\\b${name}\\s*\\(`).test(body),
+  it("has no ensure*Indexes function outside db.ts", () => {
+    for (const [file, body] of text) {
+      if (file.endsWith("db.ts")) continue;
+      expect(body, `${file} declares its own index function`).not.toMatch(
+        /export async function ensure\w*Indexes/,
       );
+    }
+  });
 
-      expect(
-        callers.map(([f]) => f),
-        `${name} is declared in ${file} and called by nothing — see this file's header`,
-      ).not.toHaveLength(0);
-    },
-  );
-
-  /**
-   * And the collections whose reads depend on an index have one declared
-   * somewhere. Named explicitly, because these are the two the missing call
-   * left unindexed and they are both on a pupil's path rather than an
-   * operator's.
-   */
   it("indexes the lookups a pupil's join performs", () => {
-    const all = [...text.values()].join("\n");
+    const db = text.get("db.ts") ?? "";
 
-    expect(all, "no index on the join-code lookup").toMatch(/createIndex\(\{\s*codeDigest:\s*1\s*\}\)/);
-    expect(all, "no index on a class's members").toMatch(/createIndex\(\{\s*classId:\s*1\s*\}\)/);
+    // Non-vacuity first: the table is read, not an empty string.
+    expect(db).toMatch(/export const INDEXES/);
+    expect(db, "no index on the join-code lookup").toMatch(/collection: "classes"[\s\S]{0,120}codeDigest/);
+    expect(db, "no index on a class's members").toMatch(
+      /collection: "classMembers"[\s\S]{0,120}classId/,
+    );
   });
 });

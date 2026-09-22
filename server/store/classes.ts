@@ -33,7 +33,6 @@
  * exist cannot leak.
  */
 
-import type { Db } from "mongodb";
 import { getDb } from "../db.js";
 import { keyedDigest } from "../identity.js";
 import { CODE_ALPHABET, CODE_LENGTH, formatCode, normaliseCode } from "../linkCodes.js";
@@ -297,12 +296,16 @@ export async function membersOf(classId: string): Promise<MembershipDocument[]> 
   return db.collection<MembershipDocument>("classMembers").find({ classId }).toArray();
 }
 
-/** Indexes this collection needs. Called from the migration runner. */
-export async function ensureClassIndexes(db: Db): Promise<void> {
-  // The lookup every pupil join performs.
-  await db.collection<ClassDocument>("classes").createIndex({ codeDigest: 1 });
-  await db.collection<MembershipDocument>("classMembers").createIndex({ classId: 1 });
-}
+/*
+ * The indexes these collections need are declared in server/db.ts's INDEXES
+ * table, with everything else the database creates.
+ *
+ * They used to live here, in an `ensureClassIndexes` that described itself as
+ * "called from the migration runner" and was called by nothing — so neither
+ * existed, and finding a class by its join code was a full collection scan on
+ * every pupil attempt. Two mechanisms for one job is what allowed that: a
+ * second list a caller might or might not run. There is one now.
+ */
 
 /**
  * The sitting a teacher has suggested to a class — board 1f.

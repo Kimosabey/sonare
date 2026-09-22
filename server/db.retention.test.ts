@@ -79,7 +79,27 @@ describe("the learner's own record never expires", () => {
     // So the invariant above cannot be satisfied by forgetting a collection.
     const collections = new Set(INDEXES.learnerRecord.map((s) => s.collection));
 
-    expect(collections).toEqual(new Set(["learners", "progress", "skills", "streaks"]));
+    expect(collections).toEqual(
+      new Set([
+        "learners",
+        "progress",
+        "skills",
+        "streaks",
+        /**
+         * A class and who is in it. Added when the class indexes moved into
+         * this table from a store function nothing called.
+         *
+         * `learnerRecord` and not `operational`, and the difference is the
+         * whole point of these classes: operational collections carry a TTL,
+         * and a membership expiring would remove a pupil from their class
+         * months later, silently, with nothing to correlate it against. A
+         * class is a record of belonging rather than telemetry about anybody,
+         * so it expires when somebody leaves and not before.
+         */
+        "classes",
+        "classMembers",
+      ]),
+    );
   });
 
   it("refuses to create a TTL on a learner collection even if one is declared", async () => {
