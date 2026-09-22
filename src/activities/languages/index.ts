@@ -25,7 +25,7 @@ export const MAX_ATTEMPTS = 3;
  * is the one language where this product's core claim degrades rather than
  * being delivered.
  */
-export const LANGUAGES: LanguageActivitySet[] = [FRENCH, SPANISH, GERMAN];
+export const LANGUAGES: LanguageActivitySet[] = [FRENCH, SPANISH, GERMAN, HINDI];
 
 /**
  * Every set that has been authored, offered or not.

@@ -102,7 +102,22 @@ describe("what a teacher actually gets", () => {
    * teacher can open resolves to guidance, rather than whether the table and
    * the component each work alone.
    */
-  it.each(LANGUAGES.map((l) => [l.label, l.code] as const))(
+  /**
+   * Languages whose content names syllables. Hindi ships and names none — the
+   * provider returns no syllable graphemes for Devanagari — so there is
+   * nothing for a note to be about. Sweeping it would assert that advice
+   * exists for sounds the product cannot identify.
+   */
+  const withSounds = LANGUAGES.filter((language) =>
+    language.activities.some((activity) => (activity.soundTargets?.length ?? 0) > 0),
+  );
+
+  it("is sweeping more than one language", () => {
+    // Non-vacuity: the filter above must not quietly empty the sweep.
+    expect(withSounds.length).toBeGreaterThan(1);
+  });
+
+  it.each(withSounds.map((l) => [l.label, l.code] as const))(
     "has a note for every sound %s drills",
     (_label, code) => {
       const entries = difficultiesFor("en", code);

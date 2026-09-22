@@ -68,13 +68,34 @@ const INITIAL_GZIP_CEILING = 132 * KIB;
 
 /** Same payload ungzipped, which is what a low-end phone has to parse and
     compile — a cost gzip hides entirely. Measured 368,195 B; +17%. */
-const INITIAL_RAW_CEILING = 420 * KIB;
+/**
+ * ## Why these three moved on 2026-09-22
+ *
+ * Hindi shipped, and a fifth language cost **932 B gzipped** in the entry
+ * chunk — its ten phrases, prompts and glosses, bundled eagerly with every
+ * other language's.
+ *
+ * Raising a ceiling to fit what arrived is what this file warns against
+ * everywhere else, so the distinction matters: these numbers were set when the
+ * product offered two languages, and they were silently a cap on **how many
+ * languages may ship**. That is not a performance budget, it is an
+ * architectural limit wearing one — and it would have been discovered as "the
+ * build fails" rather than as a decision anybody made.
+ *
+ * So they move by one language's worth, and the real problem is named rather
+ * than hidden: **every learner downloads every language's content**, and the
+ * cost is linear. A sixth language costs the same kilobyte, a tenth costs five
+ * more. The fix is loading a language's activities with the language rather
+ * than with the app, which is a real change and not one to make while shipping
+ * content. When it happens these three come back down and this note goes.
+ */
+const INITIAL_RAW_CEILING = 424 * KIB;
 
 /** React + ReactDOM + router, gzipped. Measured 72,683 B; +13%. */
 const VENDOR_GZIP_CEILING = 80 * KIB;
 
 /** The app's own entry chunk, gzipped. Measured 34,231 B; +35%. */
-const APP_ENTRY_GZIP_CEILING = 45 * KIB;
+const APP_ENTRY_GZIP_CEILING = 46 * KIB;
 
 /* ── everything emitted, which is also two different things ────────────────
  *
@@ -117,7 +138,7 @@ const APP_ENTRY_GZIP_CEILING = 45 * KIB;
  * and the honest response to that is to say so rather than to trim a feature
  * to fit a number set before it existed.
  */
-const LEARNER_CHUNKS_GZIP_CEILING = 141 * KIB;
+const LEARNER_CHUNKS_GZIP_CEILING = 142 * KIB;
 
 /**
  * The four internal operator screens, gzipped. Measured 25,203 B; +19%.
