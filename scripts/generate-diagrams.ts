@@ -72,7 +72,24 @@ import { createHash } from "node:crypto";
 import { L1_DIFFICULTY } from "../src/activities/difficulty.js";
 import type { SoundDifficulty } from "../src/activities/difficulty.js";
 
-const OUT_DIR = join(process.cwd(), "public", "diagrams");
+/**
+ * Outside `public/`, deliberately — the same shape as `voice-cache/`.
+ *
+ * A generated diagram is unreviewed, and unreviewed content must not be in the
+ * build at all. Putting them in `public/` made them shipped assets the moment
+ * they existed: the perf budget caught it immediately, which is the budget
+ * doing its job rather than an inconvenience.
+ *
+ * It also caught the other reason. These come back at roughly **890 KiB each**
+ * — a 1024px RGBA PNG of thin lines on white, which is most of a megabyte of
+ * almost nothing. Seventeen would be 15 MB in a build where the entire
+ * learner-facing bundle is 144 KiB gzipped. They would need re-encoding before
+ * they could ship even if every one were correct.
+ *
+ * They move into `public/diagrams/` when a reviewer has passed them and they
+ * have been re-encoded, and not before.
+ */
+const OUT_DIR = join(process.cwd(), "diagram-cache");
 const MODEL = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.5-flash-image";
 
 function flag(name: string): string | undefined {
@@ -147,6 +164,47 @@ function promptFor(ipa: string, entry: SoundDifficulty): string {
   ].join("\n");
 }
 
+/**
+ * OpenAI's image endpoint, for comparison against Gemini's.
+ *
+ * Both are here because the failure differed by provider rather than being a
+ * single wall, and the only way to know was to ask both. Neither answers the
+ * question that matters — whether the tongue is where this phoneme needs it —
+ * which is a fact about verification rather than about either model.
+ */
+async function generateOpenAI(
+  ipa: string,
+  entry: SoundDifficulty,
+  key: string,
+): Promise<Buffer | null> {
+  const res = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-1",
+      prompt: promptFor(ipa, entry),
+      size: "1024x1024",
+      n: 1,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`  ${ipa}: HTTP ${res.status} — ${body.replace(key, "<redacted>").slice(0, 200)}`);
+    return null;
+  }
+
+  const json = (await res.json()) as { data?: { b64_json?: string; url?: string }[] };
+  const first = json.data?.[0];
+  if (first?.b64_json !== undefined) return Buffer.from(first.b64_json, "base64");
+  if (first?.url !== undefined) {
+    const img = await fetch(first.url);
+    if (img.ok) return Buffer.from(await img.arrayBuffer());
+  }
+  console.error(`  ${ipa}: the model returned no image`);
+  return null;
+}
+
 async function generate(ipa: string, entry: SoundDifficulty, key: string): Promise<Buffer | null> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
@@ -180,14 +238,18 @@ async function generate(ipa: string, entry: SoundDifficulty, key: string): Promi
 async function main(): Promise<void> {
   const dryRun = flag("dry-run") !== undefined;
   const only = flag("only");
-  const key = process.env.GEMINI_API_KEY;
+  const provider = flag("provider") ?? "gemini";
+  const key =
+    provider === "openai" ? process.env.OPENAI_API_KEY : process.env.GEMINI_API_KEY;
 
   mkdirSync(OUT_DIR, { recursive: true });
 
   const wanted = soundsNeedingDiagrams().filter((s) => only === undefined || only === "" || s.ipa === only);
   const missing = wanted.filter((s) => !existsSync(join(OUT_DIR, fileFor(s.ipa))));
 
-  console.log(`model: ${MODEL}`);
+  console.log(
+    `provider: ${provider}  model: ${provider === "openai" ? (process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-1") : MODEL}`,
+  );
   console.log(`${wanted.length} sound(s) in scope, ${missing.length} without a diagram`);
   for (const s of missing) console.log(`  ${s.ipa}  -> ${fileFor(s.ipa)}`);
 
@@ -200,7 +262,9 @@ async function main(): Promise<void> {
     return;
   }
   if (key === undefined || key === "") {
-    console.error("\nGEMINI_API_KEY is not set. Nothing generated.");
+    console.error(
+      `\n${provider === "openai" ? "OPENAI_API_KEY" : "GEMINI_API_KEY"} is not set. Nothing generated.`,
+    );
     process.exitCode = 1;
     return;
   }
@@ -210,7 +274,10 @@ async function main(): Promise<void> {
     // One at a time, like the model voice: a burst makes "what did that cost"
     // unanswerable mid-run, and a rate-limited provider would spend the quota
     // on work that produced nothing.
-    const image = await generate(ipa, example, key);
+    const image =
+      provider === "openai"
+        ? await generateOpenAI(ipa, example, key)
+        : await generate(ipa, example, key);
     if (image === null) continue;
     writeFileSync(join(OUT_DIR, fileFor(ipa)), image);
     console.log(`  wrote ${fileFor(ipa)} for ${ipa} (${image.length} bytes)`);

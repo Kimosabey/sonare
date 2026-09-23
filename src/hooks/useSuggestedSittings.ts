@@ -46,6 +46,21 @@ export function useSuggestedSittings(learnerName: string | null): SuggestedSitti
         // a half-formed suggestion would render as a prompt from nobody.
         const usable: SuggestedSitting[] = [];
         for (const raw of body.suggestions as unknown[]) {
+          /**
+           * Null and undefined before anything reads a property off them.
+           *
+           * The cast below is a lie that throws: `typeof null.classId` is a
+           * TypeError, and this hook's whole posture is that failures here are
+           * silent — so one null row would be caught by the outer handler and
+           * take **every** suggestion with it, with nothing on screen and
+           * nothing in a log to say why.
+           *
+           * The identical bug lived in `myClasses` in src/sync/classLink.ts,
+           * found the same way and fixed on 2026-09-18. The per-row `continue`
+           * below was meant to be the leniency in both; it only ever worked
+           * for rows that were objects.
+           */
+          if (typeof raw !== "object" || raw === null) continue;
           const s = raw as Partial<SuggestedSitting>;
           if (
             typeof s.classId !== "string" ||
