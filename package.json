@@ -29,7 +29,8 @@
     "fixture-design": "node --env-file=.env scripts/fixture-design-check.mjs",
     "alignment-report": "tsx scripts/alignment-report.ts",
     "generate-model-voice": "tsx --env-file=.env scripts/generate-model-voice.ts",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "generate-diagrams": "tsx --env-file=.env scripts/generate-diagrams.ts"
   },
   "dependencies": {
     "express": "^5.2.1",

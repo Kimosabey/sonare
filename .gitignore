@@ -60,3 +60,8 @@ docs/*.zip
 # Playwright's own output — traces and screenshots from a failed run.
 /test-results/
 /playwright-report/
+
+# Generated articulation diagrams — see scripts/generate-diagrams.ts.
+# Not committed: they are unverified instructions about a learner's tongue,
+# and a wrong one is worse than none.
+public/diagrams/
