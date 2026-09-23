@@ -803,16 +803,21 @@ describe("what to practise next, from what was scored", () => {
 describe("serving content", () => {
   it("tells the client to use its bundled set when nothing is published", async () => {
     /**
-     * A 404 is the normal answer, not an error. The client falls back to the
+     * 204 is the normal answer, not an error. The client falls back to the
      * activities it shipped with, which is what keeps the app working with no
      * network at all — content that only exists in a database is content a
      * learner on a train cannot practise.
+     *
+     * It was a 404 until 23 September 2026, which made the ordinary state of a
+     * deployment print a red console error per language on every load. The
+     * body is asserted empty because that is the half a client relies on: a
+     * 204 carries none, so a client that parses before checking the status
+     * throws on the *normal* path.
      */
     const res = await fetch(`${base}/api/v1/content/fr`, { headers: client() });
-    const body = (await res.json()) as { error: { userMessage: string } };
 
-    expect(res.status).toBe(404);
-    expect(body.error.userMessage).toMatch(/built into the app/i);
+    expect(res.status).toBe(204);
+    expect(await res.text()).toBe("");
   });
 
   it("serves a published set without needing a learner token", async () => {
@@ -1356,15 +1361,17 @@ describe("the routes are mounted where the client expects", () => {
 
   it("answers GET /api/v1/content/:slug, distinguished by its body", async () => {
     /**
-     * The "not 404" heuristic above cannot cover this route, because 404 is a
-     * *legitimate* answer here — nothing published means "use the bundled
-     * set". So mounting is confirmed by shape instead: a mounted route
-     * returns the typed error envelope, while an unmounted one returns
-     * Express's own HTML 404 with no JSON at all.
+     * The "not 404" heuristic above once could not cover this route, because
+     * 404 was a *legitimate* answer here. Since nothing-published became a
+     * 204, the status separates the two cases outright: a mounted route
+     * answers 204, and an unmounted one is Express's own HTML 404.
+     *
+     * That is strictly stronger than the shape check it replaces, which
+     * passed on any JSON error envelope — including one from a middleware
+     * refusing the request before the route was ever reached.
      */
     const res = await fetch(`${base}/api/v1/content/fr`, { headers: client() });
-    const body = (await res.json()) as { error?: { code?: string; userMessage?: string } };
 
-    expect(body.error?.userMessage).toBeDefined();
+    expect(res.status).toBe(204);
   });
 });

@@ -502,8 +502,49 @@ describe("the version history", () => {
 
     expect(response.status).toBe(200);
     expect(payload.activities[0]?.kind).toBe("reppeat");
-    // And the learner's own read still refuses it, so nobody is served it.
-    expect((await fetch(`${base}/api/v1/content/fr`)).status).toBe(404);
+    /**
+     * And the learner's own read still refuses it, so nobody is served it.
+     *
+     * 204 rather than 404 since nothing-published became the ordinary answer
+     * — see the route. What matters here is unchanged: a set that fails
+     * validation reaches no learner, and the client treats this exactly as it
+     * treats an empty database, which is to keep using the bundled set.
+     */
+    expect((await fetch(`${base}/api/v1/content/fr`)).status).toBe(204);
+  });
+
+  it("answers no content, rather than an error, for a language nobody has published", async () => {
+    /**
+     * The ordinary state of a fresh deployment, and it must not look like a
+     * failure. A 404 here printed a red console error for every language on
+     * every load — ten of them under StrictMode — and a console that is always
+     * red is a console nobody reads.
+     *
+     * The sibling versions route already answered this way for the same
+     * situation; this one had not caught up.
+     */
+    const response = await fetch(`${base}/api/v1/content/de`);
+
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe("");
+  });
+
+  it("still refuses a slug that is not a slug", async () => {
+    /**
+     * A malformed slug is a different fact from an unpublished one and keeps a
+     * different answer.
+     *
+     * Not "a language that does not exist", which was the first version of
+     * this test and was wrong: `slugFrom` validates the *shape* of a slug and
+     * nothing else, so `zz` answers 204 like any other. That is correct rather
+     * than a gap — the server does not hold a list of real languages, and it
+     * should not: content is published per slug, and a sixth language arriving
+     * by publish rather than by code change is the design.
+     */
+    expect((await fetch(`${base}/api/v1/content/FR`)).status).toBe(400);
+    expect((await fetch(`${base}/api/v1/content/a%2Fb`)).status).toBe(400);
+    // And a well-formed slug nobody has published is nothing, not an error.
+    expect((await fetch(`${base}/api/v1/content/zz`)).status).toBe(204);
   });
 
   it("refuses a version that is not a whole number", async () => {

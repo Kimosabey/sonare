@@ -95,13 +95,28 @@ contentRouter.get("/content/:slug", diagnosticsLimiter, (req, res) => {
          * the same thing to a client — use the bundled set — so both answer
          * the same way rather than making the client distinguish an empty
          * database from a broken one.
+         *
+         * **204, not 404**, and the difference is not pedantry. Nothing
+         * published is the *normal* state: a fresh deployment has published no
+         * content for any language, and the bundled sets are the designed
+         * answer rather than a fallback from failure. A 404 made the ordinary
+         * case print five red errors in every console on every load — ten
+         * under React's StrictMode, which double-invokes effects in
+         * development. That is how people learn to ignore a console, and
+         * ignoring a console is how the next real error gets missed.
+         *
+         * The sibling route below already made this call for the same
+         * situation and wrote down why: an empty answer is the honest one for
+         * a language nobody has published, because the screen's next move is
+         * to offer the bundled set and it needs to be told there is nothing
+         * rather than that the request failed. This route simply had not
+         * caught up.
+         *
+         * A genuinely bad slug still 404s — see `slugFrom` above. "No content
+         * for a language that exists" and "no such language" are different
+         * facts and keep different answers.
          */
-        fail(
-          res,
-          404,
-          `no published content for ${slug}`,
-          "Using the activities built into the app.",
-        );
+        res.status(204).end();
         return;
       }
 

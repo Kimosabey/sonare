@@ -4,10 +4,11 @@
  * Fetching published content into the cache.
  *
  * The contract is that nothing waits on it and nothing breaks when it fails.
- * A 404 means nothing is published and the bundle is correct; a network error
- * means offline; a malformed body means a set not worth trusting. All three
- * have the same right answer — keep using what we have — so the interesting
- * assertions are all about *not* changing anything.
+ * A 204 means nothing is published and the bundle is correct; a 404 means the
+ * same from a server that predates the 204; a network error means offline; a
+ * malformed body means a set not worth trusting. All four have the same right
+ * answer — keep using what we have — so the interesting assertions are all
+ * about *not* changing anything.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -44,6 +45,15 @@ const FIRST = first();
 /** What the fake server returns for each slug. */
 let replies: Record<string, { status: number; body: unknown }> = {};
 let requested: string[] = [];
+/**
+ * Slugs whose response body the client tried to read.
+ *
+ * Needed because every failure in this hook converges on the same silent
+ * outcome, so "did it parse a 204" is invisible from the callback — a parse
+ * that throws is caught and reports exactly what a skipped parse reports.
+ * Recording the attempt is the only way the assertion can fail.
+ */
+let parsed: string[] = [];
 let networkFails = false;
 
 const fakeFetch: typeof fetch = (input) => {
@@ -53,7 +63,25 @@ const fakeFetch: typeof fetch = (input) => {
 
   if (networkFails) return Promise.reject(new TypeError("Failed to fetch"));
 
-  const reply = replies[slug] ?? { status: 404, body: { error: {} } };
+  const reply = replies[slug] ?? { status: 204, body: null };
+  /**
+   * A 204 carries no body, and that is the point of the case rather than a
+   * detail: `Response` refuses a body with a 204 status, exactly as a browser
+   * does, so a client that parses before checking the status throws here the
+   * same way it would in the wild.
+   *
+   * The default is 204 rather than 404 because nothing-published is the
+   * ordinary state of a fresh deployment — see server/routes/content.ts.
+   */
+  if (reply.status === 204) {
+    const response = new Response(null, { status: 204 });
+    const json = response.json.bind(response);
+    response.json = () => {
+      parsed.push(slug);
+      return json();
+    };
+    return Promise.resolve(response);
+  }
   return Promise.resolve(
     new Response(JSON.stringify(reply.body), {
       status: reply.status,
@@ -91,6 +119,7 @@ beforeEach(() => {
   installStorage();
   replies = {};
   requested = [];
+  parsed = [];
   networkFails = false;
 });
 
@@ -135,8 +164,33 @@ describe("fetching", () => {
 });
 
 describe("when nothing changes the cache", () => {
-  it("leaves the bundle in place on a 404", async () => {
-    // The normal answer for an unpublished language, not an error.
+  it("leaves the bundle in place when nothing is published", async () => {
+    // A 204, which is the ordinary state of a deployment nobody has published
+    // to yet — not an error, and the fake server's default for that reason.
+    const done = vi.fn();
+    run(done);
+
+    await waitFor(() => expect(done).toHaveBeenCalledWith([]));
+    expect(resolveLanguage(FIRST.slug)?.activities[0]?.target).toBe(FIRST.activities[0]?.target);
+  });
+
+  it("does not read the body of a 204", async () => {
+    /**
+     * A 204 carries none, so reading it throws — and the throw would be caught
+     * and reported as the same silent nothing, which is why this is asserted
+     * rather than left to the outcome. The cost of getting it wrong is the
+     * ordinary case running through the error path on every load.
+     */
+    const done = vi.fn();
+    run(done);
+
+    await waitFor(() => expect(done).toHaveBeenCalledWith([]));
+    expect(parsed).toEqual([]);
+  });
+
+  it("leaves it in place on a 404, for a server that predates the 204", async () => {
+    // Older deployments answer this way and mean the same thing.
+    replies[FIRST.slug] = { status: 404, body: { error: { code: "not_found" } } };
     const done = vi.fn();
     run(done);
 

@@ -276,12 +276,12 @@ describe.each([
   });
 
   it("still serves the content a client needs before it has an identity", async () => {
-    // 404 is the documented answer for a language nobody has published — the
+    // 204 is the documented answer for a language nobody has published — the
     // client falls back to its bundled set. What matters is that it is not a
     // 401 or a 503.
     const res = await fetch(`${base}/api/v1/content/fr`, { headers: client() });
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(204);
   });
 });
 

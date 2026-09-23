@@ -34,6 +34,17 @@ export interface UseContentSyncOptions {
 async function fetchOne(slug: string, doFetch: typeof fetch): Promise<string | null> {
   try {
     const response = await doFetch(`/api/v1/content/${slug}`);
+    /**
+     * 204 is the server saying "nothing published", which is the ordinary
+     * state and not a failure. Handled before parsing because a 204 carries no
+     * body: `response.json()` on one throws, and relying on the catch below to
+     * absorb that would make the normal path run through the error path.
+     *
+     * 404 is still accepted for an older server, and still means the same
+     * thing. Every failure here has one right answer — keep using what we
+     * have — so they converge rather than branching.
+     */
+    if (response.status === 204) return null;
     if (!response.ok) return null;
 
     const set = readCachedSet(await response.json());
