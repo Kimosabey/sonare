@@ -56,6 +56,21 @@ function ruleName(heading: string): string {
   return (heading.split("—")[0] ?? "").trim();
 }
 
+/** The five gates, named once. */
+const GATES = ["npm run typecheck", "npm run lint", "npm run verify", "npm test", "npm run build"];
+
+/**
+ * The documents `verify.mjs` says describe it, read from its own header.
+ *
+ * It names them in a `Sources:` line, which is the only place that mapping
+ * exists — and it is the mapping that matters, because a document the verifier
+ * points at is a document a reader will believe.
+ */
+function sourceDocs(): string[] {
+  const line = /^\s*\*\s*Sources:(.+)$/m.exec(verifier)?.[1] ?? "";
+  return [...line.matchAll(/([A-Z-]+\.md)/g)].map((m) => m[1] ?? "");
+}
+
 describe("the verifier's rules", () => {
   it("has rules to check, read from the file rather than listed here", () => {
     /**
@@ -100,6 +115,35 @@ describe("the verifier's rules", () => {
     expect(claimed.filter((name) => !enforced.has(name))).toEqual([]);
   });
 
+  it("names its own source documents, so the check below knows where to look", () => {
+    /**
+     * The verifier's header says which documents describe it. Read rather than
+     * restated, because a list of "the docs that matter" kept in this file is
+     * the fifth hand-maintained inventory and would drift exactly like the
+     * four before it.
+     */
+    expect(sourceDocs().length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("has every source document telling the reader to run all five gates", () => {
+    /**
+     * Both of them understated it, and in `HANDOFF.md` the understatement was
+     * circular: the verifier cites that section as a source of its own rules
+     * while the section described a verifier with five rules and a repository
+     * with three gates.
+     *
+     * Checked against every document the header names rather than against a
+     * pair written here, so adding a third source brings it under the same
+     * rule automatically.
+     */
+    for (const doc of sourceDocs()) {
+      const text = readFileSync(new URL(`docs/${doc}`, ROOT), "utf8");
+      for (const gate of GATES) {
+        expect(text, `${doc} does not tell the reader to run ${gate}`).toContain(gate);
+      }
+    }
+  });
+
   it("tells the reader to run all five gates, not three", () => {
     /**
      * The omission that cost the most. This section listed typecheck, lint and
@@ -112,8 +156,6 @@ describe("the verifier's rules", () => {
       claudeMd.indexOf("Then the manual check"),
     );
 
-    for (const gate of ["npm run typecheck", "npm run lint", "npm run verify", "npm test", "npm run build"]) {
-      expect(commands).toContain(gate);
-    }
+    for (const gate of GATES) expect(commands).toContain(gate);
   });
 });

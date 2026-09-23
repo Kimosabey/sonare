@@ -103,19 +103,20 @@ scripts/
 npm run typecheck
 npm run lint
 npm run verify
+npm test
+npm run build
 ```
 
-`scripts/verify.mjs` should fail the build on any of:
+**All five, read by exit code.** This section listed the first three for a long
+time, which meant anybody following it never ran the suite — and `verify.mjs`
+names this section as one of its two sources, so the understatement was
+circular.
 
-| Check | Reason |
-|---|---|
-| `SpeechRecognition` or `webkitSpeechRecognition` anywhere in `src/` or `server/` | Rule R1 |
-| `AZURE_SPEECH_KEY` outside `server/` and `.env.example` | Rule R2 |
-| `localStorage` or `sessionStorage` in `src/speech/` | Rule R11 |
-| `import` of `react` inside `src/speech/capture/` | Portability |
-| `microsoft-cognitiveservices-speech-sdk` imported outside `server/services/` | Rule R12 |
-
-Write this script early — it is cheap and catches the mistakes that matter.
+**The rules `npm run verify` enforces are listed in `CLAUDE.md`, and only
+there.** This section used to keep its own table of five. The file now enforces
+fourteen, and the table was still five — a second copy of a list is a second
+thing to update and the one nobody updates. `scripts/verify-rules.test.ts`
+holds the surviving list to the verifier, in both directions.
 
 ## Manual checks no script can do
 
