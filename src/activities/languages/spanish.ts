@@ -20,7 +20,7 @@ export const SPANISH: LanguageActivitySet = {
       prompt: "Say hello politely.",
       gloss: "Hello, how are you?",
       target: "Hola, ¿cómo está usted?",
-      focus: "The tapped /ɾ/ in cómo, and the /w/ glide in usted",
+      focus: "The silent h in Hola, and the unaspirated /t/ in está and usted — English puffs air after a /t/ and Spanish does not",
       soundTargets: ["ho", "la", "mo", "ted"],
     },
     {
@@ -70,7 +70,7 @@ export const SPANISH: LanguageActivitySet = {
       prompt: "Describe cold, rainy weather.",
       gloss: "It is very cold and it is raining a lot today.",
       target: "Hace mucho frío y está lloviendo mucho hoy",
-      focus: "The jota /x/ in mucho and hoy's silent h",
+      focus: "The /tʃ/ in mucho, the Castilian θ in Hace, and the silent h in Hace and hoy",
       soundTargets: ["mu", "cho", "frí", "hoy"],
     },
     {
@@ -90,7 +90,7 @@ export const SPANISH: LanguageActivitySet = {
       prompt: "Ask how much the black shoes cost.",
       gloss: "How much do these black shoes cost?",
       target: "¿Cuánto cuestan estos zapatos negros?",
-      focus: "The θ in cuánto and cuestan",
+      focus: "The Castilian θ in zapatos, and the /kw/ in cuánto and cuestan",
       soundTargets: ["cuán", "cues", "za", "gros"],
     },
     {
@@ -100,7 +100,7 @@ export const SPANISH: LanguageActivitySet = {
       prompt: "Ask for the bill and say the meal was exquisite.",
       gloss: "The bill, please. It was exquisite.",
       target: "La cuenta, por favor. Estaba exquisito",
-      focus: "The /ks/ cluster in exquisito, and the tap /ɾ/ in por favor",
+      focus: "The x in exquisito, which before a consonant is [s] in Spain rather than /ks/, and the tap /ɾ/ in por favor",
       soundTargets: ["cuen", "vor", "ex", "qui"],
     },
     {

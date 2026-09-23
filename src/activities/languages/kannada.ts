@@ -56,7 +56,7 @@ export const KANNADA: LanguageActivitySet = {
       gloss: "Hello, how are you?",
       target: "ನಮಸ್ಕಾರ, ನೀವು ಹೇಗಿದ್ದೀರಿ",
       focus:
-        "The retroflex ಸ್ಕಾ cluster in ನಮಸ್ಕಾರ, and the long ೀ in ಹೇಗಿದ್ದೀರಿ — vowel length changes the word here, where in English it rarely does",
+        "The ಸ್ಕಾ cluster in ನಮಸ್ಕಾರ, which stays one beat rather than growing a vowel between the two consonants, and the long ೀ in ಹೇಗಿದ್ದೀರಿ — vowel length changes the word here, where in English it rarely does",
     },
     {
       id: 2,

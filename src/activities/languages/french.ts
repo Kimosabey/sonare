@@ -29,7 +29,7 @@ export const FRENCH: LanguageActivitySet = {
       prompt: "Say hello politely.",
       gloss: "Hello, how are you?",
       target: "Bonjour, comment allez-vous",
-      focus: "Nasal vowels /ɔ̃/ and /ɑ̃/, and the liaison in allez-vous",
+      focus: "Nasal /ɔ̃/ in Bonjour and /ɑ̃/ in comment, and the liaison that joins comment to allez",
       soundTargets: ["bon", "jour", "ment", "allez"],
     },
     {
@@ -59,7 +59,7 @@ export const FRENCH: LanguageActivitySet = {
       prompt: "Combien de personnes y a-t-il à la réunion ? (Answer: forty-two)",
       gloss: "There are forty-two people at the meeting.",
       target: "Il y a quarante-deux personnes à la réunion",
-      focus: "Nasal /ɑ̃/ in quarante and réunion, and the /ø/ in deux",
+      focus: "Two different nasals — /ɑ̃/ in quarante against /ɔ̃/ in réunion — and the /ø/ in deux",
       soundTargets: ["qua", "rante", "deux", "nion"],
     },
     {
@@ -109,7 +109,7 @@ export const FRENCH: LanguageActivitySet = {
       prompt: "Ask for the bill and compliment the service.",
       gloss: "The bill, please. The service was excellent.",
       target: "L'addition s'il vous plaît le service était excellent",
-      focus: "The /sj/ sequence in s'il vous plaît, and nasal /ɑ̃/ in excellent",
+      focus: "The /sjɔ̃/ ending in addition, and nasal /ɑ̃/ in excellent",
       soundTargets: ["ddi", "tion", "vice", "lent"],
     },
     {
@@ -119,7 +119,7 @@ export const FRENCH: LanguageActivitySet = {
       prompt: "Say goodbye warmly, wishing a good evening.",
       gloss: "Have a good evening, until next time, and take care of yourself.",
       target: "Bonne soirée à la prochaine et prenez soin de vous",
-      focus: "The /wa/ diphthong in soirée, and nasal /wɛ̃/ in soin",
+      focus: "The /wa/ in soirée — a /w/ running onto /a/, not an English diphthong — and nasal /wɛ̃/ in soin",
       soundTargets: ["soi", "rée", "chaine", "soin"],
     },
   ],

@@ -31,7 +31,7 @@ export const HINDI: LanguageActivitySet = {
       prompt: "Introduce yourself and say where you live.",
       gloss: "My name is Anjali and I live in Delhi.",
       target: "मेरा नाम अंजलि है और मैं दिल्ली में रहती हूं",
-      focus: "Nasalization (anusvara) in अंजलि, and the retroflex/dental contrast between दिल्ली and रहती",
+      focus: "Nasalization in अंजलि and मैं, and the doubled ल्ल in दिल्ली — held long, not said twice",
     },
     {
       id: 3,
@@ -40,7 +40,7 @@ export const HINDI: LanguageActivitySet = {
       prompt: "Order a tea and a samosa.",
       gloss: "I would like a tea and a samosa.",
       target: "मुझे एक चाय और एक समोसा चाहिए",
-      focus: "The aspirated palatal छ-adjacent च in चाय, and long vowel ा in चाहिए",
+      focus: "The unaspirated च in चाय — an English 'ch' comes out aspirated, which is छ, a different letter — and the long ा in चाहिए",
     },
     {
       id: 4,
@@ -58,7 +58,7 @@ export const HINDI: LanguageActivitySet = {
       prompt: "Ask where the nearest market is.",
       gloss: "Where is the nearest market?",
       target: "सबसे नज़दीकी बाज़ार कहाँ है?",
-      focus: "The flap ज़ (za) in नज़दीकी and बाज़ार, distinct from ज, and nasalized आँ in कहाँ",
+      focus: "The fricative ज़ /z/ in नज़दीकी and बाज़ार, distinct from the affricate ज /dʒ/, and nasalized आँ in कहाँ",
     },
     {
       id: 6,
@@ -94,7 +94,7 @@ export const HINDI: LanguageActivitySet = {
       prompt: "Ask for the bill and say the food was very tasty.",
       gloss: "Bring the bill, please. The food was very tasty.",
       target: "बिल लाइए, कृपया। खाना बहुत लज़ीज़ था",
-      focus: "The flap ज़ in लज़ीज़, and the conjunct कृ (kr) in कृपया",
+      focus: "The fricative ज़ /z/ in लज़ीज़, and the conjunct कृ (kr) in कृपया",
     },
     {
       id: 10,

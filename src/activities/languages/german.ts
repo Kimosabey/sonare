@@ -23,7 +23,7 @@ export const GERMAN: LanguageActivitySet = {
       prompt: "Say hello politely.",
       gloss: "Hello, how are you?",
       target: "Guten Tag, wie geht es Ihnen?",
-      focus: "The ich-laut /ç/ in geht/Ihnen, and uvular /ʁ/ in Guten",
+      focus: "Final -g devoiced to [k] in Tag, and the long /uː/ in Guten — vowel length is contrastive in German where it is not in English",
       soundTargets: ["gu", "ten", "geht", "nen"],
     },
     {
@@ -43,7 +43,7 @@ export const GERMAN: LanguageActivitySet = {
       prompt: "Order a coffee and a pretzel.",
       gloss: "I would like a coffee and a pretzel, please.",
       target: "Ich hätte gern einen Kaffee und eine Brezel, bitte",
-      focus: "The umlaut /ɛ/ in hätte, and initial /pf/-adjacent cluster stress",
+      focus: "The umlaut /ɛ/ in hätte, and the /bʁ/ cluster in Brezel — the r is uvular, not the American one",
       soundTargets: ["hät", "gern", "ffee", "bre"],
     },
     {
@@ -53,7 +53,7 @@ export const GERMAN: LanguageActivitySet = {
       prompt: "Wie viele Gäste sind auf der Party? (Answer: forty-seven)",
       gloss: "There are forty-seven guests at the party.",
       target: "Es sind siebenundvierzig Gäste auf der Party",
-      focus: "The affricate /ts/ and ich-laut /ç/ both in vierzig, and the umlaut /ɛː/ in Gäste",
+      focus: "The affricate /ts/ and the -ig ending /ɪç/ both in vierzig, and the umlaut /ɛ/ in Gäste",
       soundTargets: ["sie", "vier", "zig", "gäs"],
     },
     {
@@ -73,7 +73,7 @@ export const GERMAN: LanguageActivitySet = {
       prompt: "Describe cold, rainy weather.",
       gloss: "It is very cold and it is raining a lot today.",
       target: "Es ist sehr kalt und es regnet heute viel",
-      focus: "The ach-laut /x/ in the -ch of nicht-family sounds, tested via the uvular /ʁ/ in regnet",
+      focus: "The uvular /ʁ/ in sehr and regnet — at the end of a syllable in sehr it colours the vowel instead of sounding as a consonant",
       soundTargets: ["sehr", "kalt", "reg", "heu"],
     },
     {
