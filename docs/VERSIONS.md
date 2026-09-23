@@ -63,6 +63,40 @@ unusable take costs nothing, a vowel chart that is built and withheld, two
 languages held back rather than scored hollowly, and — as of today — a build
 that fails on a leaderboard.
 
+### What landed on 23 September specifically
+
+Four defects, and what they have in common is the point: every one passed
+every gate, and each was found by reading what a thing claimed against what it
+did.
+
+- **A 404 for the ordinary state.** Nothing published is what a fresh
+  deployment *is*, and it printed five red console errors per load — ten under
+  StrictMode. The sibling route had answered 200-with-nothing for a year and
+  written down why; this one never caught up. Now 204.
+- **Every publish re-bought the whole language.** The model-voice cache key
+  hashed the content version, defended in a comment as the cache epoch. The
+  field below it already did that job — a corrected phrase has different text —
+  so the version only ever forced a full re-synthesis at a per-character
+  charge, immediately followed by pruning the identical files. The activity id
+  was the same error in miniature: a phrase in two lessons was bought twice.
+- **The first generation paid twice anyway.** Found while writing the test for
+  the line above. The reuse check read only the *previous* manifest, so two
+  activities sharing a phrase deduplicated across runs and not within one.
+- **The activity screen wiped what another device did.** Pinned as `it.fails`
+  on 18 September and fixed here. A merge landing mid-session was written by
+  the engine and overwritten by the screen's next save.
+
+Two things worth recording about the method rather than the defects:
+
+- **A test that cannot fail is not a test.** The mutant for "fold the merged
+  record in rather than adopt it" survived — no test distinguished them. The
+  case that does is private browsing, where every write fails and adopting
+  would blank a real session.
+- **A green mutation run is a claim that needs its own check.** One round
+  reported all four mutants killed. zsh does not word-split an unquoted
+  parameter, so the file list reached vitest as a single argument and nothing
+  ran at all. Mutation runs now assert a baseline count first.
+
 ### What landed on 18 September specifically
 
 Worth separating, because it was mostly defect work and the defects say
