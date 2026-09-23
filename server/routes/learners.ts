@@ -504,10 +504,19 @@ learnersRouter.get("/learners/me/export", diagnosticsLimiter, requireLearner, (_
  * any form — which meant the privacy posture was a document describing
  * something that could not be done.
  *
- * All six collections, and the count from each is returned. That is
- * deliberate: a deletion that reports what it removed can be verified, and a
- * silent 204 is indistinguishable from a deletion that quietly missed a
- * collection somebody added later.
+ * Every collection in `LEARNER_COLLECTIONS` — eight of them, and named that
+ * way rather than counted here, because this comment said "all six" for long
+ * enough to outlive two additions.
+ *
+ * Two of the counts come back in the body. That is deliberate: a deletion that
+ * reports what it removed can be verified, and a silent 204 is
+ * indistinguishable from one that quietly missed a collection somebody added
+ * later. It is attempts and diagnostics rather than all eight because those
+ * are the two a learner has a mental model of — "my recordings" and "the error
+ * reports this thing sent" — and the screen names the rest in prose. The
+ * end-to-end test is what checks the other six actually went: it asserts that
+ * no stored document mentions the learner at all, phrased so a collection
+ * added later is swept into the same assertion.
  *
  * Sequential rather than parallel. If one collection fails, the ones before it
  * are already gone and the client can retry — deletion is idempotent, so a

@@ -72,6 +72,19 @@ function keysFor(name: string): Record<string, string> {
     [`sonare.skills.v1.${FIRST.slug}.${name}`]: JSON.stringify({
       ment: { grapheme: "ment", samples: [{ at: "2026-09-01T10:00:00.000Z", accuracy: 61 }] },
     }),
+    /**
+     * The onboarding flag and the sound-check verdict, which `eraseDevice`
+     * clears and this list did not name. Removing either call passed all 143
+     * tests, so two of the eight things "Delete everything" erases were
+     * unprotected — and `docs/PROCUREMENT.md` tells schools that deletion
+     * clears the local record.
+     *
+     * They matter for the reason the code gives: an erased learner meets the
+     * explanation of what happens to a recording again, and is not told a
+     * check passed on a record that no longer exists.
+     */
+    [`sonare.onboarded.v1.${name}`]: "2026-09-01T00:00:00.000Z",
+    [`sonare.micCheck.v1.${name}`]: JSON.stringify({ at: "2026-09-01T00:00:00.000Z", passed: true }),
   };
 }
 
@@ -403,6 +416,35 @@ describe("deleting everything", () => {
     for (const key of Object.keys(keysFor(LEARNER))) {
       expect(store.has(key)).toBe(false);
     }
+  });
+
+  it("leaves nothing behind that is keyed on the learner", async () => {
+    /**
+     * Phrased so a category added later is swept into the same assertion,
+     * which is how the server side already states this — its end-to-end test
+     * asserts that *no* stored document mentions the learner rather than
+     * listing collections.
+     *
+     * The list version of this test was the problem. It named six of the eight
+     * keys `eraseDevice` clears, so the two it missed could be deleted from
+     * the product without a single test failing. A list of "everything" that
+     * is written by hand is wrong as soon as the code grows, and this one
+     * already was.
+     *
+     * `sonare.learnerName` is excluded deliberately, not overlooked: it holds
+     * the name as a value rather than in its key, and Settings.tsx says in as
+     * many words that whether erasing should also make the device forget who
+     * is using it is a product decision rather than this screen's.
+     */
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(ok({ deleted: true, attempts: 1, diagnostics: 0 }))));
+    view();
+
+    typeConfirmation("DELETE");
+    fireEvent.click(screen.getByRole("button", { name: "Delete everything" }));
+
+    await screen.findByRole("status");
+    const survivors = [...store.keys()].filter((key) => key.endsWith(`.${LEARNER}`));
+    expect(survivors).toEqual([]);
   });
 
   it("leaves the other learner on the device untouched", async () => {
