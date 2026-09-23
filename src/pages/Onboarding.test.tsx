@@ -105,7 +105,45 @@ describe("step 1 — what the product does, before anything is asked", () => {
 
     expect(screen.getByText("54")).toBeInTheDocument();
     expect(screen.getByText("66")).toBeInTheDocument();
-    expect(screen.getByLabelText(/example scored take/i)).toBeInTheDocument();
+  });
+
+  it("says the example aloud as sentences, not as a run of numbers", async () => {
+    /**
+     * This screen exists to explain what the product does, so how it reads
+     * aloud is the demonstration for anybody using a screen reader.
+     *
+     * It used to hand-roll the chips from the real ones' stylesheet and
+     * announce "Je 91 vou 54 drais 66 ca 88 fé 93" — every grapheme and every
+     * number in one flat run. The wrapper carried `aria-label="An example
+     * scored take"`, which is not announced on a static element, a thing
+     * `SyllableChips` had already learned and has a test for. The old
+     * assertion here checked that dead label was present, so it passed on a
+     * label nobody heard.
+     *
+     * Using the real component is what makes the comment above it true, and
+     * this is the assertion that fails if somebody copies the markup again.
+     */
+    await open();
+
+    /**
+     * Read off the spoken spans rather than with `getByText`, because a named
+     * syllable's sentence is deliberately two nodes — the grapheme carries
+     * `lang` so a screen reader says "fé" in French and "scored 93 out of 100"
+     * in English. A text query cannot match across that split, which is also
+     * why `SyllableChips`' own tests only ever assert the unnamed form.
+     */
+    const spoken = [...document.querySelectorAll(".sr-only")].map((n) => n.textContent);
+
+    expect(spoken).toContain("vou, scored 54 out of 100");
+    expect(spoken).toContain("fé, scored 93 out of 100");
+  });
+
+  it("keeps the play glyph out of the button's accessible name", async () => {
+    // "▶" is read as "black right-pointing triangle" — noise in front of the
+    // two words that say what the button does.
+    await open();
+
+    expect(screen.getByRole("button", { name: "Play it" })).toBeInTheDocument();
   });
 
   it("says the goal is being understood, not sounding native", async () => {

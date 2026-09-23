@@ -33,7 +33,7 @@ import { resolveLanguages } from "../content/resolve.js";
 import { useLearnerName } from "../hooks/useLearnerName.js";
 import { markOnboarded } from "../stores/onboardingStore.js";
 import { useModelSpeech } from "../hooks/useModelSpeech.js";
-import { band } from "../speech/components/band.js";
+import { SyllableChips } from "../speech/components/SyllableChips.js";
 
 /** The four steps, named rather than numbered, so a reorder cannot silently renumber. */
 type Step = "demo" | "language" | "name" | "microphone";
@@ -52,12 +52,18 @@ const DEMO = {
   phrase: "Je voudrais un café",
   gloss: "I would like a coffee.",
   code: "fr-FR",
+  /**
+   * `ScoredSyllable`, the shape the scorer really returns, so these can go
+   * through the real chips rather than a copy of their markup. The tick fields
+   * are what a take carries; nothing on this screen plays, so they only need
+   * to be distinct.
+   */
   syllables: [
-    { text: "Je", score: 91 },
-    { text: "vou", score: 54 },
-    { text: "drais", score: 66 },
-    { text: "ca", score: 88 },
-    { text: "fé", score: 93 },
+    { grapheme: "Je", accuracy: 91, offsetTicks: 0, durationTicks: 1 },
+    { grapheme: "vou", accuracy: 54, offsetTicks: 1, durationTicks: 1 },
+    { grapheme: "drais", accuracy: 66, offsetTicks: 2, durationTicks: 1 },
+    { grapheme: "ca", accuracy: 88, offsetTicks: 3, durationTicks: 1 },
+    { grapheme: "fé", accuracy: 93, offsetTicks: 4, durationTicks: 1 },
   ],
 };
 
@@ -103,29 +109,45 @@ export function Onboarding() {
               className="listen"
               onClick={() => (model.speaking ? model.cancel() : model.speak(DEMO.phrase, DEMO.code))}
             >
-              {model.speaking ? "Stop" : "▶ Play it"}
+              {model.speaking ? (
+                "Stop"
+              ) : (
+                <>
+                  {/* Hidden from the accessible name: a screen reader reads ▶
+                      as "black right-pointing triangle", which is noise in
+                      front of the two words that say what the button does. */}
+                  <span aria-hidden="true">▶ </span>Play it
+                </>
+              )}
             </button>
           </div>
         )}
 
         <h2>When you say it back, you get this</h2>
         {/*
-          The product's own syllable chips, not a lookalike. `.sy` and its
-          band classes are what a real result renders with, so this example
-          cannot drift into showing something the app does not produce — which
-          is the one way a demonstration screen can lie.
+          The product's own syllable chips — the component, not its stylesheet.
+
+          This used to hand-roll the markup with `.sy` and the band classes and
+          claim in this comment that it was "not a lookalike, so this example
+          cannot drift into showing something the app does not produce". It was
+          a lookalike, and it had already drifted in the way that mattered
+          least visibly and most: a real chip hides its glyph and score from
+          assistive technology and restates them as one sentence — "Je, scored
+          91 out of 100" — because "Je 91" read aloud is not a sentence in any
+          language. The copy announced "Je 91 vou 54 drais 66 ca 88 fé 93", one
+          flat run of syllables and numbers, on the screen whose whole job is
+          to explain what the product does.
+
+          `SyllableChips` also already knows that an `aria-label` on a static
+          element is not announced — there is a test for exactly that — which
+          is the trap the wrapper here fell into with "An example scored take".
+          The heading above supplies that context instead.
+
+          No `onSelect`, so the chips render static: nothing on this screen is
+          playable yet, and the real component drops its "tap a syllable" hint
+          when it cannot be tapped.
         */}
-        <div className="syllables" aria-label="An example scored take">
-          {DEMO.syllables.map((syllable) => (
-            <span key={syllable.text} className={`sy ${band(syllable.score)}`}>
-              <span className="sy-grapheme" lang={DEMO.code}>
-                {syllable.text}
-              </span>
-              {/* The number is text, never only a colour. */}
-              <span className="sy-score">{syllable.score}</span>
-            </span>
-          ))}
-        </div>
+        <SyllableChips syllables={DEMO.syllables} lang={DEMO.code} />
         <p className="what">
           Syllable by syllable — <strong>which</strong> sound went wrong, not a mark out of a
           hundred for you.
