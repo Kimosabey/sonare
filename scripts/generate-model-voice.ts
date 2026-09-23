@@ -65,6 +65,9 @@
  * text, no attempt data — see the privacy note in server/services/elevenLabs.ts.
  */
 
+import { execFileSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { LANGUAGES } from "../src/activities/languages/index.js";
 import { fillCache, cacheDir, type LanguageInput, type FillSummary } from "../server/modelVoice/cache.js";
 import {
@@ -198,6 +201,40 @@ async function main(): Promise<void> {
    * the printing had been filtered.
    */
   report(await fillCache(speakable, { prune: !keepStale }));
+  rebuildReviewPage();
+}
+
+/**
+ * Rebuilds `voice-check.html`, because a run that does not is a run that
+ * silently breaks the only review surface there is.
+ *
+ * The page names each clip by its cache key, so every generated file changes
+ * its name and every player on the page goes dead. That is fine while it is a
+ * documented follow-up step and somebody performs it; on 23 September 2026 the
+ * key changed, the whole corpus regenerated, and the step was missed — leaving
+ * fifty broken players on the page D3 is waiting for a fluent speaker to sit
+ * down with. The instruction existed. Nothing performed it.
+ *
+ * A child process rather than an import: `voice-check.mjs` builds the page as
+ * a side effect of being loaded, and `await import` for that effect reads as a
+ * mistake to anybody who meets it later. `process.execPath` so it runs under
+ * the same node this script is running under.
+ *
+ * Failure is reported and never fatal, exactly like a partial generation. The
+ * audio is written and serving by this point; a page that failed to build
+ * costs a review sitting, not a learner.
+ */
+function rebuildReviewPage(): void {
+  const script = join(dirname(fileURLToPath(import.meta.url)), "voice-check.mjs");
+  try {
+    const out = execFileSync(process.execPath, [script], { encoding: "utf8" });
+    process.stdout.write(out);
+  } catch (error) {
+    console.error(
+      `\ncould not rebuild voice-check.html (${String(error)}). ` +
+        `The audio is generated; run "node scripts/voice-check.mjs" to get the review page.`,
+    );
+  }
 }
 
 await main();
