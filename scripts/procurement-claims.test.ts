@@ -97,6 +97,55 @@ describe("the claims that are checkable", () => {
   });
 
   /**
+   * "Tested on every screen, across three browser engines." What this page must
+   * never do again is say *when* that happens without checking.
+   */
+  it("does not claim a check continuous integration does not run", () => {
+    /**
+     * It did. This page told schools the WCAG sweep ran "in continuous
+     * integration ... the build fails", and CI runs five gates, none of which
+     * launches a browser. The tests were real and the engines were real; the
+     * sentence a buyer would have relied on was the one about enforcement.
+     *
+     * Read from the **claim paragraph** — the first one after the standards
+     * heading — rather than from the whole section, because the section also
+     * records what the claim used to say. A check that forbade the phrase
+     * anywhere would fail on the correction itself, which is how a repository
+     * ends up unable to write down its own history.
+     *
+     * Asserted as an implication, so the claim is permitted the moment the
+     * workflow earns it: add the browser suite to CI and this starts allowing
+     * the stronger wording rather than refusing it.
+     */
+    const ci = read(".github/workflows/ci.yml");
+    const browserSuiteInCi = /npm run test:browser|playwright test/.test(ci);
+
+    const section = doc.slice(doc.indexOf("EN 301 549"), doc.indexOf("## Deployment"));
+    expect(section.length, "the accessibility section moved").toBeGreaterThan(200);
+
+    const claim = section.slice(section.indexOf("Sonare is tested")).split("\n\n")[0] ?? "";
+    expect(claim, "the accessibility claim moved").toMatch(/three\s+\n?browser engines|browser engines/);
+
+    expect(
+      /in continuous integration/i.test(claim) && !browserSuiteInCi,
+      "PROCUREMENT.md claims the accessibility sweep runs in CI; ci.yml never launches a browser",
+    ).toBe(false);
+  });
+
+  /**
+   * And the gates it does rely on are the ones the workflow runs — the same
+   * drift, one document over.
+   */
+  it("keeps the gate list in step with the workflow", () => {
+    const ci = read(".github/workflows/ci.yml");
+
+    for (const gate of ["npm run typecheck", "npm run lint", "npm run verify", "npm run build"]) {
+      expect(ci, `ci.yml does not run ${gate}`).toContain(gate);
+    }
+    expect(ci, "ci.yml does not run the test suite").toMatch(/npm (run )?test(\s|$)/m);
+  });
+
+  /**
    * "A teacher sees their own class, and no other." The guard the document
    * names has to be mounted, not merely written — the failure this
    * repository has hit five times.

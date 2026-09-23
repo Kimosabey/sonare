@@ -108,9 +108,26 @@ useful to them.
 Public-sector education buyers procure against **EN 301 549** in the UK and EU,
 and **Section 508** in the US. Both reduce to **WCAG 2.1 Level AA**.
 
-Sonare is tested against WCAG 2.1 A and AA **on every screen, in continuous
-integration, across three browser engines** — Chromium, WebKit and mobile
-WebKit. Not audited once and asserted thereafter: the build fails.
+Sonare is tested against WCAG 2.1 A and AA **on every screen, across three
+browser engines** — Chromium, WebKit and mobile WebKit. Not audited once and
+asserted thereafter: the sweep reads the router, so a screen cannot be added
+without the audit meeting it, and a violation fails the run.
+
+**This paragraph said "in continuous integration" until 23 September 2026, and
+that was not true.** CI runs the five gates — typecheck, lint, verify, the test
+suite and the build. It does not launch a browser, so the axe sweep is run by a
+person before a release rather than on every push, and a violation does not
+block a merge. The suite it belongs to is real, covers every declared route and
+is green on all three engines as of that date; what was wrong was the claim
+about *when* it runs, which is exactly the kind of detail this document exists
+to get right. The jsdom suite that does run in CI checks structural properties —
+one `<h1>` per screen, no nested controls, focus rings, the tap floor — and says
+in its own header that a real audit still needs axe in a real browser.
+
+*Enforced by: `e2e-browser/accessibility.spec.ts`, which fails if a route the
+router declares is not audited, and `scripts/procurement-claims.test.ts`, which
+fails if this page claims a check that `.github/workflows/ci.yml` does not
+actually run.*
 
 Beyond the automated rules, which catch perhaps half of what matters:
 
