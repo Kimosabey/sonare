@@ -79,9 +79,22 @@ problem at ten times the size.
 
 `COURSES` exists and reaches nobody: French has 21 activities against the
 bundled 10, and publishing is a command nobody has run. One piece of work comes
-with it — the model voice must regenerate at publish time, because the cache
-key includes the content version, so course phrases generated at version 0 are
-never found.
+with it — the model voice must be generated for the course phrases, which have
+never been synthesised at all.
+
+**The reason given here was wrong, and the correction is the more useful
+fact.** It said course phrases would be "never found" because the cache key
+includes the content version. The client looks phrases up by their *text* and
+has never read a version, so a version mismatch could not hide anything. What
+the version in the key actually did was make **every publish a total cache
+miss** — the whole language re-synthesised at a per-character charge, then the
+byte-identical old files pruned. The activity id was in there too, so a phrase
+drilled in two lessons was bought twice.
+
+Fixed 23 September 2026: the key is now language, voice, model and text, which
+is everything that changes what the audio *is* and nothing that does not. A
+publish of unchanged words now costs nothing. The existing fifty clips
+regenerate once, about 1,900 characters, against a 20,000-character daily cap.
 
 ### 4 · Load a language's activities with the language — **measured, and deferred to six**
 

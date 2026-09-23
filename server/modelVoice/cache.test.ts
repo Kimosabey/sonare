@@ -112,16 +112,26 @@ function audioFiles(language: string): string[] {
 }
 
 describe("the cache key", () => {
-  it("changes with the content version, so a re-publish regenerates", () => {
+  it("is the same recording whatever version or activity carries the words", () => {
     /**
-     * Content is immutable per version, so the version is the natural cache
-     * epoch. Without this, publishing a corrected phrase would leave the
-     * previous recording in place — the cache saying the old words under the
-     * new ones.
+     * The key takes neither, and that is the point rather than an omission.
+     * Neither changes the bytes, and both used to force a full re-synthesis of
+     * an entire language on every publish — a per-character charge for audio
+     * we already had, immediately followed by pruning the identical files.
+     *
+     * The version was defended as the cache epoch: publishing a corrected
+     * phrase must not leave the previous recording playing. It must not, and
+     * the test below is what stops it — a corrected phrase has different text,
+     * so it has a different key. The version protected nothing on top of that.
+     *
+     * Expressed as one key from one call because there is no longer a second
+     * tuple to compare: the type cannot carry a version or an id at all, which
+     * is a stronger guarantee than two keys agreeing.
      */
-    const base = { language: "fr-FR", phraseId: 1, text: "Bonjour", voiceId: "v", modelId: "m" };
+    const key = cacheKey({ language: "fr-FR", text: "Bonjour", voiceId: "v", modelId: "m" });
 
-    expect(cacheKey({ ...base, contentVersion: 1 })).not.toBe(cacheKey({ ...base, contentVersion: 2 }));
+    expect(key).toBe(cacheKey({ language: "fr-FR", text: "Bonjour", voiceId: "v", modelId: "m" }));
+    expect(key).toMatch(/^[0-9a-f]{32}$/);
   });
 
   it("changes with the text, so an edited bundled phrase regenerates", () => {
@@ -154,18 +164,30 @@ describe("the cache key", () => {
     expect(cacheKey({ ...base, language: "es-ES" })).not.toBe(cacheKey({ ...base, language: "de-DE" }));
   });
 
-  it("cannot be collided by shifting a digit between fields", () => {
+  it("cannot be collided by a newline shifting the field boundaries", () => {
     /**
-     * A bare concatenation of the parts lets phrase 12 of version 3 and
-     * phrase 1 of version 23 produce one string. A cache that confuses two
-     * phrases serves the wrong audio under the right words, and no type or
-     * test would notice.
+     * The separator is a newline and the phrase is the only field an author
+     * writes, so the phrase is the only field that can be *made* to contain a
+     * separator. Whether that matters is decided entirely by where the phrase
+     * sits in the join.
+     *
+     * These two tuples are different recordings — different voice, different
+     * model, different words. With the phrase in the middle they join to one
+     * identical string, character for character, and the cache serves one of
+     * them under the other's key: the right words in the wrong voice, which no
+     * type and no other test would notice. With the phrase last they cannot,
+     * because nothing follows it for a newline to impersonate.
+     *
+     * It takes a newline on both sides to construct, and the second one is in
+     * a provider id rather than content. That is the point rather than a
+     * weakness in the example: putting the phrase last is what removes the
+     * *author's* half of the construction, and this is the assertion that
+     * fails the moment somebody moves it back.
      */
-    const rest = { language: "fr-FR", text: "x", voiceId: "v", modelId: "m" };
+    const a = cacheKey({ language: "fr-FR", voiceId: "M", modelId: "X", text: "T\nV" });
+    const b = cacheKey({ language: "fr-FR", voiceId: "V", modelId: "M\nX", text: "T" });
 
-    expect(cacheKey({ ...rest, contentVersion: 3, phraseId: 12 })).not.toBe(
-      cacheKey({ ...rest, contentVersion: 23, phraseId: 1 }),
-    );
+    expect(a).not.toBe(b);
   });
 
   it("is stable, so an unchanged phrase is never regenerated", () => {
@@ -238,7 +260,17 @@ describe("filling a language", () => {
     expect(reserve.reserved).toHaveLength(0);
   });
 
-  it("regenerates when the content version moves", async () => {
+  it("costs nothing when the content version moves and the words do not", async () => {
+    /**
+     * The whole reason the version left the key. A publish is the routine act
+     * this cache sits behind, and it used to make every phrase a miss: the
+     * language re-synthesised in full, charged per character, and the
+     * byte-identical previous files pruned straight afterwards.
+     *
+     * Asserted on the provider rather than only on the summary, because
+     * `reused` is our own bookkeeping and the bill is not — what matters is
+     * that nobody was asked to synthesise anything.
+     */
     const first = provider();
     await fillLanguage(FRENCH, { synthesise: first.synthesise, reserve: allowAll().reserve });
 
@@ -248,8 +280,41 @@ describe("filling a language", () => {
       { synthesise: second.synthesise, reserve: allowAll().reserve },
     );
 
-    expect(summary.generated).toBe(2);
-    expect(summary.reused).toBe(0);
+    expect(second.asked).toEqual([]);
+    expect(summary.generated).toBe(0);
+    expect(summary.reused).toBe(2);
+  });
+
+  it("pays once for a phrase two activities share", async () => {
+    /**
+     * The same mistake the version made, in miniature: the activity id used to
+     * be in the key, so a phrase drilled in two lessons was bought twice and
+     * stored twice. The words, the language, the voice and the model are what
+     * the recording is.
+     */
+    const p = provider();
+    const summary = await fillLanguage(
+      {
+        language: "fr-FR",
+        contentVersion: 1,
+        phrases: [
+          { id: 1, text: "Bonjour" },
+          { id: 7, text: "Bonjour" },
+        ],
+      },
+      { synthesise: p.synthesise, reserve: allowAll().reserve },
+    );
+
+    expect(p.asked).toHaveLength(1);
+    expect(summary.generated).toBe(1);
+    expect(audioFiles("fr-FR")).toHaveLength(1);
+
+    // Both activities still reach it — one file, two manifest entries, so a
+    // lesson is not silently left without its audio.
+    const manifest = readFileSync(join(dir, "fr-FR", MANIFEST_FILE), "utf8");
+    const phrases = (JSON.parse(manifest) as { phrases: { phraseId: number; audio: string }[] }).phrases;
+    expect(phrases.map((x) => x.phraseId)).toEqual([1, 7]);
+    expect(new Set(phrases.map((x) => x.audio)).size).toBe(1);
   });
 
   it("regenerates when a phrase's text changes", async () => {
@@ -431,15 +496,17 @@ describe("pruning", () => {
     expect(audioFiles("fr-FR")).toHaveLength(2);
   });
 
-  it("can be turned off, for a cache somebody wants to keep every version of", async () => {
+  it("can be turned off, for a cache somebody wants to keep every recording of", async () => {
+    // Driven by an edited phrase, which is what makes a file stale now that a
+    // version bump on unchanged words does not.
     await fillLanguage(FRENCH, { synthesise: provider().synthesise, reserve: allowAll().reserve });
 
     await fillLanguage(
-      { ...FRENCH, contentVersion: 2 },
+      { ...FRENCH, contentVersion: 2, phrases: [{ id: 1, text: "Bonsoir" }, { id: 2, text: "Comment allez-vous ?" }] },
       { synthesise: provider().synthesise, reserve: allowAll().reserve, prune: false },
     );
 
-    expect(audioFiles("fr-FR")).toHaveLength(4);
+    expect(audioFiles("fr-FR")).toHaveLength(3);
   });
 
   it("only ever deletes a file whose name is a cache key", async () => {

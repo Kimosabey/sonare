@@ -98,35 +98,66 @@ export const MAX_DAILY_VOICE_CHARACTERS = numberFromEnv("MAX_DAILY_VOICE_CHARACT
   min: 0,
 });
 
-/** Every part that changes what the audio is. Order is fixed — it is a hash input. */
+/**
+ * Every part that changes what the audio *is*. Order is fixed — it is a hash
+ * input — and `text` is deliberately last. See `cacheKey`.
+ *
+ * ## What is not here, and why it was removed
+ *
+ * `contentVersion` and `phraseId` were both in this key until 23 September
+ * 2026. Neither changes the bytes: the same words, in the same language, in
+ * the same voice and model, synthesise to the same recording whichever
+ * activity id carries them and whichever published version they arrived in.
+ *
+ * The version was justified as the cache epoch — "publishing a corrected
+ * phrase would otherwise leave the previous recording in place". That is true
+ * and it is already handled, by the line below it: a corrected phrase has
+ * different `text`, so it has a different key. The version protected nothing
+ * the text did not, and its one real effect was that **every publish was a
+ * total cache miss** — the whole language re-synthesised at a per-character
+ * charge, then the identical old files pruned. A recurring bill for bytes we
+ * already had.
+ *
+ * The id was the same mistake in miniature: two activities drilling the same
+ * phrase paid for it twice.
+ */
 export interface CacheKeyParts {
-  contentVersion: number;
   language: string;
-  phraseId: number;
-  text: string;
   voiceId: string;
   modelId: string;
+  /** Last on purpose — it is the only field that is free text. */
+  text: string;
 }
 
 /**
  * The cache key: 32 hex characters of sha256 over the parts, newline-joined.
  *
  * Newline-joined behind a scheme tag rather than concatenated. A bare
- * concatenation lets two different tuples produce one string — phrase 12 of
- * version 3 and phrase 1 of version 23 both give "31 2" — and a cache that
- * confuses two phrases serves the wrong audio under the right words. The tag
- * means a future change to what goes into the key invalidates the old keys
- * rather than colliding with them.
+ * concatenation lets two different tuples produce one string, and a cache that
+ * confuses two phrases serves the wrong audio under the right words — no type
+ * and no test would notice.
+ *
+ * **`text` goes last**, which is what makes the separator sufficient rather
+ * than merely conventional. A newline is a legal character in free text, so a
+ * text field with fields after it can impersonate them: `"Bonjour\nVOICE"`
+ * followed by voice `MODEL` joins to the same string as `"Bonjour"` followed
+ * by voice `VOICE` and model `MODEL`. Nothing follows `text` now, so a
+ * newline inside it can only lengthen the last field. Every field before it is
+ * a constrained identifier — a BCP-47 tag and two provider ids — none of which
+ * can contain one.
+ *
+ * **`v2`**, because the inputs changed on 23 September 2026 and the tag is how
+ * that invalidates old keys instead of colliding with them. The existing cache
+ * regenerates once, for about 1,900 characters across the bundled fifty
+ * clips, and then stops regenerating on every publish.
  */
 export function cacheKey(parts: CacheKeyParts): string {
   const input = [
-    "sonare-model-voice-v1",
-    String(parts.contentVersion),
+    "sonare-model-voice-v2",
     parts.language,
-    String(parts.phraseId),
-    parts.text,
     parts.voiceId,
     parts.modelId,
+    parts.text,
   ].join("\n");
   return createHash("sha256").update(input, "utf8").digest("hex").slice(0, 32);
 }
@@ -304,19 +335,14 @@ export async function fillLanguage(
     pruned: 0,
   };
   const phrases: ManifestPhrase[] = [];
+  /** Recordings synthesised by *this* call, so a repeat within it is free. */
+  const writtenThisRun = new Map<string, ManifestPhrase>();
 
   for (const phrase of input.phrases) {
     const text = phrase.text.trim();
     if (text === "") continue;
 
-    const key = cacheKey({
-      contentVersion: input.contentVersion,
-      language: input.language,
-      phraseId: phrase.id,
-      text,
-      voiceId,
-      modelId: model,
-    });
+    const key = cacheKey({ language: input.language, text, voiceId, modelId: model });
     const audio = `${key}.${AUDIO_EXTENSION}`;
 
     /**
@@ -324,8 +350,15 @@ export async function fillLanguage(
      * the alignment lives only in the manifest, and audio with no alignment
      * would play with no word highlight — which is the failure this feature
      * exists to remove, arrived at through the cache instead of the engine.
+     *
+     * `writtenThisRun` is checked first because the previous manifest cannot
+     * answer for a phrase this run has only just synthesised. Two activities
+     * sharing a phrase are one recording, and without this they were one
+     * recording bought twice — the second call paid for bytes sitting in the
+     * variable above it. Across runs the key already deduplicated them; the
+     * first run was the hole.
      */
-    const cached = existingByAudio.get(audio);
+    const cached = writtenThisRun.get(audio) ?? existingByAudio.get(audio);
     if (cached !== undefined && onDisk.has(audio)) {
       phrases.push({ ...cached, phraseId: phrase.id, text });
       summary.reused += 1;
@@ -351,14 +384,16 @@ export async function fillLanguage(
     }
 
     await writeAtomically(join(dir, audio), result.audio);
-    phrases.push({
+    const written: ManifestPhrase = {
       phraseId: phrase.id,
       text,
       audio,
       characters: result.alignment.characters,
       startSeconds: result.alignment.startSeconds,
       endSeconds: result.alignment.endSeconds,
-    });
+    };
+    phrases.push(written);
+    writtenThisRun.set(audio, written);
     onDisk.add(audio);
     summary.generated += 1;
   }
