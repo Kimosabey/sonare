@@ -9,7 +9,7 @@
  * this is the shipped product, not just the fixture runner.
  */
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { ActivityProgress } from "../activities/types.js";
 
 export interface PersistedProgress {
@@ -62,11 +62,124 @@ export function writeProgress(
   learnerName: string | null,
   next: PersistedProgress,
 ): void {
+  const key = storageKey(slug, learnerName);
   try {
-    localStorage.setItem(storageKey(slug, learnerName), JSON.stringify(next));
+    localStorage.setItem(key, JSON.stringify(next));
   } catch {
     // Private browsing or quota. The session is unaffected.
   }
+  /**
+   * Announced even when the write threw. A screen showing this language is
+   * stale either way — the merged record exists in memory in the caller — and
+   * re-reading storage that refused the write simply returns what it already
+   * had. Skipping the announcement here would make the notification depend on
+   * a storage quota, which is not what it is about.
+   */
+  announce(key);
+}
+
+/**
+ * Two records of the same language's progress, combined without losing either.
+ *
+ * The monotonic rule the server applies and `progressFromWire` repeats:
+ * `best` MAX, `passed` OR, `skipped` AND. Monotonic because every one of them
+ * only ever moves the way that credits the learner — which is what makes the
+ * order the two devices synced in stop mattering.
+ *
+ * `attempts` comes from `mine`, always. A remote record carries none — the
+ * server is never sent them — so taking the other side's would delete the
+ * recordings this device made.
+ *
+ * It lives here rather than in `sync/wire.ts` because this is the module that
+ * owns what a progress record *is*. Two definitions of "merged" would be two
+ * things to change the day the rule moves, and the symptom of them disagreeing
+ * is a learner's passed activity reverting on one screen and not another.
+ */
+export function mergeProgress(
+  mine: readonly ActivityProgress[],
+  theirs: readonly ActivityProgress[],
+): ActivityProgress[] {
+  const byId = new Map(mine.map((p) => [p.activityId, p]));
+
+  for (const entry of theirs) {
+    const local = byId.get(entry.activityId);
+    if (local === undefined) {
+      byId.set(entry.activityId, entry);
+      continue;
+    }
+    byId.set(entry.activityId, {
+      activityId: local.activityId,
+      attempts: local.attempts,
+      best:
+        local.best === null
+          ? entry.best
+          : entry.best === null
+            ? local.best
+            : Math.max(local.best, entry.best),
+      passed: local.passed || entry.passed,
+      skipped: local.skipped && entry.skipped,
+    });
+  }
+  return [...byId.values()].sort((a, b) => a.activityId - b.activityId);
+}
+
+/**
+ * Screens currently showing one language's progress, by storage key.
+ *
+ * ## Why a write announces itself
+ *
+ * `writeProgress` is the out-of-band path: sync calls it when a merge lands,
+ * from outside any component's lifecycle. A screen that seeded its state at
+ * mount has no way to learn that happened, and it saves its own state on every
+ * change — so the merged entry was written to storage and then overwritten by
+ * the screen moments later, the next time the learner pressed Next. The other
+ * device's work vanished from this device's record until a later sync pulled
+ * it back.
+ *
+ * ## Why the hook's own `save` stays silent
+ *
+ * It must. `save` is a screen writing what it already holds, and notifying
+ * would hand it back its own value as news: it would re-read, build a fresh
+ * array, set state, and save again, forever. The distinction is not an
+ * optimisation — it is the difference between a notification and a loop.
+ */
+const listeners = new Map<string, Set<() => void>>();
+
+function announce(key: string): void {
+  for (const listener of listeners.get(key) ?? []) listener();
+}
+
+/**
+ * Runs `onChanged` when one language's stored progress is written from outside
+ * this screen — which in practice means a sync merged another device's work.
+ */
+export function useProgressSubscription(
+  slug: string,
+  learnerName: string | null,
+  onChanged: () => void,
+): void {
+  const key = storageKey(slug, learnerName);
+  // A ref so a caller that rebuilds the callback each render does not
+  // resubscribe on every render, which would churn the set for no purpose.
+  const latest = useRef(onChanged);
+  latest.current = onChanged;
+
+  useEffect(() => {
+    const listener = (): void => {
+      latest.current();
+    };
+    const set = listeners.get(key) ?? new Set<() => void>();
+    set.add(listener);
+    listeners.set(key, set);
+
+    return () => {
+      set.delete(listener);
+      // Emptied rather than left behind: the keys carry a learner name, and a
+      // long session that switches learners would otherwise accumulate one
+      // dead set per name for the life of the page.
+      if (set.size === 0) listeners.delete(key);
+    };
+  }, [key]);
 }
 
 /**

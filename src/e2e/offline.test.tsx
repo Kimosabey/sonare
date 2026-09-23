@@ -517,37 +517,36 @@ describe("folding the merged record back", () => {
 
 describe("a merge that lands while the learner is still practising", () => {
   /**
-   * A real defect, pinned rather than described.
+   * A defect that was pinned here as `it.fails` from 18 September 2026 until
+   * it was fixed on 23 September, and the history is the reason this comment
+   * is long.
    *
    * `useSync` fires on the `online` event whether or not a screen is open, and
    * the activity screen holds its progress in React state and writes the whole
-   * thing to storage on every change:
+   * thing to storage on every change. So a merge that landed mid-session was
+   * written by the engine and then wiped by the screen's next save, which knew
+   * nothing about it: the other device's activity disappeared from this
+   * device's record the moment the learner pressed "Next activity", and stayed
+   * gone until a later sync pulled it back.
    *
-   *   src/pages/ActivityTest.tsx:117
-   *     useEffect(() => {
-   *       progressStore.save({ index, progress, finished });
-   *     }, [index, progress, finished, progressStore.save]);
+   * The fix is a subscription rather than the `onSynced` callback the pinned
+   * note suggested. `onSynced` would have meant `App` remembering to wire a
+   * callback for every screen that reads progress, and the screen that forgot
+   * would have this bug again with nothing to catch it. `writeProgress` — the
+   * out-of-band path, the one sync uses — now announces itself, so being told
+   * is a property of writing rather than of a component having been plumbed.
    *
-   * So a merge that lands mid-session is written to storage by the engine and
-   * then wiped by the screen's next save, which knows nothing about it. The
-   * other device's activity disappears from this device's record the moment
-   * the learner presses "Next activity".
+   * The screen folds the stored record into its own with `mergeProgress`
+   * rather than adopting it. Replacing state would lose a take recorded in the
+   * window between a learner finishing an activity and the save effect
+   * flushing; the rule is monotonic, so folding needs no claim about which
+   * side is newer.
    *
-   * `useSync` already has the hook for the fix — `onSynced`, documented in
-   * `src/sync/useSync.ts:35` as "called after each attempt, for a screen that
-   * wants to refresh" — and `src/App.tsx:253` passes only `learnerName`, so
-   * nothing is ever told.
-   *
-   * Bounded rather than catastrophic, which is why it is pinned and not
-   * escalated: the server's copy is untouched, the merge is monotonic, and the
-   * next sync pulls the entry back. The cost is a learner who looks at
-   * Progress in between and is under-told what they have done.
-   *
-   * Marked `.fails` so it records today's behaviour without going green on it,
-   * and starts failing the moment somebody wires `onSynced` up — which is the
-   * signal to delete it.
+   * Kept as a normal test rather than deleted with the bug. It is the only
+   * thing that drives a real merge through a mounted screen, and the failure
+   * it caught was invisible to every unit test on either side of it.
    */
-  it.fails("keeps another device's activity when the learner advances", async () => {
+  it("keeps another device's activity when the learner advances", async () => {
     await renderApp(`#/${FRENCH.slug}`);
     press(/^Start$/);
     speak(driver, scored(80));
@@ -566,6 +565,48 @@ describe("a merge that lands while the learner is still practising", () => {
     );
 
     expect(persistedProgress().progress.map((p) => p.activityId)).toContain(5);
+  });
+
+  it("keeps this session's own work when storage refuses every write", async () => {
+    /**
+     * Why the screen *folds* the stored record in rather than adopting it.
+     *
+     * `useProgressPersistence.save` catches a failed write on purpose — in
+     * private browsing, or past quota, the sitting in front of the learner
+     * still works and simply does not survive a refresh. That promise is only
+     * kept if nothing later treats storage as the truth.
+     *
+     * A sync is exactly that later thing. It reads storage (empty, because
+     * every write has failed), merges the server's record into the nothing it
+     * found, writes it back (fails too) and tells the screen. A screen that
+     * re-read and adopted would replace a real session with an empty one and
+     * blank the work the learner can see. Folding cannot: the rule is
+     * monotonic, so a record missing entries removes none.
+     *
+     * Asserted on the step rail rather than on storage, because storage is the
+     * broken thing here — what matters is what is in front of the learner.
+     */
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+
+    await renderApp(`#/${FRENCH.slug}`);
+    press(/^Start$/);
+    speak(driver, scored(80));
+    await waitFor(() => expect(nextButton()).not.toBeNull());
+    press(/Next activity/);
+
+    const first = FRENCH.activities[0]?.id ?? 1;
+    await waitFor(() =>
+      expect(screen.getByLabelText(`Activity ${String(first)}: passed`)).not.toBeNull(),
+    );
+    // Nothing reached storage, so the merge below has nothing to find.
+    expect(persistedProgress().progress).toHaveLength(0);
+
+    await reconnect();
+    await waitFor(() => expect(syncCalls()).toHaveLength(1));
+
+    expect(screen.getByLabelText(`Activity ${String(first)}: passed`)).not.toBeNull();
   });
 });
 

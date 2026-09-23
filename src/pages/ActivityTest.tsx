@@ -60,7 +60,12 @@ import {
   scoredAttemptsOf,
   stepStateFor,
 } from "../learning/session.js";
-import { useProgressPersistence } from "../hooks/useProgressPersistence.js";
+import {
+  mergeProgress,
+  readProgress,
+  useProgressPersistence,
+  useProgressSubscription,
+} from "../hooks/useProgressPersistence.js";
 /**
  * `PASS_SCORE` is deliberately absent now.
  *
@@ -186,6 +191,35 @@ export function ActivityTest() {
   useEffect(() => {
     progressStore.save({ index, progress, finished });
   }, [index, progress, finished, progressStore.save]);
+
+  /**
+   * Takes in what another device did, when a sync merges it mid-session.
+   *
+   * Without this the merge was written to storage and then wiped by the effect
+   * above: that one saves this screen's state on every change, and this
+   * screen's state was seeded at mount and knew nothing about the merge. So
+   * the other device's activity disappeared from this device's record the
+   * moment the learner pressed Next, and stayed gone until a later sync
+   * happened to pull it back.
+   *
+   * ## Folded in, never read wholesale
+   *
+   * The obvious version — re-read storage and use it — loses a take. The
+   * window is small and real: a learner finishes an activity, state updates,
+   * and before the effect above has flushed it, sync reads storage without it,
+   * merges, and writes back. Replacing state with that would drop the take
+   * they just recorded. `mergeProgress` is monotonic, so folding is safe in
+   * either direction and needs no claim about which side is newer.
+   *
+   * `index` and `finished` are deliberately not touched. They are where *this
+   * device* is, they are not synced (see `progressFromWire`), and this screen
+   * is their author while it is mounted — adopting storage's copy would be a
+   * second device moving a learner mid-session.
+   */
+  useProgressSubscription(slug ?? "unknown", learnerName, () => {
+    const stored = readProgress(slug ?? "unknown", learnerName);
+    setProgress((current) => mergeProgress(current, stored.progress));
+  });
 
   // Warn before a take is recorded and lost to a failed upload, rather than
   // letting the learner discover the connection is down only after speaking.

@@ -14,7 +14,7 @@
  */
 
 import type { ActivityAttempt } from "../activities/types.js";
-import type { PersistedProgress } from "../hooks/useProgressPersistence.js";
+import { mergeProgress, type PersistedProgress } from "../hooks/useProgressPersistence.js";
 import type { Skill, SkillStore } from "../stores/skillStore.js";
 import type { Streak } from "../stores/streakStore.js";
 
@@ -102,44 +102,26 @@ export function progressFromWire(
   stored: PersistedProgress,
   incoming: WireProgress,
 ): PersistedProgress {
-  const byId = new Map(stored.progress.map((p) => [p.activityId, p]));
-
-  for (const entry of incoming.entries) {
-    const local = byId.get(entry.activityId);
-
-    if (local === undefined) {
-      // Known to the server, never seen here. The attempt list is genuinely
-      // empty on this device rather than lost.
-      byId.set(entry.activityId, {
-        activityId: entry.activityId,
-        attempts: [],
-        best: entry.bestAccuracy,
-        passed: entry.passed,
-        skipped: entry.skipped,
-      });
-      continue;
-    }
-
-    byId.set(entry.activityId, {
-      activityId: local.activityId,
-      // Never replaced: the server has no copy of these.
-      attempts: local.attempts,
-      best:
-        local.best === null
-          ? entry.bestAccuracy
-          : entry.bestAccuracy === null
-            ? local.best
-            : Math.max(local.best, entry.bestAccuracy),
-      passed: local.passed || entry.passed,
-      skipped: local.skipped && entry.skipped,
-    });
-  }
+  /**
+   * The wire entries become progress records first, then go through the one
+   * merge rule in `useProgressPersistence.ts` — rather than this file keeping
+   * a second copy of it. A server record has no attempts, and `mergeProgress`
+   * takes them from the local side always, which is what stops a pull
+   * deleting the recordings this device made.
+   */
+  const theirs = incoming.entries.map((entry) => ({
+    activityId: entry.activityId,
+    attempts: [],
+    best: entry.bestAccuracy,
+    passed: entry.passed,
+    skipped: entry.skipped,
+  }));
 
   return {
     // The stored index is where *this device* left off, and is not synced. A
     // second device's position is not this one's.
     index: stored.index,
-    progress: [...byId.values()].sort((a, b) => a.activityId - b.activityId),
+    progress: mergeProgress(stored.progress, theirs),
     finished: stored.finished,
   };
 }
