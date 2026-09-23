@@ -240,3 +240,116 @@ describe("when the reporting is what is broken", () => {
     ).not.toThrow();
   });
 });
+
+/**
+ * The failure that is not a bug.
+ *
+ * Eight screens are `lazy()`, so each has a chunk fetched on first open, and
+ * two ordinary situations stop it arriving: a deploy changes the hashed names
+ * the open document asks for, and being offline on a screen never visited
+ * means the service worker has nothing cached to serve. Both used to read as
+ * "This screen hit an unexpected error and can't continue", which is the wrong
+ * thing to tell somebody in both cases and actively false in one.
+ */
+describe("when a lazy route's code never arrives", () => {
+  const CHROME = "Failed to fetch dynamically imported module: https://x/assets/Journey-a1.js";
+  const FIREFOX = "error loading dynamically imported module";
+  const SAFARI = "Importing a module script failed.";
+
+  function setOnline(value: boolean): void {
+    Object.defineProperty(navigator, "onLine", { configurable: true, value });
+  }
+
+  afterEach(() => {
+    setOnline(true);
+  });
+
+  it.each([CHROME, FIREFOX, SAFARI])("recognises how each engine words it: %s", (message) => {
+    /**
+     * All three, because there is no error type to match on and the wording is
+     * the only signal. A missed engine sends that browser's learners back to
+     * the generic crash screen, which is a silent regression — nothing fails,
+     * the copy is just wrong again.
+     */
+    setOnline(true);
+    render(
+      <ErrorBoundary>
+        <Boom message={message} />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByRole("heading", { name: /Sonare has been updated/i })).toBeInTheDocument();
+    expect(screen.queryByText(/hit an unexpected error/i)).not.toBeInTheDocument();
+  });
+
+  it("tells an offline learner the truth, and does not tell them to reload", () => {
+    /**
+     * The half that was actively false. Reloading cannot fetch a chunk that is
+     * not on the device and not on the network, so the old copy's "Reloading
+     * should fix it" sent somebody to press a button that returns them to the
+     * same screen. The reload button is withheld here rather than relabelled,
+     * because there is nothing for it to do.
+     */
+    setOnline(false);
+    render(
+      <ErrorBoundary>
+        <Boom message={CHROME} />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByRole("heading", { name: /needs the network/i })).toBeInTheDocument();
+    expect(screen.getByText(/already practised still works offline/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Reload/i })).not.toBeInTheDocument();
+  });
+
+  it("offers the reload when there is a network, because that is what fixes a deploy", () => {
+    setOnline(true);
+    render(
+      <ErrorBoundary>
+        <Boom message={CHROME} />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByRole("button", { name: /Reload/i })).toBeInTheDocument();
+  });
+
+  it("reports it as its own code, so a deploy is not counted as a crash", async () => {
+    /**
+     * `REACT_CRASH` would put a spike in the Diagnostics breakdown every time
+     * somebody ships, which is the fastest way to make that dashboard
+     * unreadable. `network` as the domain because the code never ran — it
+     * never arrived.
+     */
+    const sent = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(new Response("{}", { status: 204 })),
+    );
+    vi.stubGlobal("fetch", sent);
+    setOnline(true);
+
+    render(
+      <ErrorBoundary>
+        <Boom message={CHROME} />
+      </ErrorBoundary>,
+    );
+
+    await vi.waitFor(() => expect(sent).toHaveBeenCalled());
+    const body = JSON.parse(String(sent.mock.calls[0]?.[1]?.body)) as {
+      code: string;
+      domain: string;
+    };
+    expect(body.code).toBe("CHUNK_LOAD_FAILED");
+    expect(body.domain).toBe("network");
+  });
+
+  it("still calls an ordinary crash an ordinary crash", () => {
+    // The generic path has to survive the new branch, or this trade one
+    // wrong message for another.
+    render(
+      <ErrorBoundary>
+        <Boom message="word.syllables is not iterable" />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByRole("heading", { name: /Something went wrong/i })).toBeInTheDocument();
+  });
+});
