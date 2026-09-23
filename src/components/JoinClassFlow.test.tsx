@@ -176,8 +176,22 @@ describe("looking a class up", () => {
     const headers = to("/classes/preview")[0]?.headers ?? {};
     const names = Object.keys(headers).map((name) => name.toLowerCase());
 
-    expect(names).not.toContain("authorization");
-    expect(names).not.toContain("x-diagnostics-token");
+    /**
+     * An allowlist, like the body check above it, and for the same reason.
+     *
+     * This named two headers it must not send — `authorization` and
+     * `x-diagnostics-token` — which is a list of the credentials that existed
+     * when it was written. A third one sent under any other name passed: I
+     * added a learner token as `x-sonare-learner` and all thirty-four tests in
+     * this area stayed green.
+     *
+     * The claim in `docs/PROCUREMENT.md` is that looking a class up sends *no*
+     * credential, so the assertion has to be that it sends nothing but the one
+     * header it needs. Naming what is allowed cannot go out of date; naming
+     * what is forbidden goes out of date the next time somebody invents a
+     * header.
+     */
+    expect(names).toEqual(["content-type"]);
   });
 });
 

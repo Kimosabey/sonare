@@ -79,7 +79,12 @@ device.*
   can attribute to anyone.
 
 *Enforced by: `src/components/JoinClassFlow.test.tsx`, which reads the actual
-network requests rather than asking which helper was called.*
+network requests rather than asking which helper was called — it allows the
+lookup one header and one body field, so a credential added later fails rather
+than slipping past a list of the ones that existed at the time. Leaving and
+removing a name are `src/components/MyClass.test.tsx`, which was missing from
+this line: three of the four promises above were cited and the fourth was
+not.*
 
 ### There is no analytics, and no third-party tracking
 
