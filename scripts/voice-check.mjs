@@ -32,8 +32,27 @@ import { join } from "node:path";
 const CACHE = process.env.MODEL_VOICE_CACHE_DIR?.trim() || "voice-cache";
 const OUT = "voice-check.html";
 
-/** Human labels for the locales the MVP ships. Others still render, unlabelled. */
-const LABELS = { "fr-FR": "French", "de-DE": "German" };
+/**
+ * The name a reviewer reads above their ten clips.
+ *
+ * This had French and German only, so the page handed to a Spanish reviewer
+ * was headed "es-ES" — a locale code, on the one surface whose entire job is
+ * to be sat in front of somebody who speaks the language. D3 is the gate the
+ * release gets through, and the page is what that person is given.
+ *
+ * Written out rather than imported because this file is plain `.mjs`, run as
+ * `node scripts/voice-check.mjs` with no TypeScript loader, and `LANGUAGES`
+ * lives in a `.ts` module. So `scripts/review-pages.test.ts` holds this list
+ * to that one instead: a sixth language fails the build here rather than
+ * showing up as a locale code six months later.
+ */
+const LABELS = {
+  "fr-FR": "French",
+  "es-ES": "Spanish",
+  "de-DE": "German",
+  "hi-IN": "Hindi",
+  "kn-IN": "Kannada",
+};
 
 function escape(s) {
   return String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);

@@ -37,6 +37,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { LANGUAGES } from "../src/activities/languages/index.js";
 
 const ROOT = new URL("../", import.meta.url);
 const PAGE = new URL("voice-check.html", ROOT);
@@ -77,6 +78,27 @@ describe("the diagram review page", () => {
 });
 
 describe("the model-voice review page", () => {
+  it("names every language a reviewer might be handed", () => {
+    /**
+     * It named two. The page given to a Spanish reviewer was headed "es-ES",
+     * and Hindi and Kannada the same — a locale code on the one surface whose
+     * whole job is to be sat in front of somebody who speaks the language.
+     *
+     * `voice-check.mjs` is plain `.mjs` with no TypeScript loader, so it
+     * cannot import `LANGUAGES` and keeps its own map. That is the shape this
+     * repository keeps finding wrong, so the map is held to the source here
+     * rather than trusted: a sixth language fails this instead of appearing as
+     * a locale code on a reviewer's screen.
+     */
+    const builder = readFileSync(new URL("scripts/voice-check.mjs", ROOT), "utf8");
+    const unlabelled = LANGUAGES.filter(
+      (set) => !new RegExp(`"${set.code}"\\s*:\\s*"`).test(builder),
+    ).map((set) => set.code);
+
+    expect(unlabelled).toEqual([]);
+  });
+
+
   const built = existsSync(PAGE) && existsSync(CACHE);
 
   it.runIf(built)("plays every clip it lists", () => {
