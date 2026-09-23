@@ -17,13 +17,22 @@
  * `LANGUAGES` list the app renders — so this cannot generate audio for a
  * phrase no screen shows.
  *
- * It **can** miss one that is shown, and does: a published course is served at
- * its own version, and the cache key is a hash over content version, language,
- * phrase id and text (see server/modelVoice/cache.ts). So every course phrase
- * is uncached, and extending this script to read `COURSES` would not fix it —
- * it would generate clips at version 0 for content served at version 2, which
- * nothing would ever look up. Regeneration belongs at publish time, for the
- * reason given below.
+ * It **can** miss one that is shown, and does: every phrase a published course
+ * adds beyond the bundled set is uncached, because nothing has ever asked for
+ * it to be generated.
+ *
+ * This paragraph used to say that extending the script to read `COURSES` could
+ * not fix it — that clips made at version 0 for content served at version 2
+ * would never be looked up. **That was wrong twice over.** The client indexes
+ * served audio by the phrase's *text* and has never read a version at all (see
+ * src/modelVoice/manifest.ts), so a version mismatch could not hide anything;
+ * and since 23 September 2026 the cache key carries no version, so there is no
+ * mismatch to have. Reading `COURSES` here would work.
+ *
+ * It deliberately does not, yet, and the reason is D3 rather than the cache:
+ * course phrases have not been read by anybody who speaks the language, and
+ * synthesising three hundred unreviewed lines is paying to record content we
+ * expect to change.
  *
  * Nothing breaks in the meantime. `useModelSpeech` reports `available` as
  * `platformVoice || served.size > 0`, so an uncached phrase speaks through the
@@ -32,12 +41,14 @@
  * with no audio, and the screen refuses those rather than asking a question it
  * cannot play.
  *
- * Content version 0, which is the bundle's epoch. Published content has real
- * versions (`{slug}:{version}` in server/store/content.ts) and a publish is
- * the natural time to regenerate; that path is a three-line addition to
- * `POST /content/:slug` and is deliberately not taken here, so that this
- * script needs no database and cannot be the reason a publish fails. See the
- * report accompanying this change.
+ * The version is still passed, because the manifest records it — "which
+ * content was this generated against" is a fair question — but it no longer
+ * decides anything. A publish of unchanged words now re-uses every recording
+ * instead of re-buying the language, which is what made "regenerate at publish
+ * time" sound expensive when it is not.
+ *
+ * This script still needs no database and still cannot be the reason a publish
+ * fails, which is why it stays a separate command run by hand.
  *
  * ## Sequential, on purpose
  *
