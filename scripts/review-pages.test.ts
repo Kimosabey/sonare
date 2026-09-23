@@ -1,5 +1,5 @@
 /**
- * The review page for the model voice keeps working after a voice run.
+ * The review pages for the generated assets keep describing what is on disk.
  *
  * `voice-check.html` is the only detector there is for a clip that says the
  * wrong thing: the provider returns 200 with valid character timings for audio
@@ -46,6 +46,35 @@ const CACHE = new URL("voice-cache/", ROOT);
 function referencedClips(html: string): string[] {
   return [...html.matchAll(/src="(voice-cache\/[^"]+)"/g)].map((m) => m[1] ?? "");
 }
+
+describe("the diagram review page", () => {
+  const PAGE_D = new URL("diagram-check.html", ROOT);
+  const CACHE_D = new URL("diagram-cache/", ROOT);
+  const built = existsSync(PAGE_D) && existsSync(CACHE_D);
+
+  it.runIf(built)("shows every diagram it lists", () => {
+    const html = readFileSync(PAGE_D, "utf8");
+    const images = [...html.matchAll(/src="(diagram-cache\/[^"]+)"/g)].map((m) => m[1] ?? "");
+    expect(images.length).toBeGreaterThan(0);
+
+    expect(images.filter((image) => !existsSync(new URL(image, ROOT)))).toEqual([]);
+  });
+
+  it("is rebuilt by the generator, so a new sound cannot go unreviewed", () => {
+    /**
+     * The failure this catches is the milder of the two and the more silent.
+     * A diagram is named after its IPA symbol, so regenerating an existing
+     * sound keeps its name and the page keeps working. A *new* sound is what
+     * goes missing: it lands in the cache with no row on the page, and since
+     * approving a diagram means moving a file somebody was shown, a diagram
+     * nobody was shown is one nobody ever approves.
+     */
+    const generator = readFileSync(new URL("scripts/generate-diagrams.ts", ROOT), "utf8");
+
+    expect(generator).toMatch(/diagram-check\.mjs/);
+    expect(generator).toMatch(/^\s*rebuildReviewPage\(\);\s*$/m);
+  });
+});
 
 describe("the model-voice review page", () => {
   const built = existsSync(PAGE) && existsSync(CACHE);

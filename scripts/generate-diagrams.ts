@@ -79,7 +79,9 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { L1_DIFFICULTY } from "../src/activities/difficulty.js";
 import type { SoundDifficulty } from "../src/activities/difficulty.js";
@@ -300,6 +302,36 @@ async function main(): Promise<void> {
   if (made > 0) {
     console.log("These are unverified. A wrong tongue position is an instruction a learner");
     console.log("will copy, and nothing automated can tell the difference.");
+    rebuildReviewPage();
+  }
+}
+
+/**
+ * Rebuilds `diagram-check.html`, for the same reason the voice generator
+ * rebuilds its own page: a review surface nobody regenerates is a review
+ * surface that quietly stops describing what is on disk.
+ *
+ * The failure here is milder than the voice one and worth naming precisely,
+ * because the two pipelines differ. A diagram is named `sha256(ipa)`, so
+ * regenerating an existing sound reuses its name and the page keeps working —
+ * what goes missing is a *new* sound. It would sit in the cache with no row on
+ * the page, and since approving a diagram means moving the file somebody was
+ * shown, a diagram nobody was shown is a diagram nobody ever approves. It does
+ * not ship wrong; it silently never ships.
+ *
+ * Only after something was written. Unlike the voice run there is nothing to
+ * reconcile when the answer was "every diagram already exists", and rebuilding
+ * anyway would rewrite a file a reviewer may have open with their ticks in it.
+ */
+function rebuildReviewPage(): void {
+  const script = join(dirname(fileURLToPath(import.meta.url)), "diagram-check.mjs");
+  try {
+    process.stdout.write(execFileSync(process.execPath, [script], { encoding: "utf8" }));
+  } catch (error) {
+    console.error(
+      `\ncould not rebuild diagram-check.html (${String(error)}). ` +
+        `The images are written; run "node scripts/diagram-check.mjs" to get the review page.`,
+    );
   }
 }
 
