@@ -7,8 +7,13 @@ The short answer, so nobody has to dig for it:
 | **`package.json` says** | `0.3.0-alpha.1` |
 | **Last git tag** | `v0.3.0-alpha.1` |
 | **Branch** | `redesign/course-platform` |
-| **Gates** | all five green · 4,403 tests pass, 1 expected fail, 3 skipped |
-| **Browser suite** | 464 pass, 4 skipped, three engines |
+| **Gates** | all five green — run them, the number moves daily |
+| **Browser suite** | green on three engines · `npm run test:browser` |
+
+*No test count here on purpose.* It was wrong within a day of being written,
+twice, and a stale number in a document is worse than no number: somebody
+reads it, believes it, and stops running the thing that would have told them
+the truth. `npm test` prints the current figure in under thirty seconds.
 
 The version was stale for a long time — `0.2.0-alpha.1` with **212 commits** on
 top of it, so no bug report could be tied to anything. That is what

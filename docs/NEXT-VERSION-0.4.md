@@ -1,8 +1,11 @@
 # 0.4.0 — the release that can be trusted
 
 **Where we are:** `v0.3.0-alpha.1` tagged, 8 commits on top, every item in
-0.3.0's definition of done met. Five languages ship. 4,459 tests pass, five
-gates green, browser suite green on three engines.
+0.3.0's definition of done met. Five languages ship, five gates green, browser
+suite green on three engines.
+
+No test count, deliberately — see `docs/VERSIONS.md`. It rots within a day and
+a stale one stops people running the command that would tell them the truth.
 
 **Written:** 2026-09-23.
 
