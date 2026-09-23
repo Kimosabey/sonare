@@ -20,6 +20,8 @@
  * they are authored and passed in rather than derived from anything.
  */
 
+import { ArticulationDiagram } from "./ArticulationDiagram.js";
+import { useArticulationDiagram } from "../hooks/useArticulationDiagram.js";
 import type { SoundDifficulty } from "../teacher/classSummary.js";
 
 export interface SoundNote {
@@ -54,6 +56,7 @@ export function SoundDetail({
   heardIn = [],
   note = null,
 }: SoundDetailProps) {
+  const diagramFile = useArticulationDiagram(code, grapheme);
   const counts: Record<string, number> = {
     justStarted: difficulty.justStarted,
     gettingThere: difficulty.gettingThere,
@@ -69,7 +72,23 @@ export function SoundDetail({
         The <span lang={code}>{grapheme}</span>
       </h2>
 
-      {note !== null && <p className="what">{note.howItIsMade}</p>}
+      {note !== null && (
+        <>
+          <p className="what">{note.howItIsMade}</p>
+          {/*
+            Beside the advice, never instead of it. The component refuses to
+            render when the words are missing — a picture of a tongue cannot be
+            read aloud, translated or selected, so it is the illustration and
+            the sentence is the instruction.
+
+            Absent on most builds: the diagrams are generated into
+            diagram-cache/ and only move into the build once a reviewer has
+            passed them. `ArticulationDiagram` renders nothing when the file is
+            not there, which is the normal state rather than an error.
+          */}
+          <ArticulationDiagram file={diagramFile} advice={note.howItIsMade} />
+        </>
+      )}
 
       <h3>How the class sits on it</h3>
       <ol className="sound-buckets">
