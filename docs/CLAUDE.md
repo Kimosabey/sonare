@@ -47,13 +47,41 @@ Run these. Do not report success without them.
 npm run typecheck        # must pass with zero errors
 npm run lint             # must pass
 npm run verify           # custom checks — see scripts/verify.mjs
+npm test                 # the suite
+npm run build            # a type error can hide until the build resolves it
 ```
 
-`npm run verify` fails the build if:
-- any `SpeechRecognition` identifier appears in `src/` or `server/`
-- `AZURE_SPEECH_KEY` appears anywhere outside `server/` and `.env.example`
-- `localStorage` or `sessionStorage` appears in `src/speech/`
-- a client bundle references a `process.env` value containing `KEY` or `SECRET`
+**All five**, and read each **by exit code**. Piping to `grep -c` exits zero
+when it finds errors and has let a broken typecheck through; so has chaining a
+commit after an `echo` rather than after the gate. This list said three for a
+long time, which meant the suite was not a gate at all for anybody following
+it.
+
+`npm run verify` fails the build on fourteen rules, not the four this section
+used to name. They are grouped in `scripts/verify.mjs` under headings, and
+`scripts/verify-rules.test.ts` fails if one is added there without appearing
+here — a list of "everything" that is maintained by hand goes wrong, and this
+one had:
+
+- **R1** — the API we exist to remove
+- **R3** — the scoring bug
+- **R2 / NFR-04** — credentials
+- **R11** — capture state must not survive a reload
+- **Portability** — the capture layer ports to React Native
+- **R12** — one vendor, one file
+- **T12** — every band the code can return has a style
+- **rate limiting** — trust exactly one proxy hop
+- **NFR-03** — nothing interactive below the tap floor
+- **T13** — reduced motion stays a blanket, not a list
+- **T14** — no source file is invisible to git
+- **T16** — the constraint the product is sold on
+- **T17** — nothing watches a child
+- **T15** — the provider's worst case fits inside the client's deadline
+
+The browser suite (`npm run test:browser`) is deliberately not one of the five
+— four thousand jsdom tests run in thirty seconds and making each wait on a
+browser launch stops people running them — so it needs a person before a
+release. See `docs/RELEASE.md`.
 
 Then the manual check, which no script can do:
 

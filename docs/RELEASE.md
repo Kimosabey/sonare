@@ -50,9 +50,14 @@ lsof -ti:4173 | xargs kill -9 ; npm run build
 
 ```bash
 npm run generate-model-voice -- --dry-run   # what it would spend
-npm run generate-model-voice
-node scripts/voice-check.mjs && open voice-check.html
+npm run generate-model-voice                # rebuilds voice-check.html itself
+open voice-check.html
 ```
+
+The generator rebuilds the review page as its last step, so there is no
+separate command to remember. There used to be, and it was missed the first
+time it mattered: the cache key changed, all fifty clips were renamed, and the
+page was left pointing at files that no longer existed.
 
 A mispronounced clip is worse than no clip: every learner copies the error
 *and* the scorer marks them down for matching it. The provider returns HTTP 200
