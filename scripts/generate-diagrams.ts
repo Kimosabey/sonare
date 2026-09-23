@@ -54,16 +54,28 @@
  * anyone here: if three are wrong, three sounds are taught wrongly and the
  * failure looks exactly like the learner's fault.
  *
- * **So none are generated and none are committed.** `public/diagrams/` is
- * gitignored. This script is kept because the pipeline is right and the
- * verification is what is missing — the day there is a phonetician to review
- * them, or a licensed diagram set to use instead, it runs unchanged.
+ * ## What happened next, and why this paragraph changed
  *
- * The honest comparison: the model voice has the same problem and a solution.
- * A mispronounced clip is also an error every learner copies, and
- * `voice-check.html` puts every clip beside its phrase so a speaker can catch
- * it. There is no equivalent surface for diagrams yet, and building one before
- * there is anybody to use it would be the wrong order.
+ * `gpt-image-2.5-sunburst` was tried afterwards and is the first to place the
+ * tongue correctly for `/ʁ/` — back raised toward a visible uvula, in a proper
+ * textbook section. So the question stopped being "can a model draw this" and
+ * became "can anybody here check it", and the risk **inverted**: an obviously
+ * useless diagram gets thrown away, while a plausible and subtly wrong one
+ * gets trusted. `/ʁ/` against `/x/` is a centimetre of drawing; `/e/` against
+ * `/ø/` differs only in lip rounding.
+ *
+ * Sixteen are therefore generated into `diagram-cache/` and **none is
+ * shipped**. They are out of `public/` because unreviewed content in the build
+ * is shipped content, and because they arrive at ~890 KiB each — sixteen is
+ * 14 MB against a 144 KiB learner bundle, so they need re-encoding before
+ * shipping even if every one is right.
+ *
+ * The comparison that decided it: the model voice has the same failure mode
+ * and a solution. A mispronounced clip is also an error every learner copies,
+ * and `voice-check.html` puts every clip beside its phrase so a speaker can
+ * catch it. `scripts/diagram-check.mjs` is now the equivalent surface — built
+ * once the diagrams were good enough to be worth a reviewer's time, which they
+ * were not at the three attempts above.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";

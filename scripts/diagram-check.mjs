@@ -37,7 +37,7 @@
  * Any "no" means that diagram does not ship. There is no partial credit: a
  * diagram that is approximately right is an instruction that is wrong.
  *
- * Output is git-ignored because it points at `public/diagrams/`, which is also
+ * Output is git-ignored because it points at `diagram-cache/`, which is also
  * ignored — committing the page would hand a fresh clone a file whose every
  * image is broken. Regenerate it after any diagram run instead.
  */
