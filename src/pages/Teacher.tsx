@@ -23,6 +23,7 @@ import { ClassLimits } from "../components/ClassLimits.js";
 import { ClassOverview } from "../components/ClassOverview.js";
 import { ClassGlance } from "../components/ClassGlance.js";
 import { SoundDetail } from "../components/SoundDetail.js";
+import { CourseSyllabus } from "../components/CourseSyllabus.js";
 import { soundNoteFor } from "../teacher/soundNote.js";
 import { PupilList } from "../components/PupilList.js";
 import { PupilDetail } from "../components/PupilDetail.js";
@@ -463,6 +464,30 @@ export function Teacher() {
           />
         </section>
       )}
+
+      {/*
+        What the course covers, in the vocabulary a department buys in.
+
+        Rendered from the same resolver a learner reads, so a teacher sees the
+        syllabus for the content their pupils will actually meet rather than
+        for whatever is newest in the repository. Takes activity ids and never
+        a learner: a CEFR level attached to a named child is exactly the kind
+        of figure the class boundary exists to keep off this screen.
+      */}
+      {data !== null &&
+        (() => {
+          const language = resolveLanguage(data.slug);
+          if (language === undefined) return null;
+          return (
+            <section>
+              <CourseSyllabus
+                slug={data.slug}
+                label={language.label}
+                activityIds={language.activities.map((activity) => activity.id)}
+              />
+            </section>
+          );
+        })()}
 
       {/*
         Suggesting a sitting. The lesson list comes from the same resolver a

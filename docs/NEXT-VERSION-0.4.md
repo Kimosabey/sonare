@@ -91,19 +91,33 @@ third ceiling move, at which point the number measures nothing but how many
 languages have shipped. The fix is lazy content per language, and it is a real
 change rather than a tweak.
 
-### 5 · Show the syllabus
+### ✅ 5 · Show the syllabus — **done 2026-09-23**
 
-`cefr.ts` maps every activity to a level and a can-do statement, and **nothing
-renders it**. A head of department cannot see what the course covers without
-reading the source. This is the cheapest commercial item on the list: the data
-exists, the page does not.
+`CourseSyllabus` on the teacher board, from the same resolver a learner reads —
+so a teacher sees the syllabus for content their pupils can actually reach,
+never for whatever is newest in the repository.
 
-### 6 · A verification surface for diagrams
+It takes activity ids and no learner, deliberately. A CEFR level is exactly the
+kind of figure that invites "Maya is A2", which is what the class boundary
+exists to keep off this screen, so the wrong version is unbuildable rather than
+merely discouraged. It states its own ceiling too: nothing goes beyond A2, and
+a department buying for a B1 cohort should learn that here rather than in the
+first lesson.
 
-Only after D3, and only if a reviewer can judge phonetics. The pipeline is
-built and measured; what is missing is anybody able to say whether a tongue is
-in the right place. See `scripts/generate-diagrams.ts`, which records the three
-attempts and why none shipped.
+### ✅ 6 · A verification surface for diagrams — **done 2026-09-23**
+
+`scripts/diagram-check.mjs` builds it; sixteen diagrams are generated and
+waiting in `diagram-cache/`. Each sits beside its sound, its syllables, the
+substitution an English speaker makes and the advice it is meant to illustrate,
+with the three questions a reviewer is actually being asked.
+
+They are **out of `public/` on purpose**: unreviewed content in the build is
+shipped content, and they are ~890 KiB each — sixteen is 14 MB against a
+144 KiB learner bundle, so they need re-encoding before shipping even if every
+one is correct. Both facts were caught by the perf budget within a minute of
+them landing in the wrong place.
+
+Still needs a reviewer who can judge phonetics. That part has not changed.
 
 ---
 
