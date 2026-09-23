@@ -80,16 +80,25 @@ with it — the model voice must regenerate at publish time, because the cache
 key includes the content version, so course phrases generated at version 0 are
 never found.
 
-### 4 · Load a language's activities with the language
+### 4 · Load a language's activities with the language — **measured, and deferred to six**
 
-The perf debt, now explicit. Three ceilings moved twice in two days — 932 B for
-Hindi, 1,123 B for Kannada — and the comment in `perf-budgets.test.ts` says
-that was the last time they may move for this reason.
+Measured 2026-09-23 rather than assumed, and the numbers say not yet:
 
-**Every learner downloads every language's content.** A sixth language is a
-third ceiling move, at which point the number measures nothing but how many
-languages have shipped. The fix is lazy content per language, and it is a real
-change rather than a tweak.
+| | |
+|---|---|
+| Entry chunk | **48,162 B gzipped** |
+| All five language sources together | **7,005 B gzipped**, including comments and TypeScript that never ship |
+| Realistic saving from lazy loading | **3–4 KB of 48 KB — about 7%** |
+| Cost | `LANGUAGES` is consumed synchronously by **12 source files and 27 test files**, including the server and the path that feeds the scorer |
+
+A 39-file refactor turning a synchronous API async, in the scoring path, for
+7% of one chunk. Not worth it at five languages.
+
+**Worth it at six**, because by then the ceilings have moved three times and
+have stopped measuring anything except how many languages have shipped. So the
+trigger is enforced rather than remembered: `perf-budgets.test.ts` fails on a
+sixth eager language and says what to do instead. Raising that number is the
+move it exists to prevent.
 
 ### ✅ 5 · Show the syllabus — **done 2026-09-23**
 

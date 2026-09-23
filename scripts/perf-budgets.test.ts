@@ -42,6 +42,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:f
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { gzipSync } from "node:zlib";
+import { LANGUAGES } from "../src/activities/languages/index.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { resampleTo16k, concatFrames, TARGET_SAMPLE_RATE } from "../src/speech/capture/resample.js";
 import { encodeWav } from "../src/speech/capture/wav.js";
@@ -252,6 +253,37 @@ const MAX_MEDIA_ASSETS = 12;
  * symptom would be a slower first paint on a school's connection.
  */
 const MAX_FONT_SUBSETS = 8;
+
+/**
+ * How many languages may ship before their content stops being eager.
+ *
+ * Not a performance number — a **trigger**. Every learner downloads every
+ * language's activities, and the cost is linear: Hindi added 932 B gzipped to
+ * the entry chunk and Kannada 1,123 B, moving three ceilings twice in two
+ * days. The comment on those moves says a third is unacceptable, and this is
+ * what makes that true rather than remembered.
+ *
+ * ## The measurement, so the next person does not have to repeat it
+ *
+ * Taken 2026-09-23 at five languages:
+ *
+ * - Entry chunk: **48,162 B gzipped**.
+ * - All five language sources together: **7,005 B gzipped** — and that
+ *   includes comments and TypeScript syntax that never ship, so the real
+ *   figure is lower.
+ * - A learner needs one language, so lazy loading saves roughly four fifths of
+ *   whatever does ship: on the order of **3–4 KB of 48 KB**, about 7%.
+ *
+ * Against that: `LANGUAGES` is consumed synchronously by 12 source files and
+ * 27 test files, including the server and the path that feeds the scorer.
+ * Turning it async is a 39-file refactor for 7% of one chunk.
+ *
+ * So it is not worth doing at five languages and it is worth doing at six,
+ * because at six the ceilings have moved three times and stopped measuring
+ * anything except how many languages have shipped. This test is where that
+ * argument gets made again rather than lost.
+ */
+const MAX_EAGER_LANGUAGES = 5;
 
 /**
  * A script served verbatim out of `public/` rather than emitted by the build —
@@ -737,6 +769,20 @@ describe("the bundle a learner downloads", () => {
     // under that is a placeholder, not an export.
     expect(largest.bytes, `largest asset is only ${(largest.bytes / KIB).toFixed(1)} KiB`)
       .toBeGreaterThan(64 * KIB);
+  });
+
+  it(`does not ship a sixth language eagerly`, () => {
+    /**
+     * Fails on the language after next, deliberately. When it does, the fix is
+     * loading a language's activities with the language rather than with the
+     * app — see MAX_EAGER_LANGUAGES for the measurement and the argument.
+     *
+     * Raising this number instead is the move it exists to prevent.
+     */
+    expect(
+      LANGUAGES.length,
+      `${String(LANGUAGES.length)} languages ship eagerly. Load them lazily rather than raising this.`,
+    ).toBeLessThanOrEqual(MAX_EAGER_LANGUAGES);
   });
 
   it(`keeps the font subsets to ${MAX_FONT_SUBSETS} files`, () => {
