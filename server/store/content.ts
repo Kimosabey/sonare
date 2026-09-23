@@ -38,7 +38,14 @@ export const ACTIVITY_KINDS = ["repeat", "respond", "read", "recall", "listen", 
  * Kinds that ask nothing of the microphone, and so cannot score a phrase.
  *
  * The server's own copy, like the kinds list above — a page cannot import from
- * `server/` and this store does not reach into `src/` (PRD §6).
+ * `server/` and this store does not reach into `src/`.
+ *
+ * That boundary used to be cited here as PRD §6. It is not: §6 is the response
+ * contract and says nothing about imports. The rule is real and this file is
+ * built around it — every type below duplicates one in `src/` on purpose — but
+ * it is an architectural decision rather than a stated requirement, and citing
+ * a requirement that does not exist is how a reader loses trust in the other
+ * citations. `scripts/module-boundary.test.ts` is what actually holds it.
  */
 const SILENT_KINDS: readonly string[] = ["listen", "locate"];
 
